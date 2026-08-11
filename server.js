@@ -23,18 +23,33 @@ const DB = {
   user: process.env.PGUSER,
   password: process.env.PGPASSWORD,
   database: process.env.PGDATABASE || 'postgres',
-  ssl: { rejectUnauthorized: false },
-  // 某些托管环境（如 Render）IPv6 不可达，强制优先 IPv4
-  family: 4
+  ssl: { rejectUnauthorized: false }
 };
 if (!DB.host || !DB.user || !DB.password) {
   console.error('缺少数据库配置！请在 .env（本地）或 Render 环境变量里设置 PGHOST/PGUSER/PGPASSWORD');
   process.exit(1);
 }
+
+// 某些托管环境（如 Render 免费实例）IPv6 不可达，启动时把域名解析成 IPv4 地址再连接
+const dns = require('dns');
+let _dbHost = DB.host;
+function getDbHost() { return _dbHost; }
+async function resolveDbHost() {
+  if (/^\d+\.\d+\.\d+\.\d+$/.test(DB.host)) { _dbHost = DB.host; return; }
+  try {
+    const ips = await new Promise((res, rej) => dns.resolve4(DB.host, (e, a) => e ? rej(e) : res(a)));
+    if (ips && ips.length) {
+      _dbHost = ips[0];
+      console.log('PG host 解析为 IPv4:', _dbHost);
+    }
+  } catch (e) {
+    console.warn('PG IPv4 解析失败，使用原域名:', e.message);
+  }
+}
 let _pg = null;
 function pg() {
   if (!_pg) {
-    _pg = new Client(DB);
+    _pg = new Client({ ...DB, host: getDbHost() });
     _pg.connect().catch(e => { console.error('PG 连接失败:', e.message); _pg = null; });
   }
   return _pg;
@@ -787,6 +802,7 @@ const server = app.listen(PORT, () => {
   console.log('英语默写助手已启动: http://localhost:' + PORT);
   console.log('按 Ctrl+C 停止服务');
 });
+resolveDbHost();
 server.on('error', (err) => {
   if (err.code === 'EADDRINUSE') {
     console.error('端口 ' + PORT + ' 已被占用，可能服务已在运行。若无法访问，请先关闭占用该端口的进程后重试。');
