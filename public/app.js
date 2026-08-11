@@ -1428,13 +1428,22 @@ document.addEventListener('keydown', e => {
   if (e.key !== 'Enter') return;
   if (session && session.locked && session.flashTimer) { e.preventDefault(); clearFlash(); }
 });
+// 记录上一次输入值的长度，用于判断是「输入」还是「退格」；
+// 退格时不再触发 autoSpace，否则会立即把刚删掉的空格补回来。
+let _lastInputLen = 0;
 $('#answerInput').addEventListener('input', () => {
-  renderLetterCells($('#answerInput').value);
-  autoSpace();
+  const el = $('#answerInput');
+  const newVal = el.value;
+  const isBackspace = newVal.length < _lastInputLen;
+  _lastInputLen = newVal.length;
+  renderLetterCells(newVal);
+  if (!isBackspace) autoSpace();
   autoCheckTyping();
   throttleLiveReport();
   scrollLetterBoxToCaret();
 });
+// 重置时清掉旧长度，避免上一轮的字符数干扰下一轮
+$('#answerInput').addEventListener('focus', () => { _lastInputLen = $('#answerInput').value.length; });
 // 字母格子滚动时同步渐变指示
 const _letterBox = document.getElementById('letterBox');
 if (_letterBox) _letterBox.addEventListener('scroll', updateLetterBoxOverflow, { passive: true });
