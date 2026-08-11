@@ -1800,15 +1800,15 @@ async function checkAnswer() {
         $('#feedback').innerHTML = '<div class="fb-ok">连续答对！加 1 分</div>';
         $('#practiceCard').classList.add('ok');
         $('#score').textContent = session.score;
-        // 拼对自动跳到下一词（短延迟，仅用于让正确反馈动效展示）
-        setTimeout(showNext, 250);
+        // 即时切到下一词（飘升/星星已挂到 body，不受切卡影响）
+        showNext();
       } else {
         playCorrect();
         $('#feedback').innerHTML = '<div class="fb-ok">答对了！还需连续答对 <b>' + it.strike + '</b> 次才能得分</div>';
         $('#practiceCard').classList.add('ok');
         const w = session.queue.shift();
         session.queue.push(w);
-        setTimeout(showNext, 300);
+        showNext();
       }
     } else {
       session.score++;
@@ -1818,8 +1818,8 @@ async function checkAnswer() {
       $('#feedback').innerHTML = '<div class="fb-ok">回答正确！加 1 分</div>';
       $('#practiceCard').classList.add('ok');
       $('#score').textContent = session.score;
-      // 拼对自动跳到下一词（短延迟，仅用于让正确反馈动效展示）
-      setTimeout(showNext, 250);
+      // 即时切到下一词（飘升/星星已挂到 body，不受切卡影响）
+      showNext();
     }
   } else {
     // 答错：卡住本词，不进入下一词；提示音 + 闪现正确答案几秒后消失，再重新默写本词
@@ -1930,24 +1930,33 @@ function showPracticeView() {
 }
 
 // 正确时的游戏特效：分数飘升 + 星星 + 角落宠物弹跳
+// 用 fixed 定位挂到 body 上，这样切到下一词时这些动效不会被一起清掉
 function fxCorrect() {
   renderCornerPet();
   const card = $('#practiceCard');
-  const layer = $('#fxLayer');
+  if (!card) return;
+  const rect = card.getBoundingClientRect();
+  // 飘升 +1 的起点：卡片正上方
+  const startX = rect.left + rect.width / 2;
+  const startY = rect.top + 12;
   const sp = document.createElement('div');
-  sp.className = 'fx-score';
+  sp.className = 'fx-score fx-score-global';
   sp.textContent = '+1';
-  layer.appendChild(sp);
+  sp.style.left = startX + 'px';
+  sp.style.top = startY + 'px';
+  document.body.appendChild(sp);
   setTimeout(() => sp.remove(), 1000);
   const stars = ['⭐', '✨', '🌟', '🎉'];
   for (let i = 0; i < 6; i++) {
     const st = document.createElement('div');
-    st.className = 'fx-star';
+    st.className = 'fx-star fx-star-global';
     st.textContent = stars[i % stars.length];
-    st.style.left = (18 + Math.random() * 64) + '%';
+    // 从卡片范围内随机位置发射
+    st.style.left = (rect.left + rect.width * (0.18 + Math.random() * 0.64)) + 'px';
+    st.style.top = (rect.top + 40 + Math.random() * 40) + 'px';
     st.style.setProperty('--dx', (Math.random() * 120 - 60) + 'px');
     st.style.setProperty('--dy', (-40 - Math.random() * 70) + 'px');
-    layer.appendChild(st);
+    document.body.appendChild(st);
     setTimeout(() => st.remove(), 1000);
   }
   const pet = $('#cornerPet');

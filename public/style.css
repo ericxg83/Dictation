@@ -675,6 +675,9 @@ button.del:hover { background: #FADBDB; transform: scale(1.05); }
   position: absolute; font-size: 26px; z-index: 5; pointer-events: none;
   animation: fxStarFly 1s ease-out forwards;
 }
+/* 切到下一词时仍能在屏幕上继续飘升的动效（挂在 body 上） */
+.fx-score-global { position: fixed; transform: translate(-50%, 0); }
+.fx-star-global { position: fixed; }
 @keyframes fxScoreUp {
   0% { opacity: 1; transform: translate(-50%, 0) scale(.6) }
   40% { transform: translate(-50%, -18px) scale(1.3) }
