@@ -203,10 +203,38 @@ button.del:hover { background: #FADBDB; }
   margin-bottom: 8px;
 }
 .answer-row { position: relative; margin-top: 12px; }
+.letter-box-wrap { position: relative; }
 .letter-box {
   display: flex; flex-wrap: wrap; gap: 5px; align-items: center; justify-content: center;
   padding: 20px 16px; min-height: 84px;
   background: #FBFCFE; border: 2px dashed var(--line); border-radius: 15px;
+}
+.letter-box-wrap.has-overflow::after {
+  content: ""; position: absolute; right: -2px; top: 8px; bottom: 8px; width: 28px;
+  border-radius: 0 15px 15px 0; pointer-events: none;
+  background: linear-gradient(90deg, rgba(251,252,254,0), rgba(47,123,232,.18));
+  opacity: 0; transition: opacity .2s;
+}
+.letter-box-wrap.has-overflow-right::after { opacity: 1; }
+.letter-box-wrap.has-overflow-left::before {
+  content: ""; position: absolute; left: -2px; top: 8px; bottom: 8px; width: 28px;
+  border-radius: 15px 0 0 15px; pointer-events: none; z-index: 1;
+  background: linear-gradient(90deg, rgba(47,123,232,.18), rgba(251,252,254,0));
+  opacity: 0; transition: opacity .2s;
+}
+.letter-box-wrap.has-overflow-left::before { opacity: 1; }
+/* 移动端：字母格子聚焦时给个明显提示 */
+@media (max-width: 720px) {
+  .letter-box {
+    cursor: pointer;
+  }
+  .letter-box::before {
+    content: "点击这里输入"; position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%, -50%); color: var(--ink-3);
+    font-size: 14px; pointer-events: none; transition: opacity .2s;
+    opacity: 0;
+  }
+  .letter-box:empty::before { opacity: 1; }
 }
 .letter-box:focus-within { border-color: var(--brand); box-shadow: 0 0 0 4px rgba(47,123,232,.12); background: #fff; }
 .l-cell {
@@ -527,6 +555,19 @@ table { border-collapse: collapse; width: 100%; }
   #cornerPet .dragon-svg { width: 62px; height: 62px; }
 }
 
+/* 横屏（手机端默写时常见）：把单词布局改左右两栏，节省空间 */
+@media (max-width: 920px) and (orientation: landscape) and (max-height: 500px) {
+  body.immersive .dict-center { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 10px 24px; align-items: center; }
+  body.immersive .card-top { grid-column: 1 / -1; justify-content: flex-start; }
+  body.immersive .prompt { font-size: 22px; margin: 0; }
+  body.immersive .pos-line { font-size: 13px; margin: 0; }
+  body.immersive .speak-wrap { margin-top: 0; grid-column: 1; }
+  body.immersive .answer-row { margin-top: 0; grid-column: 2; grid-row: 2 / span 3; }
+  body.immersive .actions { grid-column: 1; margin-top: 6px; }
+  body.immersive .shortcuts { display: none; }
+  body.immersive #liveBanner { position: absolute; top: 6px; left: 50%; transform: translateX(-50%); }
+}
+
 /* ===== 沉浸式默写（手机端） ===== */
 body.immersive { background: #fff; }
 body.immersive header,
@@ -544,3 +585,278 @@ body.immersive #liveBanner { position: absolute; top: 10px; left: 50%; transform
   font-size: 18px; line-height: 1; cursor: pointer; box-shadow: var(--shadow);
 }
 .exit-full-btn:hover { background: rgba(36,48,74,.75); }
+
+/* =====================================================
+   移动端优化
+   ===================================================== */
+
+/* 通用：iOS 滚动更顺滑 / 避免长按选中和蓝色高亮 */
+* { -webkit-tap-highlight-color: transparent; }
+html, body { overscroll-behavior-y: contain; }
+
+/* 触摸按下时的涟漪反馈（移动端按钮更明显） */
+button, .primary, .ghost-btn, .header-btn, .role-row label, .auth-tabs button,
+.bank-card, .stu-card, .mobile-tabbar button {
+  -webkit-tap-highlight-color: transparent;
+  position: relative;
+  overflow: hidden;
+}
+button::after, .primary::after, .ghost-btn::after, .header-btn::after,
+.role-row label::after, .auth-tabs button::after,
+.bank-card::after, .stu-card::after, .mobile-tabbar button::after {
+  content: ""; position: absolute; inset: 0; border-radius: inherit;
+  background: currentColor; opacity: 0;
+  transition: opacity .25s ease;
+  pointer-events: none;
+}
+button:active::after, .primary:active::after, .ghost-btn:active::after, .header-btn:active::after,
+.role-row label:active::after, .auth-tabs button:active::after,
+.bank-card:active::after, .stu-card:active::after, .mobile-tabbar button:active::after {
+  opacity: .08;
+  transition-duration: 0s;
+}
+
+/* 用户系统设置「减少动效」时，停用所有过渡/动画 */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* ===== 底部 tab 栏 ===== */
+.mobile-tabbar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 80;
+  display: none;  /* 默认隐藏，<=720px 才显示 */
+  background: rgba(255,255,255,.96);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-top: 1px solid var(--line);
+  padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
+  justify-content: space-around;
+}
+.mobile-tabbar button {
+  flex: 1; min-width: 0; background: transparent; border: none;
+  display: flex; flex-direction: column; align-items: center; gap: 1px;
+  padding: 6px 4px; cursor: pointer; color: var(--ink-3);
+  font-size: 11px; font-weight: 600; transition: .12s;
+  -webkit-user-select: none; user-select: none;
+}
+.mobile-tabbar .tab-ico { font-size: 22px; line-height: 1.1; }
+.mobile-tabbar .tab-label { font-size: 11px; }
+.mobile-tabbar button.active { color: var(--brand); }
+.mobile-tabbar button.active .tab-ico { transform: scale(1.08); }
+
+/* ===== 移动端断点（统一以 720px 为分界） ===== */
+@media (max-width: 720px) {
+  /* iOS 顶部状态栏留空，避免内容被刘海/灵动岛遮挡 */
+  header { padding-top: calc(10px + env(safe-area-inset-top)); }
+  /* 顶部 header 简化：品牌 + 班级 + 退出；用户信息合并到品牌区 */
+  header { padding: 10px 14px; gap: 8px; }
+  .brand { font-size: 16px; }
+  .brand::before { width: 28px; height: 28px; font-size: 16px; border-radius: 8px; }
+  .user-info { display: none; }   /* 用户名隐藏到“班级码”里，节省空间 */
+  .class-badge { font-size: 11px; padding: 3px 10px; max-width: 200px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .header-btn { padding: 5px 12px; font-size: 12px; }
+
+  /* 顶部 nav 在小屏隐藏，交给底部 tab 栏 */
+  nav#teacherNav, nav#studentNav { display: none !important; }
+  .mobile-tabbar { display: flex; }
+  /* 显示当前角色对应的 3 个 tab，隐藏另外 3 个（由 JS 在 applyAuth 里设置） */
+  .mobile-tabbar button[data-view^="teacher-"],
+  .mobile-tabbar button[data-view="live"] { display: none; }
+  .mobile-tabbar.is-teacher button[data-view^="teacher-"],
+  .mobile-tabbar.is-teacher button[data-view="live"] { display: flex; }
+  .mobile-tabbar.is-teacher button[data-view="student-banks"],
+  .mobile-tabbar.is-teacher button[data-view="practice"],
+  .mobile-tabbar.is-teacher button[data-view="stats"] { display: none; }
+  .mobile-tabbar.is-student button[data-view^="teacher-"],
+  .mobile-tabbar.is-student button[data-view="live"] { display: none; }
+  .mobile-tabbar.is-student button[data-view="student-banks"],
+  .mobile-tabbar.is-student button[data-view="practice"],
+  .mobile-tabbar.is-student button[data-view="stats"] { display: flex; }
+
+  main { padding: 14px 14px calc(80px + env(safe-area-inset-bottom)); }
+
+  .view h2 { font-size: 19px; }
+  .view h3 { font-size: 16px; margin: 20px 0 10px; }
+
+  /* 通用触摸目标放大：所有按钮最小 44x44 */
+  button, .primary, .ghost-btn, .header-btn,
+  .auth-tabs button, .role-row label, nav button {
+    min-height: 44px;
+  }
+  nav button { min-height: 40px; padding: 8px 16px; }
+  .primary { padding: 12px 22px; }
+  .ghost-btn { padding: 10px 16px; }
+  .primary.big { font-size: 16px; padding: 14px 38px; }
+  .field input, .pet-name-row input, .live-tools input[type="number"] {
+    font-size: 16px; /* iOS 上 <16px 会被自动放大 */
+  }
+
+  /* ===== 登录/注册页 ===== */
+  .auth-card { padding: 22px 20px; max-width: 100%; }
+  .role-row { flex-direction: column; gap: 10px; }
+  .role-row label { padding: 12px 14px; }
+
+  /* ===== 待复习横幅 ===== */
+  #dueBanner { padding: 10px 14px; font-size: 13px; gap: 10px; flex-wrap: wrap; }
+
+  /* ===== 老师 · 题库发布 ===== */
+  .upload-box { padding: 16px 14px; }
+  .upload-row { flex-direction: column; align-items: stretch; }
+  .upload-row input[type="file"] { width: 100%; }
+  .upload-row .status { margin-top: 4px; }
+
+  .draft-head { padding: 14px; }
+  .field.inline { flex-direction: column; align-items: stretch; gap: 6px; }
+  .field.inline input { min-width: 0 !important; width: 100%; }
+  .lib-tools { gap: 8px; }
+  .lib-tools button { flex: 1; min-width: 0; }
+
+  /* 草稿表：手机端改用“卡片列表”渲染（由 JS 根据宽度切换） */
+  #libTable.mobile-as-cards thead { display: none; }
+  #libTable.mobile-as-cards,
+  #libTable.mobile-as-cards tbody,
+  #libTable.mobile-as-cards tr,
+  #libTable.mobile-as-cards td { display: block; width: 100%; }
+  #libTable.mobile-as-cards tr {
+    background: #fff; border: 1px solid var(--line); border-radius: 14px;
+    box-shadow: var(--shadow); padding: 12px; margin-bottom: 12px;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+  }
+  #libTable.mobile-as-cards td { border: none; padding: 0; }
+  #libTable.mobile-as-cards td:nth-child(1) { display: none; }     /* # */
+  #libTable.mobile-as-cards td:nth-child(2) { grid-column: 1 / -1; }   /* en 整行 */
+  #libTable.mobile-as-cards td:nth-child(3),
+  #libTable.mobile-as-cards td:nth-child(4) { grid-column: span 1; }
+  #libTable.mobile-as-cards td:nth-child(5) { grid-column: 1 / span 1; }
+  #libTable.mobile-as-cards td:nth-child(6) { grid-column: 2 / span 1; text-align: right; }
+
+  /* ===== 老师 · 班级学生（卡片化） ===== */
+  .stu-cards { display: flex; flex-direction: column; gap: 10px; }
+  .stu-card {
+    background: #fff; border-radius: 14px; padding: 14px;
+    box-shadow: var(--shadow); border: 1px solid var(--line);
+    display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; align-items: center;
+  }
+  .stu-card .stu-name { font-weight: 700; font-size: 15px; color: var(--ink); grid-column: 1 / -1; }
+  .stu-card .stu-meta { font-size: 12px; color: var(--ink-2); }
+  .stu-card .stu-meta b { color: var(--brand); font-size: 14px; }
+  .stu-card .stu-actions { grid-column: 1 / -1; display: flex; gap: 8px; }
+
+  /* 班级学生表只在 >=721 才显示 */
+  @media (max-width: 720px) {
+    #studentList .mini-table { display: none; }
+    #studentList .stu-cards { display: flex; }
+  }
+
+  /* ===== 老师 · 大屏看板 ===== */
+  .live-controls { flex-direction: column; align-items: stretch; padding: 14px; }
+  .live-tools { justify-content: space-between; }
+  .live-clock { text-align: center; }
+  .live-clock-num { font-size: 36px; }
+  .live-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+
+  /* ===== 学生 · 题库卡片 ===== */
+  .bank-card { padding: 14px; flex-direction: column; align-items: stretch; }
+  .bank-card .bank-main { width: 100%; }
+  .bank-card button { width: 100%; }
+  .bank-meta { font-size: 12px; }
+  .bank-meta::before { width: 28px; height: 28px; }
+
+  /* ===== 学生 · 默写卡（核心移动端体验） ===== */
+  #practiceCard { padding: 22px 16px 16px; }
+  #practiceReady, #practiceSummary { padding: 28px 18px; }
+  .dict-center { max-width: 100%; }
+  .card-top { gap: 6px; }
+  .type-tag, .score-pill, .remain-pill { padding: 5px 12px; font-size: 12px; }
+  .prompt { font-size: 26px; margin: 14px 0 2px; word-break: break-word; }
+  .pos-line { font-size: 15px; }
+  .answer-row { margin-top: 14px; }
+  /* 字母格子：横向可滑动 + 自动缩放 */
+  .letter-box {
+    padding: 14px 10px; min-height: 64px; gap: 4px;
+    overflow-x: auto; flex-wrap: nowrap; justify-content: flex-start;
+    -webkit-overflow-scrolling: touch; scroll-snap-type: x proximity;
+  }
+  .l-cell { width: 26px; height: 38px; font-size: 22px; scroll-snap-align: start; flex: 0 0 auto; }
+  .l-gap { width: 12px; flex: 0 0 auto; }
+  /* 极窄屏再缩小 */
+  @media (max-width: 380px) {
+    .l-cell { width: 22px; height: 34px; font-size: 19px; }
+    .l-gap { width: 10px; }
+  }
+  .speak-wrap { margin-top: 12px; }
+  #speakBtn { padding: 9px 22px; font-size: 14px; }
+  .actions { gap: 8px; }
+  .actions button { flex: 1; min-width: 0; }
+  .shortcuts { font-size: 11px; }
+
+  /* 软键盘弹出：把卡片往中间挤，避免被遮挡；body 加 bottom safe-area */
+  body.keyboard-up #practiceCard { padding-bottom: 8px; }
+  body.keyboard-up #cornerPet { display: none !important; }
+
+  /* 角落宠物：小屏更小，且抬到 tab 栏上方 */
+  #cornerPet { right: 10px; bottom: calc(64px + env(safe-area-inset-bottom)); }
+  .corner-pet-emoji, #cornerPet .dragon-svg { width: 52px; height: 52px; }
+  .corner-pet-name { font-size: 11px; padding: 1px 8px; }
+
+  /* ===== 统计 ===== */
+  .pet-panel { flex-direction: column; align-items: stretch; padding: 16px; }
+  .pet-right { min-width: 0; }
+  .stat-cards { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .stat-cards .s-card { padding: 14px 12px; }
+  .stat-cards .s-card b { font-size: 24px; }
+  .mini-table th, .mini-table td { padding: 9px 10px; font-size: 13px; }
+
+  /* 弹窗在小屏贴底，更接近原生 App */
+  .modal-mask { align-items: flex-end; padding: 0; }
+  .pet-modal {
+    border-radius: 22px 22px 0 0; max-width: 100%;
+    padding: 22px 18px calc(22px + env(safe-area-inset-bottom));
+    max-height: 92vh;
+  }
+  .pet-pick { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; }
+  .pet-opt-art { height: 78px; }
+  .pet-opt-art .dragon-svg { height: 78px; }
+  .pet-name-row { flex-direction: column; }
+  .pet-name-row input { width: 100%; }
+  .pet-name-row button { width: 100%; }
+
+  /* 沉浸式默写：键盘弹出时压缩高度 */
+  body.immersive.keyboard-up { height: auto; min-height: 100dvh; }
+  body.immersive.keyboard-up .dict-center { padding: 10px 12px; }
+  body.immersive.keyboard-up .speak-wrap,
+  body.immersive.keyboard-up .shortcuts { display: none; }
+  body.immersive.keyboard-up .letter-box { min-height: 52px; padding: 10px 8px; }
+  body.immersive.keyboard-up .l-cell { height: 36px; font-size: 20px; width: 24px; }
+
+  /* 沉浸式默写：紧凑布局（在横屏/小屏高度下生效） */
+  body.immersive .actions { gap: 6px; }
+  body.immersive .actions button { padding: 10px 12px; font-size: 14px; }
+}
+
+/* 平板及以上：正常显示 */
+@media (min-width: 721px) {
+  .stu-cards { display: none; }
+  .mobile-tabbar { display: none !important; }
+}
+
+/* 加载动画小圆点：用于解析 PDF / 加载数据时给用户反馈 */
+.dot-pulse { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: currentColor; animation: dotPulse 1.2s ease-in-out infinite; margin: 0 2px; }
+.dot-pulse:nth-child(2) { animation-delay: .2s; }
+.dot-pulse:nth-child(3) { animation-delay: .4s; }
+@keyframes dotPulse { 0%, 80%, 100% { transform: scale(.6); opacity: .4 } 40% { transform: scale(1); opacity: 1 } }
+
+/* Toast 提示（移动端原生风） */
+.toast {
+  position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%) scale(.96);
+  background: rgba(36,48,74,.92); color: #fff; padding: 12px 20px; border-radius: 14px;
+  font-size: 14px; font-weight: 600; z-index: 200; pointer-events: none;
+  box-shadow: 0 12px 40px rgba(0,0,0,.3); opacity: 0;
+  transition: opacity .2s, transform .2s;
+  max-width: 86vw; text-align: center;
+}
+.toast.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }

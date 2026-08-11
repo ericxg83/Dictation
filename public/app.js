@@ -321,6 +321,11 @@ function applyAuth(d) {
   $('#userInfo').textContent = (d.user.role === 'teacher' ? '老师' : '学生') + '：' + (d.user.name || d.user.username);
   $('#classBadge').textContent = classInfo ? (d.user.role === 'teacher' ? '班级 ' + classInfo.name + '（' + classInfo.code + '）' : '班级 ' + classInfo.name) : '未加入班级';
   showApp();
+  // 移动端底部 tab 栏：根据角色只显示对应的 3 个
+  const tabbar = $('#mobileTabbar');
+  tabbar.classList.toggle('is-teacher', currentUser.role === 'teacher');
+  tabbar.classList.toggle('is-student', currentUser.role !== 'teacher');
+  tabbar.hidden = false;
   if (currentUser.role === 'teacher') {
     $('#teacherNav').hidden = false;
     $('#studentNav').hidden = true;
@@ -366,6 +371,15 @@ function switchView(name) {
   $$('.view').forEach(v => v.hidden = v.id !== 'view-' + name);
   const nav = currentUser.role === 'teacher' ? $('#teacherNav') : $('#studentNav');
   Array.from(nav.querySelectorAll('button')).forEach(b => b.classList.toggle('active', b.dataset.view === name));
+  // 底部 tab 栏 active 同步
+  const tabbar = $('#mobileTabbar');
+  if (tabbar) Array.from(tabbar.querySelectorAll('button')).forEach(b => b.classList.toggle('active', b.dataset.view === name));
+  // 离开练习页时：退出沉浸式、停止键盘自适应
+  if (name !== 'practice') {
+    document.body.classList.remove('immersive');
+    document.body.classList.remove('keyboard-up');
+    $('#exitFullBtn').hidden = true;
+  }
   if (name === 'teacher-banks') loadBanks();
   if (name === 'teacher-students') loadStudents();
   if (name === 'live') { enterLiveBoard(); return; }
@@ -373,8 +387,14 @@ function switchView(name) {
   if (name === 'practice') { currentBank = null; prepareToday(); }
   if (name === 'stats') loadStats();
   stopLivePoll();
+  // 切页后滚到顶（移动端 iOS 上 instant 比 smooth 体验更好）
+  window.scrollTo({ top: 0, behavior: 'instant' in window ? 'instant' : 'auto' });
+  // 切页后让 focus 离开输入框（避免 iOS 键盘不收起）
+  try { if (document.activeElement && document.activeElement.tagName === 'INPUT') document.activeElement.blur(); } catch (e) {}
 }
 $$('nav button').forEach(b => b.onclick = () => switchView(b.dataset.view));
+// 底部 tab 栏点击：与顶部 nav 行为一致
+$$('#mobileTabbar button').forEach(b => b.onclick = () => switchView(b.dataset.view));
 
 // ================= 声音 =================
 let actx = null;
@@ -400,14 +420,17 @@ function playCorrect() {
   tone(523, 0, 0.15, 'sine', 0.25);
   tone(659, 0.12, 0.15, 'sine', 0.25);
   tone(784, 0.24, 0.25, 'sine', 0.25);
+  haptic(15);
 }
 function playWrong() {
   tone(220, 0, 0.2, 'sawtooth', 0.14);
   tone(150, 0.18, 0.32, 'sawtooth', 0.14);
+  haptic([25, 50, 25]);
 }
 // 输入过程中的轻提示音（答错/拼写超长）
 function playWarn() {
   tone(320, 0, 0.1, 'square', 0.12);
+  haptic(8);
 }
 function speak(text) {
   if (!('speechSynthesis' in window)) return;
@@ -448,7 +471,7 @@ function waveStop() {
 $('#fileInput').addEventListener('change', async ev => {
   const file = ev.target.files[0];
   if (!file) return;
-  setStatus('正在解析文件，请稍候…');
+  setStatus('<span class="dot-pulse"></span><span class="dot-pulse"></span><span class="dot-pulse"></span> 正在解析文件，请稍候…');
   const fd = new FormData();
   fd.append('file', file);
   try {
@@ -458,6 +481,7 @@ $('#fileInput').addEventListener('change', async ev => {
     draft = d.entries;
     renderDraft();
     setStatus('成功解析 ' + d.entries.length + ' 条。请在下方检查修正后填写标题并发布。');
+    if (window.innerWidth <= 720) toast('已解析 ' + d.entries.length + ' 条，请检查后发布');
   } catch (err) {
     setStatus('解析失败：' + err.message, true);
   }
@@ -466,7 +490,7 @@ $('#fileInput').addEventListener('change', async ev => {
 
 function setStatus(t, err) {
   const el = $('#parseStatus');
-  el.textContent = t;
+  el.innerHTML = t;
   el.className = 'status' + (err ? ' err' : ' ok');
 }
 
@@ -474,6 +498,9 @@ function renderDraft() {
   $('#draftBox').hidden = !draft.length;
   if (!draft.length) return;
   const tb = $('#libTable tbody');
+  const tbl = $('#libTable');
+  // 小屏：表格 → 卡片；>=721：表格
+  tbl.classList.toggle('mobile-as-cards', window.innerWidth <= 720);
   tb.innerHTML = '';
   draft.forEach((e, i) => {
     const tr = document.createElement('tr');
@@ -594,6 +621,40 @@ async function loadStudents() {
     return;
   }
   wrap.innerHTML = '<div class="empty" style="margin-bottom:12px">班级码：<b>' + esc(classInfo.code) + '</b>（共 ' + d.students.length + ' 名学生）</div>';
+  if (window.innerWidth <= 720) {
+    // 小屏：渲染卡片列表
+    const cards = document.createElement('div');
+    cards.className = 'stu-cards';
+    d.students.forEach(s => {
+      const last = s.lastActive ? new Date(s.lastActive).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '从未练习';
+      const dragon = s.pet ? (DRAGON_KINDS.find(k => k.id === s.pet.dragonId) || null) : null;
+      const petTxt = dragon ? (dragon.name + (s.pet.name ? '（' + s.pet.name + '）' : '')) : '未领养';
+      const nameTxt = s.name && s.name !== s.username ? s.name + '（' + s.username + '）' : (s.name || s.username);
+      const card = document.createElement('div');
+      card.className = 'stu-card';
+      card.innerHTML =
+        '<div class="stu-name">' + esc(nameTxt) + ' <span style="font-weight:400;color:var(--ink-3);font-size:12px">· ' + esc(petTxt) + '</span></div>' +
+        '<div class="stu-meta">总 <b>' + s.total + '</b></div>' +
+        '<div class="stu-meta">掌握 <b>' + s.mastered + '</b></div>' +
+        '<div class="stu-meta">待复习 <b>' + s.due + '</b></div>' +
+        '<div class="stu-meta">得分 <b>' + s.points + '</b></div>' +
+        '<div class="stu-meta" style="grid-column:1/-1;color:var(--ink-3);font-size:12px">最近：' + esc(last) + '</div>' +
+        '<div class="stu-actions"><button class="ghost-btn" data-id="' + esc(s.id) + '" data-name="' + esc(s.name || s.username) + '">改名</button></div>';
+      card.querySelector('button').onclick = () => {
+        const cur = card.querySelector('button').dataset.name;
+        const v = prompt('修改「' + cur + '」的姓名：', cur);
+        if (v === null || !v.trim()) return;
+        const sid = card.querySelector('button').dataset.id;
+        api('/api/class/student/' + sid, { method: 'PUT', body: { name: v.trim() } })
+          .then(r => { s.name = r.user.name; loadStudents(); })
+          .catch(e => alert(e.message));
+      };
+      cards.appendChild(card);
+    });
+    wrap.appendChild(cards);
+    return;
+  }
+  // 桌面：原表格
   const table = document.createElement('table');
   table.className = 'mini-table';
   table.innerHTML = '<thead><tr><th>学生</th><th>宠物</th><th>总条目</th><th>已掌握</th><th>待复习</th><th>得分</th><th>最近活跃</th><th></th></tr></thead>';
@@ -932,6 +993,8 @@ function buildLetterBox() {
     session.wordEnds.push(li);
   });
   renderLetterCells('');
+  // 重新检测横向溢出（在新词长度变化时）
+  setTimeout(updateLetterBoxOverflow, 0);
 }
 
 // 把当前输入渲染进字母格子；错字母标红并提示音；词组/句子自动补空格
@@ -1159,6 +1222,104 @@ function shakeCard() {
 }
 
 $('#checkBtn').onclick = () => checkAnswer();
+
+// ================= 移动端体验增强 =================
+// 1) 软键盘自适应：默写输入框获焦时给 body 加 .keyboard-up，让 CSS 隐藏角落宠物/压缩布局
+//    失焦时移除；visualViewport 高度变化也能触发（更稳）
+function syncKeyboardState() {
+  const focused = document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA');
+  if (focused) document.body.classList.add('keyboard-up');
+  else document.body.classList.remove('keyboard-up');
+  // 同步：让输入框始终在可视区中央
+  if (focused && 'visualViewport' in window) {
+    setTimeout(() => {
+      try {
+        document.activeElement.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      } catch (e) {}
+    }, 200);
+  }
+}
+document.addEventListener('focusin', syncKeyboardState);
+document.addEventListener('focusout', syncKeyboardState);
+window.addEventListener('resize', syncKeyboardState);
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', () => {
+    // 键盘弹出时 visualViewport.height 显著小于 window.innerHeight
+    if (window.visualViewport.height < window.innerHeight * 0.75) document.body.classList.add('keyboard-up');
+    else document.body.classList.remove('keyboard-up');
+  });
+}
+
+// 2) 屏幕宽度变化时：草稿表/班级学生在表格和卡片间重新渲染
+let _lastMobile = window.innerWidth <= 720;
+window.addEventListener('resize', () => {
+  const isMobile = window.innerWidth <= 720;
+  if (isMobile === _lastMobile) return;
+  _lastMobile = isMobile;
+  // 草稿可见则重渲染
+  if (draft.length) renderDraft();
+  // 班级学生列表可见则重渲染
+  if (currentUser && currentUser.role === 'teacher' && !$('#view-teacher-students').hidden) loadStudents();
+});
+
+// 3) 触觉反馈：移动设备上答对/答错/警告时给个轻微振动
+let _canVibrate = false;
+try { _canVibrate = ('vibrate' in navigator); } catch (e) { _canVibrate = false; }
+function haptic(pattern) {
+  if (!_canVibrate) return;
+  try { navigator.vibrate(pattern); } catch (e) {}
+}
+
+// 4) 字母格子横向滚动指示：检测 overflow 状态，给外层加 has-overflow-* 类
+function updateLetterBoxOverflow() {
+  const wrap = document.getElementById('letterBoxWrap');
+  if (!wrap) return;
+  const box = document.getElementById('letterBox');
+  if (!box) return;
+  const hasH = box.scrollWidth > box.clientWidth + 2;
+  wrap.classList.toggle('has-overflow', hasH);
+  if (hasH) {
+    const left = box.scrollLeft > 2;
+    const right = box.scrollLeft + box.clientWidth < box.scrollWidth - 2;
+    wrap.classList.toggle('has-overflow-left', left);
+    wrap.classList.toggle('has-overflow-right', right);
+  } else {
+    wrap.classList.remove('has-overflow-left', 'has-overflow-right');
+  }
+}
+
+// 5) 输入时自动滚到当前字母，让用户始终看得到输入位置
+function scrollLetterBoxToCaret() {
+  const box = document.getElementById('letterBox');
+  if (!box || !session || !session.letterCells) return;
+  const idx = (session._lastLen || 0);
+  const cell = session.letterCells[idx] || session.letterCells[session.letterCells.length - 1];
+  if (!cell) return;
+  // 仅在横向溢出时滚动
+  if (box.scrollWidth > box.clientWidth + 2) {
+    const boxRect = box.getBoundingClientRect();
+    const cellRect = cell.getBoundingClientRect();
+    if (cellRect.left < boxRect.left || cellRect.right > boxRect.right) {
+      box.scrollTo({ left: cell.offsetLeft - 16, behavior: 'smooth' });
+    }
+  }
+  updateLetterBoxOverflow();
+}
+
+// 6) 简单的 toast 提示（替代部分 alert）
+function toast(msg, ms) {
+  let el = document.getElementById('toastEl');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'toastEl';
+    el.className = 'toast';
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(el._timer);
+  el._timer = setTimeout(() => el.classList.remove('show'), ms || 1600);
+}
 $('#answerInput').addEventListener('keydown', e => {
   if (e.altKey && (e.key === 'r' || e.key === 'R')) { e.preventDefault(); if (session && session.current) speak(session.current.english); return; }
   if (e.altKey && (e.key === 'v' || e.key === 'V')) { e.preventDefault(); viewAnswer(); return; }
@@ -1201,7 +1362,19 @@ document.addEventListener('keydown', e => {
   if (e.key !== 'Enter') return;
   if (session && session.locked && session.flashTimer) { e.preventDefault(); clearFlash(); }
 });
-$('#answerInput').addEventListener('input', () => { renderLetterCells($('#answerInput').value); autoSpace(); autoCheckTyping(); throttleLiveReport(); });
+$('#answerInput').addEventListener('input', () => {
+  renderLetterCells($('#answerInput').value);
+  autoSpace();
+  autoCheckTyping();
+  throttleLiveReport();
+  scrollLetterBoxToCaret();
+});
+// 字母格子滚动时同步渐变指示
+const _letterBox = document.getElementById('letterBox');
+if (_letterBox) _letterBox.addEventListener('scroll', updateLetterBoxOverflow, { passive: true });
+// 窗口尺寸变化时重新检测溢出
+window.addEventListener('resize', updateLetterBoxOverflow);
+window.addEventListener('orientationchange', () => setTimeout(updateLetterBoxOverflow, 300));
 $('#speakBtn').onclick = () => { if (session && session.current) speak(session.current.english); };
 $('#letterBox').onclick = () => $('#answerInput').focus();
 $('#endBtn').onclick = endSession;

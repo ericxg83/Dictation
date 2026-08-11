@@ -2,7 +2,12 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="英语默写">
+<meta name="theme-color" content="#1D5EC4">
+<meta name="format-detection" content="telephone=no">
 <title>英语默写助手</title>
 <link rel="stylesheet" href="style.css">
 </head>
@@ -192,7 +197,9 @@
           <div class="prompt" id="cardPrompt"></div>
           <div class="pos-line" id="cardPos"></div>
           <div class="answer-row">
-            <div id="letterBox" class="letter-box" title="点击输入"></div>
+            <div class="letter-box-wrap" id="letterBoxWrap">
+              <div id="letterBox" class="letter-box" title="点击输入"></div>
+            </div>
             <input id="answerInput" type="text" placeholder="请输入英文..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
           </div>
           <div class="speak-wrap">
@@ -260,6 +267,16 @@
     </section>
 
   </main>
+
+  <!-- 移动端底部 tab 栏（替代顶部 nav） -->
+  <nav id="mobileTabbar" class="mobile-tabbar" hidden>
+    <button data-view="teacher-banks"><span class="tab-ico">📚</span><span class="tab-label">题库</span></button>
+    <button data-view="teacher-students"><span class="tab-ico">👥</span><span class="tab-label">学生</span></button>
+    <button data-view="live"><span class="tab-ico">📺</span><span class="tab-label">大屏</span></button>
+    <button data-view="student-banks"><span class="tab-ico">📚</span><span class="tab-label">题库</span></button>
+    <button data-view="practice"><span class="tab-ico">✍️</span><span class="tab-label">练习</span></button>
+    <button data-view="stats"><span class="tab-ico">📊</span><span class="tab-label">统计</span></button>
+  </nav>
 </div>
 
 <!-- 角落宠物：练习时安静地趴在右下角 -->
