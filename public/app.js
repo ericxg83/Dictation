@@ -1622,14 +1622,15 @@ async function checkAnswer() {
         $('#feedback').innerHTML = '<div class="fb-ok">连续答对！加 1 分</div>';
         $('#practiceCard').classList.add('ok');
         $('#score').textContent = session.score;
-        setTimeout(showNext, 700);
+        // 拼对自动跳到下一词（短延迟，仅用于让正确反馈动效展示）
+        setTimeout(showNext, 250);
       } else {
         playCorrect();
         $('#feedback').innerHTML = '<div class="fb-ok">答对了！还需连续答对 <b>' + it.strike + '</b> 次才能得分</div>';
         $('#practiceCard').classList.add('ok');
         const w = session.queue.shift();
         session.queue.push(w);
-        setTimeout(showNext, 800);
+        setTimeout(showNext, 300);
       }
     } else {
       session.score++;
@@ -1639,7 +1640,8 @@ async function checkAnswer() {
       $('#feedback').innerHTML = '<div class="fb-ok">回答正确！加 1 分</div>';
       $('#practiceCard').classList.add('ok');
       $('#score').textContent = session.score;
-      setTimeout(showNext, 700);
+      // 拼对自动跳到下一词（短延迟，仅用于让正确反馈动效展示）
+      setTimeout(showNext, 250);
     }
   } else {
     // 答错：卡住本词，不进入下一词；提示音 + 闪现正确答案几秒后消失，再重新默写本词
