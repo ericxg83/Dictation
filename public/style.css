@@ -1179,10 +1179,10 @@ table { border-collapse: collapse; width: 100%; }
 .ring-fg.mint { stroke: url(#grad-mint); }
 .ring-fg.aurora { stroke: url(#grad-aurora); }
 .ring-num {
-  font-size: 22px; font-weight: 900; color: var(--text-on-dark); line-height: 1;
+  font-size: 22px; font-weight: 900; color: #1A1240; line-height: 1;
   text-anchor: middle; dominant-baseline: central;
 }
-.ring-card-label { font-size: 12px; color: var(--text-on-dark-2); margin-top: 6px; font-weight: 700; letter-spacing: .3px; }
+.ring-card-label { font-size: 12px; color: #4B3F8A; margin-top: 6px; font-weight: 800; letter-spacing: .3px; }
 
 /* 宠物面板（升级版：玻璃拟态） */
 .pet-panel {
