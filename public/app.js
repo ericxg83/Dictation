@@ -773,6 +773,123 @@ $('#petConfirmBtn').onclick = async () => {
   } catch (e) { $('#petMsg').textContent = e.message; }
 };
 
+// ===== 龙龙图鉴（点击宠物头像 / 名字打开） =====
+let _handbookTab = 'mine'; // 'mine' 当前伙伴 | 'all' 全部图鉴 | 'pick' 浏览某只龙的详情
+let _handbookPickId = null;
+
+function openHandbook(pickId) {
+  _handbookPickId = pickId || null;
+  _handbookTab = pickId ? 'pick' : (myDragon() ? 'mine' : 'all');
+  renderHandbook();
+  $('#handbookModal').hidden = false;
+  haptic(10);
+}
+function closeHandbook() { $('#handbookModal').hidden = true; }
+
+function renderHandbook() {
+  const my = myDragon();
+  const stageIdx = currentStageIndex(totalPoints);
+  const stageName = (DRAGON_STAGES[stageIdx] || DRAGON_STAGES[0]).name;
+  // 默认展示目标：优先选中的 pickId，否则当前伙伴
+  const focus = _handbookPickId
+    ? DRAGON_KINDS.find(d => d.id === _handbookPickId)
+    : my;
+  // ===== 顶部 hero =====
+  if (focus) {
+    $('#handbookHero').innerHTML =
+      '<div class="handbook-art">' + dragonArt(focus, DRAGON_MAX_STAGE) + '</div>' +
+      '<div class="handbook-hero-info">' +
+        '<h2>' + esc(focus.name) +
+          (my && my.id === focus.id ? ' <span class="stage-pill">' + stageName + '</span>' : '') +
+        '</h2>' +
+        '<div class="en">' + esc(focus.enName) + ' · ' + esc(focus.era) + '</div>' +
+        '<div class="meta">🏠 ' + esc(focus.habitat) + '</div>' +
+      '</div>';
+  } else {
+    $('#handbookHero').innerHTML =
+      '<div class="handbook-art">' + eggArt(null) + '</div>' +
+      '<div class="handbook-hero-info">' +
+        '<h2>神秘龙蛋</h2>' +
+        '<div class="en">Mystery Egg</div>' +
+        '<div class="meta">领养你的第一只龙龙，解锁专属图鉴吧～</div>' +
+      '</div>';
+  }
+  // ===== Tab =====
+  const tabs = [];
+  if (my) tabs.push({ id: 'mine', label: '🐉 我的伙伴' });
+  tabs.push({ id: 'all', label: '📖 全部图鉴' });
+  $('#handbookTabs').innerHTML = tabs.map(t =>
+    '<button class="handbook-tab' + (_handbookTab === t.id ? ' active' : '') + '" data-tab="' + t.id + '">' + t.label + '</button>'
+  ).join('') + (focus && _handbookTab === 'pick' ? '<button class="handbook-tab active" style="margin-left:auto">' + esc(focus.name) + '</button>' : '');
+  $$('#handbookTabs .handbook-tab').forEach(btn => {
+    if (!btn.dataset.tab) return;
+    btn.onclick = () => { _handbookTab = btn.dataset.tab; _handbookPickId = null; renderHandbook(); };
+  });
+  // ===== 内容区 =====
+  const body = $('#handbookBody');
+  if (_handbookTab === 'pick' && focus) {
+    body.innerHTML = renderHandbookDetail(focus, my && my.id === focus.id);
+  } else if (_handbookTab === 'mine' && my) {
+    body.innerHTML = renderHandbookDetail(my, true);
+  } else {
+    body.innerHTML = renderHandbookAll(my);
+  }
+}
+
+function renderHandbookDetail(d, isMine) {
+  const traits = (d.traits || []).map(t => '<li>' + esc(t) + '</li>').join('');
+  return '' +
+    '<div class="detail-section">' +
+      '<h4>📌 一句话简介</h4>' +
+      '<p class="summary">' + esc(d.summary) + '</p>' +
+    '</div>' +
+    '<div class="detail-section">' +
+      '<h4>✨ 招牌特征</h4>' +
+      '<ul class="trait-list">' + traits + '</ul>' +
+    '</div>' +
+    '<div class="detail-section">' +
+      '<h4>💖 性格</h4>' +
+      '<p>' + esc(d.personality) + '</p>' +
+    '</div>' +
+    '<div class="detail-section">' +
+      '<h4>📜 来历故事</h4>' +
+      '<p>' + esc(d.story) + '</p>' +
+    '</div>' +
+    (isMine ? '' : '<div class="detail-section" style="text-align:center;background:rgba(251,191,36,.08);border-color:rgba(251,191,36,.3)"><p style="font-size:13px;color:#FCD34D">⚠️ 这只龙龙你还没领养，点击「更换伙伴」可切换</p></div>');
+}
+
+function renderHandbookAll(myDragonObj) {
+  let html = '<div class="all-grid">';
+  DRAGON_KINDS.forEach(d => {
+    const isMine = myDragonObj && myDragonObj.id === d.id;
+    html += '<div class="all-card' + (isMine ? ' mine' : '') + '" data-id="' + esc(d.id) + '">' +
+      '<div class="all-card-art">' + dragonArt(d, DRAGON_MAX_STAGE) + '</div>' +
+      '<div class="all-card-name">' + esc(d.name) + '</div>' +
+      '<div class="all-card-en">' + esc(d.enName) + '</div>' +
+      '<div class="all-card-summary">' + esc(d.summary) + '</div>' +
+    '</div>';
+  });
+  html += '</div>';
+  return html;
+}
+
+// 事件委托：图鉴卡点击 → 打开对应龙的详情
+$('#handbookBody').addEventListener('click', e => {
+  const card = e.target.closest('.all-card');
+  if (!card) return;
+  _handbookPickId = card.dataset.id;
+  _handbookTab = 'pick';
+  renderHandbook();
+});
+
+// 绑定入口：点击宠物面板左侧区域（头像/名字）
+function bindHandbookEntry() {
+  const el = $('#petClickable');
+  if (!el) return;
+  el.onclick = () => openHandbook();
+  el.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openHandbook(); } };
+}
+bindHandbookEntry();
 // ================= 请求封装 =================
 function token() { return localStorage.getItem(TOKEN_KEY) || ''; }
 async function api(path, opts) {
