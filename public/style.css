@@ -446,6 +446,11 @@ button.del:hover { background: #FADBDB; }
 }
 .lib-tools { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
 .table-wrap { overflow-x: auto; margin-bottom: 20px; }
+.draft-title-label {
+  font-size: 12px; font-weight: 700; color: var(--brand);
+  background: var(--brand-soft); display: inline-block;
+  padding: 3px 10px; border-radius: 20px; margin-bottom: 10px;
+}
 
 /* ===== 表格 ===== */
 table { border-collapse: collapse; width: 100%; }
@@ -474,6 +479,7 @@ table { border-collapse: collapse; width: 100%; }
   box-shadow: var(--shadow); border: 1px solid var(--line); transition: .15s;
 }
 .bank-card:hover { box-shadow: var(--shadow-lg); transform: translateY(-1px); }
+.bank-btns { display: flex; gap: 8px; align-items: center; }
 .bank-main { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .bank-main b { font-size: 17px; color: var(--ink); }
 .bank-meta { font-size: 13px; color: var(--ink-3); display: flex; align-items: center; gap: 8px; }

@@ -85,12 +85,12 @@ function keyOf(en) { return (en || '').toLowerCase().replace(/\s+/g, ' ').trim()
 async function dbAllUsers() { return (await q('SELECT * FROM users')).rows; }
 async function dbFindUser(by, val) { return (await q('SELECT * FROM users WHERE ' + by + ' = $1', [val])).rows[0] || null; }
 async function dbInsertUser(u) {
-  await q('INSERT INTO users (id, username, salt, password, role, class_id, pet, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
-    [u.id, u.username, u.salt, u.password, u.role, u.classId || null, JSON.stringify(u.pet || null), u.createdAt]);
+  await q('INSERT INTO users (id, username, salt, password, role, class_id, pet, name, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)',
+    [u.id, u.username, u.salt, u.password, u.role, u.classId || null, JSON.stringify(u.pet || null), u.name || null, u.createdAt]);
 }
 async function dbUpdateUser(u) {
-  await q('UPDATE users SET username=$2, salt=$3, password=$4, role=$5, class_id=$6, pet=$7 WHERE id=$1',
-    [u.id, u.username, u.salt, u.password, u.role, u.class_id || u.classId || null, JSON.stringify(u.pet || null)]);
+  await q('UPDATE users SET username=$2, salt=$3, password=$4, role=$5, class_id=$6, pet=$7, name=$8 WHERE id=$1',
+    [u.id, u.username, u.salt, u.password, u.role, u.class_id || u.classId || null, JSON.stringify(u.pet || null), u.name || null]);
 }
 
 // ---- 会话 ----
@@ -105,7 +105,7 @@ async function dbInsertClass(cls) { await q('INSERT INTO classes (id, name, code
 // ---- 题库 ----
 async function dbAllBanks() { return (await q('SELECT id, class_id AS "classId", title, entries, updated_at AS "updatedAt" FROM banks')).rows; }
 async function dbInsertBank(b) { await q('INSERT INTO banks (id, class_id, title, entries, updated_at) VALUES ($1,$2,$3,$4,$5)', [b.id, b.classId, b.title, JSON.stringify(b.entries || []), b.updatedAt]); }
-async function dbUpdateBank(b) { await q('UPDATE banks SET class_id=$2, title=$3, entries=$4, updated_at=$5 WHERE id=$1', [b.id, b.classId, b.title, JSON.stringify(b.entries || []), b.updatedAt]); }
+async function dbUpdateBank(b) { await q('UPDATE banks SET class_id=$2, title=$3, entries=$4, updated_at=$5 WHERE id=$1', [b.id, b.class_id || b.classId, b.title, JSON.stringify(b.entries || []), b.updatedAt]); }
 async function dbDeleteBank(id) { await q('DELETE FROM banks WHERE id = $1', [id]); }
 
 // ---- 进度 ----
@@ -144,7 +144,7 @@ function requireRole(role) {
     next();
   };
 }
-function publicUser(u) { return { id: u.id, username: u.username, role: u.role, classId: u.class_id || u.classId || null, pet: u.pet || null }; }
+function publicUser(u) { return { id: u.id, username: u.username, name: u.name || u.username, role: u.role, classId: u.class_id || u.classId || null, pet: u.pet || null }; }
 async function getClassInfo(u) {
   if (!u.class_id) return null;
   return (await q('SELECT id, name, code, teacher_id AS "teacherId" FROM classes WHERE id = $1', [u.class_id])).rows[0] || null;
@@ -462,14 +462,16 @@ app.get('/api/health', (req, res) => res.json({ ok: true }));
 
 // ================= 路由：认证 =================
 app.post('/api/auth/register', async (req, res) => {
-  const { username, password, role, className, classCode } = req.body || {};
+  const { username, password, role, className, classCode, name } = req.body || {};
   const uname = String(username || '').trim();
   if (!/^[\w\u4e00-\u9fa5]{2,20}$/.test(uname)) return res.status(400).json({ error: '用户名需 2-20 位中英文/数字/下划线' });
   if (String(password || '').length < 4) return res.status(400).json({ error: '密码至少 4 位' });
   if (role !== 'teacher' && role !== 'student') return res.status(400).json({ error: '请选择身份：老师或学生' });
   if (await dbFindUser('username', uname)) return res.status(400).json({ error: '用户名已被占用' });
+  const uname2 = String(name || '').trim();
+  if (role === 'student' && !/^[\u4e00-\u9fa5A-Za-z·\s]{1,20}$/.test(uname2)) return res.status(400).json({ error: '学生请填写真实姓名（20 字以内）' });
   const salt = crypto.randomBytes(8).toString('hex');
-  const user = { id: genId('u'), username: uname, salt, password: hashPwd(password, salt), role, createdAt: Date.now(), pet: null };
+  const user = { id: genId('u'), username: uname, name: uname2 || uname, salt, password: hashPwd(password, salt), role, createdAt: Date.now(), pet: null };
   let classInfo = null;
   if (role === 'teacher') {
     const cname = String(className || '').trim() || (uname + '的班级');
@@ -570,12 +572,11 @@ app.post('/api/parse', requireAuth, upload.single('file'), async (req, res) => {
 });
 
 // ================= 路由：老师 · 题库管理 =================
-app.post('/api/bank', requireAuth, requireRole('teacher'), async (req, res) => {
-  const { title, entries } = req.body || {};
-  if (!Array.isArray(entries) || !entries.length) return res.status(400).json({ error: '题库内容为空，请先上传或添加条目' });
+// 清洗入库条目（去重、过滤无效、补类型）
+function cleanBankEntries(entries) {
   const cleaned = [];
   const seen = new Set();
-  for (const e of entries) {
+  for (const e of entries || []) {
     const en = String(e.english || '').trim();
     const zh = String(e.chinese || '').trim();
     if (!en && !zh) continue;
@@ -585,6 +586,13 @@ app.post('/api/bank', requireAuth, requireRole('teacher'), async (req, res) => {
     seen.add(k);
     cleaned.push({ id: genId('e'), english: en, chinese: zh, pos: String(e.pos || '').trim(), type: e.type || detectType(en) });
   }
+  return cleaned;
+}
+
+app.post('/api/bank', requireAuth, requireRole('teacher'), async (req, res) => {
+  const { title, entries } = req.body || {};
+  if (!Array.isArray(entries) || !entries.length) return res.status(400).json({ error: '题库内容为空，请先上传或添加条目' });
+  const cleaned = cleanBankEntries(entries);
   if (!cleaned.length) return res.status(400).json({ error: '题库内容无效' });
   const t = String(title || '').trim() || '未命名题库';
   const banks = await dbAllBanks();
@@ -597,6 +605,35 @@ app.post('/api/bank', requireAuth, requireRole('teacher'), async (req, res) => {
   bank.updatedAt = Date.now();
   await dbUpdateBank(bank);
   res.json({ ok: true, bank: { id: bank.id, title: bank.title, count: bank.entries.length, updatedAt: bank.updatedAt } });
+});
+
+// 老师：读取某个题库的完整条目（用于编辑）
+app.get('/api/bank/:id/edit', requireAuth, requireRole('teacher'), async (req, res) => {
+  const b = (await q('SELECT * FROM banks WHERE id = $1 AND class_id = $2', [req.params.id, req.user.class_id])).rows[0];
+  if (!b) return res.status(404).json({ error: '题库不存在或无权编辑' });
+  res.json({ bank: { id: b.id, title: b.title }, entries: b.entries || [] });
+});
+
+// 老师：重命名 / 更新题库内容
+app.put('/api/bank/:id', requireAuth, requireRole('teacher'), async (req, res) => {
+  const b = (await q('SELECT * FROM banks WHERE id = $1 AND class_id = $2', [req.params.id, req.user.class_id])).rows[0];
+  if (!b) return res.status(404).json({ error: '题库不存在或无权编辑' });
+  const body = req.body || {};
+  const t = String(body.title != null ? body.title : b.title).trim() || '未命名题库';
+  let entries = b.entries;
+  if (Array.isArray(body.entries)) {
+    const cleaned = cleanBankEntries(body.entries);
+    if (!cleaned.length) return res.status(400).json({ error: '题库内容无效' });
+    entries = cleaned;
+  }
+  // 重命名后若与班级内其它题库重名则拒绝
+  const dup = (await q('SELECT id FROM banks WHERE class_id = $1 AND title = $2 AND id <> $3', [req.user.class_id, t, b.id])).rows[0];
+  if (dup) return res.status(400).json({ error: '班级内已有同名题库，请换一个标题' });
+  b.title = t;
+  b.entries = entries;
+  b.updatedAt = Date.now();
+  await dbUpdateBank(b);
+  res.json({ ok: true, bank: { id: b.id, title: b.title, count: b.entries.length, updatedAt: b.updatedAt } });
 });
 
 app.get('/api/bank', requireAuth, requireRole('teacher'), async (req, res) => {
@@ -621,7 +658,7 @@ app.get('/api/class/students', requireAuth, requireRole('teacher'), async (req, 
   for (const u of students) {
     const p = await loadProgress(u.id);
     list.push({
-      id: u.id, username: u.username, joinedAt: u.created_at, pet: u.pet || null,
+      id: u.id, username: u.username, name: u.name || u.username, joinedAt: u.created_at, pet: u.pet || null,
       total: p.entries.length,
       mastered: p.entries.filter(e => (e.level || 0) >= 4).length,
       due: p.entries.filter(e => (e.nextDue || 0) <= Date.now()).length,
@@ -631,6 +668,18 @@ app.get('/api/class/students', requireAuth, requireRole('teacher'), async (req, 
   }
   list.sort((a, b) => (b.lastActive || 0) - (a.lastActive || 0));
   res.json({ students: list });
+});
+
+// 老师：修正学生姓名（也可改用户名）
+app.put('/api/class/student/:id', requireAuth, requireRole('teacher'), async (req, res) => {
+  const u = (await q('SELECT * FROM users WHERE id = $1 AND role = $2 AND class_id = $3', [req.params.id, 'student', req.user.class_id])).rows[0];
+  if (!u) return res.status(404).json({ error: '学生不存在或不属于你的班级' });
+  const body = req.body || {};
+  const name = String(body.name != null ? body.name : (u.name || u.username)).trim();
+  if (!/^[\u4e00-\u9fa5A-Za-z·\s]{1,20}$/.test(name)) return res.status(400).json({ error: '姓名需 20 字以内的中英文' });
+  u.name = name;
+  await dbUpdateUser(u);
+  res.json({ ok: true, user: { id: u.id, username: u.username, name } });
 });
 
 // ================= 路由：学生 · 题库 =================
@@ -797,7 +846,7 @@ app.post('/api/live/report', requireAuth, requireRole('student'), async (req, re
   if (!bd || bd.session.ended) return res.json({ ok: true });
   const b = req.body || {};
   bd.players[req.user.id] = {
-    username: req.user.username,
+    username: req.user.name || req.user.username,
     dragonId: String(b.dragonId || 'trex'),
     petName: String(b.petName || ''),
     stage: Number(b.stage) || 0,

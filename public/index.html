@@ -35,8 +35,12 @@
     <!-- 注册 -->
     <form id="regForm" class="auth-form" hidden>
       <label class="field">
+        <span>真实姓名</span>
+        <input id="regName" type="text" placeholder="例如：张小华（老师点名/看板显示用）" autocomplete="name">
+      </label>
+      <label class="field">
         <span>用户名</span>
-        <input id="regUser" type="text" placeholder="2-20 位中英文/数字" autocomplete="username">
+        <input id="regUser" type="text" placeholder="登录用，2-20 位中英文/数字" autocomplete="username">
       </label>
       <label class="field">
         <span>密码</span>
@@ -106,10 +110,13 @@
 
       <div id="draftBox" hidden>
         <div class="draft-head">
-          <label class="field inline">
-            <span>题库标题</span>
-            <input id="bankTitle" type="text" placeholder="例如：Unit 1 单词梳理" style="min-width:260px">
-          </label>
+          <div>
+            <div class="draft-title-label" id="draftHeadLabel">新建题库</div>
+            <label class="field inline">
+              <span>题库标题</span>
+              <input id="bankTitle" type="text" placeholder="例如：Unit 1 单词梳理" style="min-width:260px">
+            </label>
+          </div>
           <div class="lib-tools">
             <button id="addRowBtn">新增一条</button>
             <button id="saveBtn" class="primary">发布 / 更新题库</button>

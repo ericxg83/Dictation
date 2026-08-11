@@ -297,6 +297,7 @@ $('#regForm').onsubmit = async ev => {
   msg.textContent = '';
   const role = $('input[name="role"]:checked').value;
   const body = {
+    name: $('#regName').value.trim(),
     username: $('#regUser').value.trim(),
     password: $('#regPwd').value,
     role
@@ -317,7 +318,7 @@ function applyAuth(d) {
   localStorage.setItem(TOKEN_KEY, d.token);
   currentUser = d.user;
   classInfo = d.classInfo;
-  $('#userInfo').textContent = (d.user.role === 'teacher' ? '老师' : '学生') + '：' + d.user.username;
+  $('#userInfo').textContent = (d.user.role === 'teacher' ? '老师' : '学生') + '：' + (d.user.name || d.user.username);
   $('#classBadge').textContent = classInfo ? (d.user.role === 'teacher' ? '班级 ' + classInfo.name + '（' + classInfo.code + '）' : '班级 ' + classInfo.name) : '未加入班级';
   showApp();
   if (currentUser.role === 'teacher') {
@@ -504,16 +505,23 @@ $('#saveBtn').onclick = async () => {
   })).filter(x => x.english || x.chinese);
   if (!rows.length) { alert('题库为空，请先添加内容。'); return; }
   try {
-    await api('/api/bank', { method: 'POST', body: { title: $('#bankTitle').value.trim(), entries: rows } });
-    draft = [];
-    $('#bankTitle').value = '';
-    renderDraft();
-    setStatus('已发布，学生可在「我的题库」中查看。');
+    const title = $('#bankTitle').value.trim();
+    if (editingBankId) {
+      await api('/api/bank/' + editingBankId, { method: 'PUT', body: { title, entries: rows } });
+      resetDraft();
+      setStatus('已保存修改，学生端将看到更新后的题库。');
+    } else {
+      await api('/api/bank', { method: 'POST', body: { title, entries: rows } });
+      resetDraft();
+      setStatus('已发布，学生可在「我的题库」中查看。');
+    }
     loadBanks();
-  } catch (e) { setStatus('发布失败：' + e.message, true); }
+  } catch (e) { setStatus('保存失败：' + e.message, true); }
 };
 
-$('#discardBtn').onclick = () => { draft = []; renderDraft(); setStatus('已放弃草稿。'); };
+$('#discardBtn').onclick = () => { resetDraft(); setStatus('已放弃草稿。'); };
+
+let editingBankId = null; // 正在编辑的题库 id（null = 新建草稿）
 
 async function loadBanks() {
   const d = await api('/api/bank');
@@ -527,17 +535,54 @@ async function loadBanks() {
     const card = document.createElement('div');
     card.className = 'bank-card';
     const time = new Date(b.updatedAt).toLocaleString('zh-CN');
-    card.innerHTML = '' +
-      '<div class="bank-main"><b>' + esc(b.title) + '</b>' +
-      '<span class="bank-meta">' + b.count + ' 条 · 更新于 ' + time + '</span></div>' +
-      '<button class="ghost-btn danger-btn" data-del="' + b.id + '">删除</button>';
-    card.querySelector('[data-del]').onclick = async () => {
+    const btns = document.createElement('div');
+    btns.className = 'bank-btns';
+    const editBtn = document.createElement('button');
+    editBtn.className = 'ghost-btn';
+    editBtn.textContent = '编辑';
+    editBtn.onclick = () => editBank(b);
+    const delBtn = document.createElement('button');
+    delBtn.className = 'ghost-btn danger-btn';
+    delBtn.textContent = '删除';
+    delBtn.onclick = async () => {
       if (!confirm('确定删除题库「' + b.title + '」？学生进度不受影响，但题库将不可再练习。')) return;
       await api('/api/bank/' + b.id, { method: 'DELETE' });
+      if (editingBankId === b.id) resetDraft();
       loadBanks();
     };
+    btns.appendChild(editBtn);
+    btns.appendChild(delBtn);
+    card.appendChild(
+      Object.assign(document.createElement('div'), {
+        className: 'bank-main',
+        innerHTML: '<b>' + esc(b.title) + '</b><span class="bank-meta">' + b.count + ' 条 · 更新于 ' + time + '</span>'
+      })
+    );
+    card.appendChild(btns);
     wrap.appendChild(card);
   });
+}
+
+// 加载已发布题库进入编辑区
+async function editBank(bank) {
+  const d = await api('/api/bank/' + bank.id + '/edit');
+  draft = d.entries.map(e => ({ english: e.english, chinese: e.chinese, pos: e.pos || '', type: e.type || 'word' }));
+  editingBankId = d.bank.id;
+  $('#bankTitle').value = d.bank.title;
+  $('#saveBtn').textContent = '保存修改';
+  $('#draftHeadLabel').textContent = '编辑题库：' + d.bank.title;
+  renderDraft();
+  setStatus('正在编辑已发布题库。修改后点「保存修改」，学生端将看到更新。');
+  $('#draftBox').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function resetDraft() {
+  editingBankId = null;
+  draft = [];
+  $('#bankTitle').value = '';
+  $('#saveBtn').textContent = '发布 / 更新题库';
+  $('#draftHeadLabel').textContent = '新建题库';
+  renderDraft();
 }
 
 // ================= 老师 · 班级学生 =================
@@ -551,14 +596,39 @@ async function loadStudents() {
   wrap.innerHTML = '<div class="empty" style="margin-bottom:12px">班级码：<b>' + esc(classInfo.code) + '</b>（共 ' + d.students.length + ' 名学生）</div>';
   const table = document.createElement('table');
   table.className = 'mini-table';
-  table.innerHTML = '<thead><tr><th>学生</th><th>宠物</th><th>总条目</th><th>已掌握</th><th>待复习</th><th>得分</th><th>最近活跃</th></tr></thead>';
+  table.innerHTML = '<thead><tr><th>学生</th><th>宠物</th><th>总条目</th><th>已掌握</th><th>待复习</th><th>得分</th><th>最近活跃</th><th></th></tr></thead>';
   const tb = document.createElement('tbody');
   d.students.forEach(s => {
     const tr = document.createElement('tr');
     const last = s.lastActive ? new Date(s.lastActive).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '从未练习';
     const dragon = s.pet ? (DRAGON_KINDS.find(k => k.id === s.pet.dragonId) || null) : null;
     const petTxt = dragon ? (dragon.name + (s.pet.name ? '(' + s.pet.name + ')' : '')) : '未领养';
-    tr.innerHTML = '<td>' + esc(s.username) + '</td><td>' + esc(petTxt) + '</td><td>' + s.total + '</td><td>' + s.mastered + '</td><td>' + s.due + '</td><td>' + s.points + '</td><td>' + last + '</td>';
+    const nameTd = document.createElement('td');
+    const nameTxt = s.name && s.name !== s.username ? s.name + '（' + s.username + '）' : (s.name || s.username);
+    nameTd.textContent = nameTxt;
+    const editTd = document.createElement('td');
+    const editBtn = document.createElement('button');
+    editBtn.className = 'ghost-btn';
+    editBtn.textContent = '改名';
+    editBtn.onclick = async () => {
+      const cur = s.name || s.username;
+      const v = prompt('修改「' + cur + '」的姓名：', cur);
+      if (v === null || !v.trim()) return;
+      try {
+        const r = await api('/api/class/student/' + s.id, { method: 'PUT', body: { name: v.trim() } });
+        s.name = r.user.name;
+        loadStudents();
+      } catch (e) { alert(e.message); }
+    };
+    editTd.appendChild(editBtn);
+    tr.appendChild(nameTd);
+    tr.appendChild(Object.assign(document.createElement('td'), { textContent: petTxt }));
+    tr.appendChild(Object.assign(document.createElement('td'), { textContent: s.total }));
+    tr.appendChild(Object.assign(document.createElement('td'), { textContent: s.mastered }));
+    tr.appendChild(Object.assign(document.createElement('td'), { textContent: s.due }));
+    tr.appendChild(Object.assign(document.createElement('td'), { textContent: s.points }));
+    tr.appendChild(Object.assign(document.createElement('td'), { textContent: last }));
+    tr.appendChild(editTd);
     tb.appendChild(tr);
   });
   table.appendChild(tb);
