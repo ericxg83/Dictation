@@ -357,6 +357,113 @@ button.del:hover { background: #FADBDB; transform: scale(1.05); }
   color: var(--text-on-dark);
 }
 #practiceReady h2, #practiceSummary h2 { color: var(--text-on-dark); }
+
+/* ===== 默写数量选择器（chip 形式） ===== */
+.count-picker {
+  margin: 18px auto 16px;
+  max-width: 520px;
+  padding: 14px 16px 12px;
+  background: linear-gradient(180deg, rgba(11, 8, 32, .55), rgba(26, 18, 64, .45));
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  text-align: center;
+  box-shadow: inset 0 0 24px rgba(139, 92, 246, .08);
+}
+.count-picker-label {
+  font-size: 13px;
+  color: var(--text-on-dark-2);
+  margin-bottom: 10px;
+  font-weight: 700;
+  letter-spacing: .5px;
+}
+.count-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+}
+.count-chip {
+  background: rgba(124, 58, 237, .14);
+  border: 1px solid rgba(167, 139, 250, .32);
+  color: var(--text-on-dark-2);
+  padding: 8px 16px;
+  border-radius: 99px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform .15s, background .2s, border-color .2s, color .2s, box-shadow .2s;
+  min-width: 60px;
+  font-family: var(--font);
+  user-select: none;
+}
+.count-chip:hover:not([hidden]):not(.sel) {
+  background: rgba(124, 58, 237, .28);
+  border-color: rgba(167, 139, 250, .55);
+  color: #fff;
+  transform: translateY(-1px);
+}
+.count-chip:active:not([hidden]) {
+  transform: scale(.95);
+}
+.count-chip.sel {
+  background: var(--gradient-brand);
+  border-color: transparent;
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(124, 58, 237, .5);
+}
+.count-chip[hidden] { display: none !important; }
+.count-custom {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.count-custom input {
+  width: 130px;
+  padding: 9px 12px;
+  background: rgba(11, 8, 32, .75);
+  border: 1.5px solid var(--line);
+  border-radius: 12px;
+  color: var(--text-on-dark);
+  font-size: 16px;
+  font-weight: 700;
+  text-align: center;
+  font-family: var(--font);
+  -moz-appearance: textfield;
+  transition: border-color .2s, box-shadow .2s;
+}
+.count-custom input::-webkit-outer-spin-button,
+.count-custom input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.count-custom input:focus {
+  outline: none;
+  border-color: var(--brand-2);
+  box-shadow: 0 0 0 3px rgba(168, 85, 247, .25);
+}
+.count-custom input.invalid {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 3px rgba(244, 63, 94, .2);
+  animation: countShake .3s;
+}
+.count-custom span {
+  color: var(--text-on-dark-2);
+  font-size: 14px;
+  font-weight: 600;
+}
+.count-picker-tip {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--text-on-dark-3);
+  letter-spacing: .3px;
+}
+@keyframes countShake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
 #practiceCard {
   background: rgba(26, 18, 64, .85); backdrop-filter: blur(12px);
   border: 1px solid var(--line);
@@ -1422,6 +1529,9 @@ button:active::after, .primary:active::after, .ghost-btn:active::after, .header-
   /* ===== 学生 · 默写卡（核心移动端体验） ===== */
   #practiceCard { padding: 22px 16px 16px; }
   #practiceReady, #practiceSummary { padding: 28px 18px; }
+  .count-picker { padding: 12px 12px 10px; border-radius: 14px; }
+  .count-chip { padding: 7px 14px; font-size: 13px; min-width: 52px; }
+  .count-custom input { width: 110px; padding: 8px 10px; font-size: 15px; }
   .dict-center { max-width: 100%; }
   .card-top { gap: 6px; }
   .type-tag, .score-pill, .remain-pill { padding: 5px 12px; font-size: 12px; }

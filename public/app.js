@@ -888,17 +888,60 @@ function playWarn() {
   tone(320, 0, 0.1, 'square', 0.12);
   haptic(8);
 }
+// ===== 语音合成：预热声纹列表，避免首次朗读卡顿 =====
+let _voicesReady = false;
+let _enVoice = null;
+function _pickEnVoice(voices) {
+  if (!voices || !voices.length) return null;
+  // 优先选 en-US，其次任何 en-*，最后兜底第一个
+  return voices.find(v => /^en[-_]US/i.test(v.lang))
+      || voices.find(v => /^en/i.test(v.lang))
+      || voices[0];
+}
+function _loadVoices() {
+  if (!('speechSynthesis' in window)) return;
+  const voices = speechSynthesis.getVoices();
+  if (voices && voices.length) {
+    _enVoice = _pickEnVoice(voices);
+    _voicesReady = true;
+  }
+}
+if ('speechSynthesis' in window) {
+  _loadVoices();
+  speechSynthesis.addEventListener?.('voiceschanged', _loadVoices);
+  // 兼容老写法
+  speechSynthesis.onvoiceschanged = _loadVoices;
+}
 function speak(text) {
   if (!('speechSynthesis' in window)) return;
+  // 首次未就绪时再尝试取一次（部分浏览器 voiceschanged 不触发）
+  if (!_voicesReady) _loadVoices();
   speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance(text);
-  u.lang = 'en-US';
-  u.rate = 0.9;
-  u.onstart = () => waveStart();
-  u.onend = () => waveStop();
-  u.onerror = () => waveStop();
-  speechSynthesis.speak(u);
+  // 极短的延时让 cancel 完成，避免在某些浏览器上 cancel 与 speak 冲突
+  setTimeout(() => {
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-US';
+    if (_enVoice) u.voice = _enVoice;
+    u.rate = 0.9;
+    u.onstart = () => waveStart();
+    u.onend = () => waveStop();
+    u.onerror = () => waveStop();
+    speechSynthesis.speak(u);
+  }, 30);
 }
+// 首次用户交互时静默播一个空字符，解锁 iOS Safari 等需要手势激发的浏览器
+let _speechUnlocked = false;
+function _unlockSpeech() {
+  if (_speechUnlocked || !('speechSynthesis' in window)) return;
+  _speechUnlocked = true;
+  try {
+    const u = new SpeechSynthesisUtterance(' ');
+    u.volume = 0;
+    speechSynthesis.speak(u);
+  } catch (e) {}
+}
+document.addEventListener('click', _unlockSpeech, { once: true });
+document.addEventListener('touchstart', _unlockSpeech, { once: true, passive: true });
 
 // ===== 朗读声纹动画 =====
 let _waveTimer = null;
@@ -1385,7 +1428,10 @@ async function prepareToday() {
   $('#dueBanner').hidden = d.dueCount <= 0;
   document.title = d.dueCount > 0 ? '英语默写（待复习 ' + d.dueCount + '）' : '英语默写助手';
   if (session) return;
-  preparePractice(null, '今日练习', '今天待复习 <b>' + d.dueCount + '</b> 项（题库共 ' + d.total + ' 项）');
+  // 优先用今日待复习作为默写列表，方便选择器展示最大可默写数；
+  // 待复习为 0 时传 null，仍走旧的 startPractice(false) 兜底流程
+  const items = (d.dueCount > 0 && Array.isArray(d.items) && d.items.length) ? d.items : null;
+  preparePractice(items, '今日练习', '今天待复习 <b>' + d.dueCount + '</b> 项（题库共 ' + d.total + ' 项）');
 }
 
 $('#dueGoBtn').onclick = () => { switchView('practice'); startPractice(false); };
@@ -1397,12 +1443,135 @@ function preparePractice(items, title, sub) {
   $('#practiceCard').hidden = true;
   $('#practiceTitle').textContent = title || '今日练习';
   $('#practiceSub').innerHTML = sub || '';
-  if (items) {
-    // 每次点击「开始」都重新洗牌，避免每次都是同一顺序
-    $('#startBtn').onclick = () => startPracticeFrom(shuffle(items));
+  if (items && items.length) {
+    renderCountPicker(items.length);
+    $('#startBtn').onclick = () => {
+      // 自定义模式：实时读 input 的最新值
+      let useCount = _pickCount;
+      if (useCount === -1) {
+        const inp = $('#countCustomInput');
+        const v = inp ? parseInt(inp.value, 10) : NaN;
+        if (v >= 10 && v <= _maxCount) useCount = v;
+        else if (v >= 10) useCount = _maxCount;
+        else {
+          // 无效输入：轻微提示，回退到「全部」
+          if (inp) {
+            inp.classList.add('invalid');
+            setTimeout(() => inp.classList.remove('invalid'), 600);
+          }
+          toast('请输入至少 10 个');
+          useCount = 0;
+        }
+      }
+      const useItems = sliceItems(items, useCount);
+      startPracticeFrom(shuffle(useItems));
+    };
   } else {
+    renderCountPicker(0); // 隐藏选择器
     $('#startBtn').onclick = () => startPractice(false);
   }
+}
+
+// ================= 默写数量选择器 =================
+let _pickCount = 0;   // 0 = 全部；-1 = 自定义（待输入）；>0 = 具体数量
+let _maxCount = 0;    // 本次可默写的最大数量
+
+function renderCountPicker(maxCount) {
+  _maxCount = maxCount;
+  const wrap = $('#countPicker');
+  if (!wrap) return;
+  if (!maxCount || maxCount <= 0) { wrap.hidden = true; return; }
+  wrap.hidden = false;
+  const chips = $$('.count-chip');
+  // 总数不足 10 时只显示「全部」（保持最小 10 个的约束）
+  if (maxCount < 10) {
+    chips.forEach(c => { c.hidden = c.dataset.count !== '0'; });
+    _pickCount = 0;
+  } else {
+    chips.forEach(c => {
+      const v = parseInt(c.dataset.count, 10);
+      c.hidden = v !== 0 && v > maxCount;
+    });
+    // 自适应：之前选中的数 > maxCount 时回退到「全部」
+    if (_pickCount > maxCount || (_pickCount < -1)) _pickCount = 0;
+  }
+  // 标记选中：-1 和「非预设值」都归属「自定义」chip
+  chips.forEach(c => {
+    const v = parseInt(c.dataset.count, 10);
+    let isSel = false;
+    if (v === -1) isSel = _pickCount === -1;
+    else isSel = v === _pickCount;
+    c.classList.toggle('sel', isSel);
+  });
+  // 自定义输入框状态
+  const customDiv = $('#countCustom');
+  if (_pickCount === -1) {
+    customDiv.hidden = false;
+    const inp = $('#countCustomInput');
+    inp.max = maxCount;
+    if (!inp.value || parseInt(inp.value, 10) < 10) {
+      inp.value = Math.min(20, maxCount);
+    }
+  } else {
+    customDiv.hidden = true;
+    const inp = $('#countCustomInput');
+    if (inp) inp.classList.remove('invalid');
+  }
+}
+
+// 事件委托：避免每次 renderCountPicker 都重新绑定
+const _countChips = $('#countChips');
+if (_countChips) {
+  _countChips.addEventListener('click', e => {
+    const chip = e.target.closest('.count-chip');
+    if (!chip || chip.hidden) return;
+    const v = parseInt(chip.dataset.count, 10);
+    if (v === -1) {
+      _pickCount = -1;
+      renderCountPicker(_maxCount);
+      setTimeout(() => {
+        const inp = $('#countCustomInput');
+        if (inp) { inp.focus(); inp.select(); }
+      }, 60);
+      haptic(8);
+    } else {
+      _pickCount = v;
+      renderCountPicker(_maxCount);
+      haptic(8);
+    }
+  });
+}
+const _countCustomInput = $('#countCustomInput');
+if (_countCustomInput) {
+  _countCustomInput.addEventListener('input', e => {
+    const inp = e.target;
+    let v = parseInt(inp.value, 10);
+    if (isNaN(v) || v < 10) {
+      inp.classList.add('invalid');
+      // 仍保留 -1 标记，保持自定义 chip 选中
+      _pickCount = -1;
+      return;
+    }
+    if (v > _maxCount) { inp.value = _maxCount; v = _maxCount; }
+    inp.classList.remove('invalid');
+    _pickCount = v;
+  });
+  // 失焦时若输入合法则同步到 _pickCount（兜底）
+  _countCustomInput.addEventListener('change', e => {
+    let v = parseInt(e.target.value, 10);
+    if (!isNaN(v) && v >= 10) {
+      if (v > _maxCount) { e.target.value = _maxCount; v = _maxCount; }
+      _pickCount = v;
+      e.target.classList.remove('invalid');
+    }
+  });
+}
+
+// 根据 _pickCount 截取默写列表；0 / 越界 / 负数都返回原数组（默写全部）
+function sliceItems(items, count) {
+  if (!Array.isArray(items) || !items.length) return items;
+  if (!count || count <= 0 || count >= items.length) return items;
+  return items.slice(0, count);
 }
 
 async function startPractice(force) {
@@ -1423,8 +1592,17 @@ async function startPractice(force) {
     alert('题库为空或没有到期内容，请等待老师发布题库。');
     return;
   }
+  // 应用数量选择：「再练一轮」时复用最近一次选择（含自定义值）
+  let useCount = _pickCount;
+  if (useCount === -1) {
+    const inp = $('#countCustomInput');
+    const v = inp ? parseInt(inp.value, 10) : NaN;
+    if (v >= 10 && v <= items.length) useCount = v;
+    else if (v >= 10) useCount = items.length;
+    else useCount = 0;
+  }
   // 今日练习走 force 路径时也要洗牌
-  startPracticeFrom(shuffle(items));
+  startPracticeFrom(shuffle(sliceItems(items, useCount)));
 }
 
 function startPracticeFrom(items) {

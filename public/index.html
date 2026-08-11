@@ -184,6 +184,22 @@
       <div id="practiceReady">
         <h2 id="practiceTitle">今日练习</h2>
         <p class="sub" id="practiceSub"></p>
+        <div id="countPicker" class="count-picker" hidden>
+          <div class="count-picker-label">📝 选择默写数量</div>
+          <div class="count-chips" id="countChips">
+            <button class="count-chip sel" data-count="0" type="button">全部</button>
+            <button class="count-chip" data-count="10" type="button">10</button>
+            <button class="count-chip" data-count="20" type="button">20</button>
+            <button class="count-chip" data-count="30" type="button">30</button>
+            <button class="count-chip" data-count="50" type="button">50</button>
+            <button class="count-chip" data-count="-1" type="button">自定义</button>
+          </div>
+          <div class="count-custom" id="countCustom" hidden>
+            <input type="number" id="countCustomInput" min="10" max="999" placeholder="至少 10 个" inputmode="numeric">
+            <span>个</span>
+          </div>
+          <div class="count-picker-tip" id="countPickerTip">默写时随机抽取 · 至少 10 个</div>
+        </div>
         <button id="startBtn" class="primary big">开始练习</button>
         <div class="hint">答对得 1 分，答错不扣分。答错时本词会卡住并响起提示音，正确答案闪现几秒后消失，然后重新默写本词，写对才进入下一词。输入过程中会自动检测，拼写正确自动通过。</div>
         <div class="hint small">复习节奏：5 分钟 → 30 分钟 → 12 小时 → 1 天 → 2 天 → 4 天 → 7 天 → 15 天 → 30 天</div>
