@@ -389,6 +389,17 @@ button.del:hover { background: #FADBDB; }
   background: #7A5B00; color: #fff; border-radius: 99px; padding: 2px 12px;
   font-size: 15px; font-variant-numeric: tabular-nums;
 }
+.live-banner.ended {
+  background: linear-gradient(120deg, #F2F4F8, #E8ECF3); color: #5C6B85;
+  border-color: #D8DEEA;
+  animation: liveBannerFade 5s ease forwards;
+}
+.live-banner.ended b { background: #5C6B85; }
+@keyframes liveBannerFade {
+  0% { opacity: 0; transform: translateY(-6px); }
+  10%, 80% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-4px); }
+}
 #cornerPet {
   position: fixed; right: 18px; bottom: 14px; z-index: 60;
   display: flex; flex-direction: column; align-items: center; gap: 2px;

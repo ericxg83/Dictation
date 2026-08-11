@@ -847,6 +847,9 @@ app.get('/api/live', requireAuth, async (req, res) => {
   if (!bd) return res.json({ active: false, remaining: 0, ended: false });
   const elapsed = Math.floor((Date.now() - bd.session.startedAt) / 1000);
   const remaining = Math.max(0, bd.session.minutes * 60 - elapsed);
+  // 已超时但还没手动结束 → 视为已结束（避免学生端一直显示"时间到"）
+  const timedOut = !bd.session.ended && remaining <= 0;
+  if (timedOut) bd.session.ended = true;
   res.json({ active: !bd.session.ended && remaining > 0, remaining, ended: bd.session.ended });
 });
 // 老师大屏：全班实时状态

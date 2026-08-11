@@ -811,23 +811,48 @@ function throttleLiveReport() {
 
 // ================= 学生 · 倒计时横幅 =================
 let _liveClockTimer = null;
+let _liveBannerHideTimer = null;
 function studentLiveClock() {
   const banner = $('#liveBanner');
   if (!banner) return;
-  if (currentUser.role !== 'student' || $('#view-practice').hidden) { banner.hidden = true; return; }
+  // 切到非练习页时，强制隐藏并清掉自动隐藏定时器
+  if (currentUser.role !== 'student' || $('#view-practice').hidden) {
+    banner.hidden = true;
+    if (_liveBannerHideTimer) { clearTimeout(_liveBannerHideTimer); _liveBannerHideTimer = null; }
+    return;
+  }
   api('/api/live').then(d => {
     if (d.active) {
+      // 老师正在开启的默写 → 显示倒计时
+      if (_liveBannerHideTimer) { clearTimeout(_liveBannerHideTimer); _liveBannerHideTimer = null; }
       banner.hidden = false;
       $('#liveBannerText').textContent = '老师已开启默写';
       $('#liveBannerClock').textContent = fmtClock(d.remaining);
-    } else if (d.ended || d.remaining <= 0) {
+      // 给倒计时一个强调色
+      banner.classList.remove('ended');
+    } else if (d.ended) {
+      // 已结束（老师手动结束 / 自然超时）：显示一次，5 秒后自动隐藏
       banner.hidden = false;
-      $('#liveBannerText').textContent = d.ended ? '默写已结束' : '默写时间到！';
+      $('#liveBannerText').textContent = '默写已结束';
       $('#liveBannerClock').textContent = '00:00';
+      banner.classList.add('ended');
+      if (!_liveBannerHideTimer) {
+        _liveBannerHideTimer = setTimeout(() => {
+          banner.hidden = true;
+          banner.classList.remove('ended');
+          _liveBannerHideTimer = null;
+        }, 5000);
+      }
     } else {
+      // 没有活动 session 也不处于"刚结束"状态 → 隐藏
       banner.hidden = true;
+      banner.classList.remove('ended');
+      if (_liveBannerHideTimer) { clearTimeout(_liveBannerHideTimer); _liveBannerHideTimer = null; }
     }
-  }).catch(() => { banner.hidden = true; });
+  }).catch(() => {
+    banner.hidden = true;
+    banner.classList.remove('ended');
+  });
 }
 setInterval(studentLiveClock, 1000);
 setInterval(throttleLiveReport, 1000);
