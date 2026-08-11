@@ -1340,16 +1340,23 @@ function resetCombo() {
   }
   _combo = 0;
   const badge = $('#comboBadge');
-  if (badge) badge.classList.remove('show');
+  if (badge) {
+    badge.classList.remove('show');
+    setTimeout(() => { badge.hidden = true; }, 300);
+  }
 }
 function showComboFlash(n) {
   const el = $('#comboFlash');
   if (!el) return;
   el.textContent = n + ' COMBO!';
+  el.hidden = false;
   el.classList.remove('show');
   void el.offsetWidth;
   el.classList.add('show');
-  setTimeout(() => el.classList.remove('show'), 1100);
+  setTimeout(() => {
+    el.classList.remove('show');
+    setTimeout(() => { el.hidden = true; }, 200);
+  }, 1100);
 }
 let _achT = null;
 function showAchievement(title, desc) {
@@ -1357,11 +1364,15 @@ function showAchievement(title, desc) {
   if (!el) return;
   $('#achievementTitle').textContent = title;
   $('#achievementDesc').textContent = desc;
+  el.hidden = false;
   el.classList.remove('show');
   void el.offsetWidth;
   el.classList.add('show');
   if (_achT) clearTimeout(_achT);
-  _achT = setTimeout(() => el.classList.remove('show'), 2800);
+  _achT = setTimeout(() => {
+    el.classList.remove('show');
+    setTimeout(() => { el.hidden = true; }, 500);  // 等待动画结束再隐藏
+  }, 2800);
   haptic([20, 60, 20]);
 }
 
