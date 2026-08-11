@@ -1249,7 +1249,7 @@ $('#liveFullBtn').onclick = () => {
 // ================= 学生 · 大屏自动上报 =================
 let _liveReportTick = 0;
 function liveStatus() {
-  if (currentUser.role !== 'student') return;
+  if (!currentUser || currentUser.role !== 'student') return;
   const word = session && session.current ? session.current.chinese : '';
   const answer = session && session.current ? session.current.english : '';
   const typedLen = session && !session.locked ? String($('#answerInput').value).replace(/\s+/g, '').length : 0;
@@ -1527,6 +1527,7 @@ function buildLetterBox() {
 
 // 把当前输入渲染进字母格子；错字母标红并提示音；词组/句子自动补空格
 function renderLetterCells(inputVal) {
+  if (!session) return;
   const cells = session.letterCells || [];
   const exp = session.expLetters || '';
   const typed = String(inputVal || '').replace(/\s+/g, '');

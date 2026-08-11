@@ -428,16 +428,16 @@ button.del:hover { background: #FADBDB; transform: scale(1.05); }
   box-shadow: 0 0 0 4px rgba(139, 92, 246, .25), inset 0 0 30px rgba(139, 92, 246, .2);
   background: linear-gradient(180deg, rgba(11, 8, 32, .8), rgba(26, 18, 64, .7));
 }
-/* 字母格子：圆角胶囊 + 醒目渐变下划线 */
+/* 字母格子：去掉边框只保留下划线 */
 .l-cell {
   width: 32px; height: 46px;
   display: flex; align-items: center; justify-content: center;
   font-size: 26px; font-weight: 800; color: var(--text-on-dark); text-transform: lowercase;
   transition: transform .12s, background .12s, box-shadow .12s;
-  background: linear-gradient(180deg, rgba(45, 27, 92, .85), rgba(26, 18, 64, .85));
+  background: transparent;
   border-radius: 10px;
-  border: 1.5px solid rgba(167, 139, 250, .25);
-  box-shadow: inset 0 -3px 0 rgba(167, 139, 250, .25);
+  border: none;
+  box-shadow: none;
   position: relative;
 }
 .l-cell::after {
@@ -451,8 +451,8 @@ button.del:hover { background: #FADBDB; transform: scale(1.05); }
 }
 /* 已填入字母的格子：下划线变粗变亮 */
 .l-cell.filled {
-  background: linear-gradient(180deg, rgba(99, 102, 241, .35), rgba(139, 92, 246, .25));
-  border-color: rgba(196, 181, 253, .55);
+  background: transparent;
+  border: none;
   color: #fff;
   text-shadow: 0 0 12px rgba(196, 181, 253, .7);
 }
@@ -463,8 +463,8 @@ button.del:hover { background: #FADBDB; transform: scale(1.05); }
 }
 /* 输错：整格变红，下划线变红 */
 .l-cell.wrong {
-  background: linear-gradient(180deg, rgba(251, 113, 133, .35), rgba(190, 18, 60, .3));
-  border-color: rgba(251, 113, 133, .7);
+  background: transparent;
+  border: none;
   color: #FECDD3;
   text-shadow: 0 0 10px rgba(251, 113, 133, .55);
   animation: cellShake .3s;
@@ -475,8 +475,8 @@ button.del:hover { background: #FADBDB; transform: scale(1.05); }
 }
 /* 当前应填入的位置：脉冲提示 */
 .l-cell.current {
-  border-color: #A78BFA;
-  box-shadow: 0 0 0 2px rgba(167, 139, 250, .35), 0 0 14px rgba(167, 139, 250, .5), inset 0 -3px 0 rgba(167, 139, 250, .25);
+  border: none;
+  box-shadow: none;
   transform: translateY(-1px);
   animation: cellPulse 1.2s ease-in-out infinite;
 }
@@ -491,8 +491,8 @@ button.del:hover { background: #FADBDB; transform: scale(1.05); }
   25% { transform: translateX(-4px) } 75% { transform: translateX(4px) }
 }
 @keyframes cellPulse {
-  0%,100% { box-shadow: 0 0 0 2px rgba(167, 139, 250, .25), 0 0 12px rgba(167, 139, 250, .35), inset 0 -3px 0 rgba(167, 139, 250, .25); }
-  50% { box-shadow: 0 0 0 3px rgba(167, 139, 250, .55), 0 0 22px rgba(167, 139, 250, .65), inset 0 -3px 0 rgba(167, 139, 250, .35); }
+  0%,100% { transform: translateY(-1px); }
+  50% { transform: translateY(-3px); }
 }
 @keyframes underPulse {
   0%,100% { opacity: .85; }
@@ -502,6 +502,7 @@ button.del:hover { background: #FADBDB; transform: scale(1.05); }
   position: absolute; top: 0; left: 0; width: 100%; height: 100%;
   opacity: 0; border: none; background: transparent; outline: none; font-size: 24px;
   color: transparent; caret-color: transparent;
+  z-index: 10; pointer-events: auto; cursor: text;
 }
 #answerInput:disabled { cursor: not-allowed; }
 .answer-row input::placeholder { color: transparent; }
