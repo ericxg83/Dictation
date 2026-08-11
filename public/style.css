@@ -520,3 +520,21 @@ table { border-collapse: collapse; width: 100%; }
   .corner-pet-emoji { width: 62px; height: 62px; }
   #cornerPet .dragon-svg { width: 62px; height: 62px; }
 }
+
+/* ===== 沉浸式默写（手机端） ===== */
+body.immersive { background: #fff; }
+body.immersive header,
+body.immersive nav,
+body.immersive #dueBanner,
+body.immersive #cornerPet { display: none !important; }
+body.immersive main { max-width: none; padding: 0; margin: 0; }
+body.immersive #view-practice { min-height: 100dvh; display: flex; align-items: center; justify-content: center; }
+body.immersive .dict-center { width: 100%; max-width: 560px; padding: 18px; }
+body.immersive #liveBanner { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); margin: 0; z-index: 60; }
+.exit-full-btn {
+  position: fixed; top: 14px; left: 14px; z-index: 120;
+  width: 40px; height: 40px; border-radius: 50%;
+  background: rgba(36,48,74,.55); color: #fff; border: none;
+  font-size: 18px; line-height: 1; cursor: pointer; box-shadow: var(--shadow);
+}
+.exit-full-btn:hover { background: rgba(36,48,74,.75); }

@@ -375,11 +375,6 @@ function switchView(name) {
 }
 $$('nav button').forEach(b => b.onclick = () => switchView(b.dataset.view));
 
-function showPracticeView() {
-  $$('.view').forEach(v => v.hidden = v.id !== 'view-practice');
-  Array.from($('#studentNav').querySelectorAll('button')).forEach(b => b.classList.toggle('active', b.dataset.view === 'practice'));
-}
-
 // ================= 声音 =================
 let actx = null;
 function ac() {
@@ -1033,6 +1028,28 @@ function viewAnswer() {
   checking = false;
 }
 
+// 手机端「偷看答案」按钮 = 直接查看答案，视为答错一次
+$('#peekBtn').onclick = () => viewAnswer();
+
+// ===== 沉浸式默写：进入练习时隐藏顶部导航，聚焦卡片 =====
+function enterImmersive() {
+  document.body.classList.add('immersive');
+  $('#exitFullBtn').hidden = false;
+}
+function exitImmersive() {
+  document.body.classList.remove('immersive');
+  $('#exitFullBtn').hidden = true;
+}
+$('#exitFullBtn').onclick = () => {
+  if (!session) return;
+  endSession();
+};
+function showPracticeView() {
+  $$('.view').forEach(v => v.hidden = v.id !== 'view-practice');
+  Array.from($('#studentNav').querySelectorAll('button')).forEach(b => b.classList.toggle('active', b.dataset.view === 'practice'));
+  enterImmersive();
+}
+
 // 正确时的游戏特效：分数飘升 + 星星
 function fxCorrect() {
   renderCornerPet();
@@ -1080,6 +1097,7 @@ $('#endBtn').onclick = endSession;
 
 async function endSession() {
   if (!session) return;
+  exitImmersive();
   try { await api('/api/sessionEnd', { method: 'POST' }); } catch (e) {}
   const s = session;
   const bank = currentBank;
