@@ -920,7 +920,8 @@ function preparePractice(items, title, sub) {
   $('#practiceTitle').textContent = title || '今日练习';
   $('#practiceSub').innerHTML = sub || '';
   if (items) {
-    $('#startBtn').onclick = () => startPracticeFrom(items.slice());
+    // 每次点击「开始」都重新洗牌，避免每次都是同一顺序
+    $('#startBtn').onclick = () => startPracticeFrom(shuffle(items));
   } else {
     $('#startBtn').onclick = () => startPractice(false);
   }
@@ -944,12 +945,14 @@ async function startPractice(force) {
     alert('题库为空或没有到期内容，请等待老师发布题库。');
     return;
   }
-  startPracticeFrom(items);
+  // 今日练习走 force 路径时也要洗牌
+  startPracticeFrom(shuffle(items));
 }
 
 function startPracticeFrom(items) {
+  // items 进来时已经被 shuffle；这里不再洗，保证「再练一轮」也能复用同一乱序队列
   session = {
-    queue: items.slice().map(it => Object.assign({}, it, { missCount: 0 })),
+    queue: items.map(it => Object.assign({}, it, { missCount: 0 })),
     score: 0, wrong: 0, total: items.length,
     locked: false, flashTimer: null
   };
@@ -962,6 +965,16 @@ function startPracticeFrom(items) {
 
 $('#againBtn').onclick = () => startPractice(true);
 $('#backBanksBtn').onclick = () => { if (currentUser.role === 'student') switchView('student-banks'); };
+
+// Fisher-Yates 洗牌：把数组乱序。默写内容应该乱序出现，避免学生按顺序记忆。
+function shuffle(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
 
 function typeLabel(t) { return ({ word: '单词', phrase: '词组', sentence: '句子' }[t]) || '单词'; }
 
