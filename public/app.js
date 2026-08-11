@@ -951,6 +951,7 @@ async function startPractice(force) {
 
 function startPracticeFrom(items) {
   // items 进来时已经被 shuffle；这里不再洗，保证「再练一轮」也能复用同一乱序队列
+  _skippedCount = 0;
   session = {
     queue: items.map(it => Object.assign({}, it, { missCount: 0 })),
     score: 0, wrong: 0, total: items.length,
@@ -1206,6 +1207,32 @@ function viewAnswer() {
 // 手机端「偷看答案」按钮 = 直接查看答案，视为答错一次
 $('#peekBtn').onclick = () => viewAnswer();
 
+// 跳过当前单词：把单词插到队列中一个偏后的随机位置（不是队尾，避免按固定顺序回来）
+// 也不算对/错，只是"稍后再来"
+let _skippedCount = 0;
+function skipCurrent() {
+  if (!session || !session.current) return;
+  if (session.locked && session.flashTimer) return; // 闪现答案时不允许跳过
+  if (checking) return;
+  const cur = session.queue.shift();
+  if (!cur) return;
+  // 计算插入位置：保证不会立刻又出现（跳过至少 3 个）
+  const minPos = 3;
+  const maxPos = Math.max(minPos, session.queue.length);
+  const pos = minPos + Math.floor(Math.random() * (maxPos - minPos + 1));
+  session.queue.splice(Math.min(pos, session.queue.length), 0, cur);
+  _skippedCount++;
+  haptic(8);
+  $('#feedback').innerHTML = '<div class="fb-skip">已跳过，稍后会再来</div>';
+  $('#practiceCard').classList.remove('ok', 'bad', 'flash', 'shake');
+  $('#practiceCard').classList.add('skip');
+  setTimeout(() => {
+    $('#practiceCard').classList.remove('skip');
+    showNext();
+  }, 350);
+}
+$('#skipBtn').onclick = () => skipCurrent();
+
 // ===== 沉浸式默写：进入练习时隐藏顶部导航，聚焦卡片 =====
 function enterImmersive() {
   document.body.classList.add('immersive');
@@ -1361,6 +1388,7 @@ function toast(msg, ms) {
 $('#answerInput').addEventListener('keydown', e => {
   if (e.altKey && (e.key === 'r' || e.key === 'R')) { e.preventDefault(); if (session && session.current) speak(session.current.english); return; }
   if (e.altKey && (e.key === 'v' || e.key === 'V')) { e.preventDefault(); viewAnswer(); return; }
+  if (e.key === 'Escape') { e.preventDefault(); skipCurrent(); return; }
   if (e.key === 'Enter') {
     e.preventDefault();
     // 遇到错误字母：回车撤销（删除）最后一个字符；输入正确时再提交
@@ -1423,12 +1451,15 @@ async function endSession() {
   try { await api('/api/sessionEnd', { method: 'POST' }); } catch (e) {}
   const s = session;
   const bank = currentBank;
+  const skipped = _skippedCount;
+  _skippedCount = 0;
   session = null;
   checking = false;
   $('#practiceCard').hidden = true;
   $('#practiceSummary').hidden = false;
   $('#sumScore').textContent = s.score;
   $('#sumTotal').textContent = s.total;
+  $('#sumSkip').textContent = skipped;
   $('#sumWrong').textContent = s.wrong;
   $('#sumWrongList').innerHTML = s.wrong
     ? '<p>本轮出错的题目已按艾宾浩斯记忆法安排复习，明天记得再来！</p>'

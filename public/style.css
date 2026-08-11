@@ -289,14 +289,16 @@ button.del:hover { background: #FADBDB; }
   border-radius: 5px; padding: 1px 6px; font-size: 11px; color: var(--ink-2);
 }
 #feedback { margin-top: 16px; font-size: 16px; min-height: 30px; }
-.fb-ok, .fb-bad, .fb-flash { display: inline-block; padding: 10px 20px; border-radius: 12px; font-weight: 700; }
+.fb-ok, .fb-bad, .fb-flash, .fb-skip { display: inline-block; padding: 10px 20px; border-radius: 12px; font-weight: 700; }
 .fb-ok { color: var(--success); background: var(--success-soft); }
 .fb-bad { color: var(--danger); background: var(--danger-soft); }
 .fb-flash { color: #7A5B00; background: #FFF3D6; border: 1.5px solid #F0C96B; animation: fbFlash 1s ease infinite alternate; }
+.fb-skip { color: #5C6B85; background: #EEF1F6; border: 1.5px solid #D8DEEA; }
 @keyframes fbFlash { from { box-shadow: 0 0 0 0 rgba(255,180,0,.4) } to { box-shadow: 0 0 0 10px rgba(255,180,0,0) } }
 #practiceCard.ok { box-shadow: var(--shadow), 0 0 0 3px #7ED3A6; }
 #practiceCard.bad { box-shadow: var(--shadow), 0 0 0 3px #F5A3A5; }
 #practiceCard.flash { box-shadow: var(--shadow), 0 0 0 3px #F0C96B; }
+#practiceCard.skip { box-shadow: var(--shadow), 0 0 0 3px #C8D0DE; transition: box-shadow .2s; }
 #practiceCard.shake { animation: cardShake .4s ease; }
 @keyframes cardShake {
   0%,100% { transform: translateX(0) }

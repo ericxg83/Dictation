@@ -208,10 +208,11 @@
           </div>
           <div class="actions">
             <button id="checkBtn" class="primary">检查 (Enter)</button>
+            <button id="skipBtn" class="ghost-btn">跳过 (Esc)</button>
             <button id="peekBtn" class="ghost-btn">偷看答案</button>
             <button id="endBtn">结束练习</button>
           </div>
-          <div class="shortcuts"><kbd>偷看</kbd> 视为答错一次 · <kbd>Alt+R</kbd> 朗读 · <kbd>Enter</kbd> 检查</div>
+          <div class="shortcuts"><kbd>偷看</kbd> 视为答错一次 · <kbd>跳过</kbd> 稍后再来 · <kbd>Alt+R</kbd> 朗读 · <kbd>Enter</kbd> 检查</div>
           <div id="feedback"></div>
         </div>
         <div id="fxLayer"></div>
@@ -222,6 +223,7 @@
         <div class="summary-cards">
           <div class="s-card"><b id="sumScore">0</b><span>得分</span></div>
           <div class="s-card"><b id="sumTotal">0</b><span>本轮题目</span></div>
+          <div class="s-card"><b id="sumSkip">0</b><span>跳过</span></div>
           <div class="s-card"><b id="sumWrong">0</b><span>出错次数</span></div>
         </div>
         <div id="sumWrongList"></div>
