@@ -5,7 +5,7 @@
   "description": "英语默写助手 - 上传PDF/Word自动提取单词词组句子，默写批改+艾宾浩斯记忆法复习",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node --dns-result-order=ipv4first server.js"
   },
   "engines": {
     "node": ">=20"

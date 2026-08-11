@@ -23,7 +23,9 @@ const DB = {
   user: process.env.PGUSER,
   password: process.env.PGPASSWORD,
   database: process.env.PGDATABASE || 'postgres',
-  ssl: { rejectUnauthorized: false }
+  ssl: { rejectUnauthorized: false },
+  // 某些托管环境（如 Render）IPv6 不可达，强制优先 IPv4
+  family: 4
 };
 if (!DB.host || !DB.user || !DB.password) {
   console.error('缺少数据库配置！请在 .env（本地）或 Render 环境变量里设置 PGHOST/PGUSER/PGPASSWORD');
