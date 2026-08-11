@@ -1,55 +1,57 @@
 :root {
-  /* ===== 主色调：靛紫 + 珊瑚橙（中二少年最爱） ===== */
-  --brand: #6366F1;          /* 主色 靛紫 */
-  --brand-2: #8B5CF6;        /* 渐变亮色 紫罗兰 */
-  --brand-3: #A78BFA;        /* 浅紫 */
-  --brand-dark: #4F46E5;     /* 深紫 */
-  --brand-soft: #EEF2FF;     /* 极浅紫 */
-  --accent: #FB7185;         /* 强调色 珊瑚粉 */
-  --accent-2: #F472B6;       /* 粉 */
-  --accent-soft: #FFE4E6;    /* 极浅粉 */
-  --warm: #FB923C;           /* 暖橙 黄铜奖牌 */
-  --warm-soft: #FFEDD5;
-  --success: #06B6D4;        /* 天青 宇宙系 */
-  --success-soft: #CFFAFE;
+  /* ===== 主色调：深紫 + 玫红 + 天青（宇宙三色） ===== */
+  --brand: #7C3AED;          /* 主色 深紫罗兰 */
+  --brand-2: #A855F7;        /* 渐变亮色 紫罗兰 */
+  --brand-3: #C4B5FD;        /* 浅紫 */
+  --brand-dark: #5B21B6;     /* 深紫 */
+  --brand-soft: #2E1065;     /* 极深紫（深底背景） */
+  --accent: #F472B6;         /* 强调色 玫红粉 */
+  --accent-2: #EC4899;       /* 粉 */
+  --accent-soft: #4A1942;    /* 极深玫红（深底背景） */
+  --warm: #F59E0B;           /* 暖橙 奖牌 */
+  --warm-soft: #422006;
+  --success: #22D3EE;        /* 天青 宇宙系 */
+  --success-soft: #0E4759;
   --danger: #F43F5E;         /* 玫红 */
-  --danger-soft: #FFE4E6;
-  --warn: #A78BFA;           /* 淡紫（替代暖橙） */
-  --warn-soft: #EDE9FE;
-  --info: #8B5CF6;           /* 紫（替代青） */
-  --info-soft: #F3E8FF;
-  --ink: #0F172A;            /* 墨黑 */
-  --ink-2: #475569;
-  --ink-3: #94A3B8;
-  --bg: #0B0820;             /* 宇宙深紫黑 */
-  --bg-2: #1A0F2E;           /* 略浅 */
-  --surface: #1A1240;        /* 卡片深色 */
-  --surface-2: #221850;      /* 卡片深色 2 */
-  --line: #2D2461;           /* 紫色描边 */
-  --line-2: #1E1948;
-  --text-on-dark: #F1F0FF;   /* 深底文字 */
+  --danger-soft: #4A1024;
+  --warn: #FBBF24;           /* 暗金（深底可读） */
+  --warn-soft: #422006;
+  --info: #A855F7;           /* 紫 */
+  --info-soft: #2E1065;
+  --ink: #F1F0FF;            /* 深底上为亮色 */
+  --ink-2: #C7C0E8;
+  --ink-3: #8B82B8;
+  --bg: #050010;             /* 宇宙深黑紫 */
+  --bg-2: #0F0524;           /* 略浅 */
+  --surface: #150A2E;        /* 卡片深色 */
+  --surface-2: #1F0E45;      /* 卡片深色 2 */
+  --line: #3B1F75;           /* 紫色描边 */
+  --line-2: #2D1B5C;
+  --text-on-dark: #F5F3FF;   /* 深底文字 */
   --text-on-dark-2: #C7C0E8;
   --text-on-dark-3: #8B82B8;
   --radius-lg: 24px;
   --radius: 16px;
   --radius-sm: 12px;
   --radius-xs: 8px;
-  --shadow: 0 4px 16px rgba(99, 102, 241, .15), 0 1px 3px rgba(0, 0, 0, .3);
-  --shadow-md: 0 8px 24px rgba(99, 102, 241, .25), 0 2px 6px rgba(0, 0, 0, .4);
-  --shadow-lg: 0 20px 50px rgba(99, 102, 241, .35), 0 4px 12px rgba(0, 0, 0, .5);
-  --shadow-xl: 0 30px 80px rgba(99, 102, 241, .5), 0 6px 18px rgba(0, 0, 0, .6);
-  --shadow-glow: 0 0 40px rgba(139, 92, 246, .6);
+  --shadow: 0 4px 16px rgba(124, 58, 237, .25), 0 1px 3px rgba(0, 0, 0, .5);
+  --shadow-md: 0 8px 24px rgba(124, 58, 237, .35), 0 2px 6px rgba(0, 0, 0, .6);
+  --shadow-lg: 0 20px 50px rgba(124, 58, 237, .45), 0 4px 12px rgba(0, 0, 0, .7);
+  --shadow-xl: 0 30px 80px rgba(168, 85, 247, .55), 0 6px 18px rgba(0, 0, 0, .8);
+  --shadow-glow: 0 0 40px rgba(168, 85, 247, .7);
   --font: "PingFang SC", "Microsoft YaHei", -apple-system, BlinkMacSystemFont,
           "Segoe UI", system-ui, "Helvetica Neue", sans-serif;
   --font-display: "PingFang SC", "Microsoft YaHei", -apple-system, BlinkMacSystemFont, sans-serif;
-  --gradient-brand: linear-gradient(135deg, #6366F1 0%, #8B5CF6 50%, #EC4899 100%);
-  --gradient-warm: linear-gradient(135deg, #A78BFA 0%, #EC4899 100%);
-  --gradient-cool: linear-gradient(135deg, #06B6D4 0%, #6366F1 100%);
-  --gradient-mint: linear-gradient(135deg, #06B6D4 0%, #6366F1 100%);
-  --gradient-sunset: linear-gradient(135deg, #8B5CF6 0%, #EC4899 50%, #F59E0B 100%);
-  --gradient-aurora: linear-gradient(135deg, #4338CA 0%, #8B5CF6 25%, #EC4899 75%, #F59E0B 100%);
-  --gradient-cosmos: linear-gradient(135deg, #1A0B2E 0%, #2D1B69 50%, #4C1D95 100%);
-  --gradient-nebula: linear-gradient(135deg, #6D28D9 0%, #DB2777 50%, #F59E0B 100%);
+  /* 渐变：深紫+玫红+天青 三个主色 */
+  --gradient-brand: linear-gradient(135deg, #5B21B6 0%, #7C3AED 50%, #A855F7 100%);
+  --gradient-warm: linear-gradient(135deg, #A855F7 0%, #EC4899 100%);
+  --gradient-cool: linear-gradient(135deg, #22D3EE 0%, #7C3AED 100%);
+  --gradient-mint: linear-gradient(135deg, #22D3EE 0%, #7C3AED 100%);
+  --gradient-sunset: linear-gradient(135deg, #7C3AED 0%, #EC4899 50%, #F472B6 100%);
+  --gradient-aurora: linear-gradient(135deg, #5B21B6 0%, #A855F7 25%, #EC4899 75%, #F472B6 100%);
+  --gradient-cosmos: linear-gradient(135deg, #050010 0%, #1A0B2E 50%, #2D1B69 100%);
+  --gradient-nebula: linear-gradient(135deg, #6D28D9 0%, #DB2777 50%, #F472B6 100%);
+  --gradient-header: linear-gradient(135deg, rgba(91, 33, 182, .85) 0%, rgba(124, 58, 237, .7) 50%, rgba(236, 72, 153, .55) 100%);
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 [hidden] { display: none !important; }
@@ -59,14 +61,14 @@ body {
   color: var(--text-on-dark);
   min-height: 100vh; line-height: 1.65; -webkit-font-smoothing: antialiased;
   background-image:
-    /* 顶部大片星云 */
-    radial-gradient(ellipse 80% 50% at 20% 0%, rgba(139, 92, 246, .25) 0, transparent 60%),
-    radial-gradient(ellipse 60% 40% at 85% 10%, rgba(236, 72, 153, .18) 0, transparent 60%),
-    /* 底部紫雾 */
-    radial-gradient(ellipse 90% 60% at 50% 100%, rgba(67, 56, 202, .3) 0, transparent 60%),
-    radial-gradient(ellipse 50% 50% at 0% 50%, rgba(6, 182, 212, .1) 0, transparent 60%),
+    /* 顶部大片星云（紫+玫红） */
+    radial-gradient(ellipse 80% 50% at 20% 0%, rgba(124, 58, 237, .35) 0, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 85% 10%, rgba(236, 72, 153, .22) 0, transparent 60%),
+    /* 底部深紫雾 */
+    radial-gradient(ellipse 90% 60% at 50% 100%, rgba(91, 33, 182, .35) 0, transparent 60%),
+    radial-gradient(ellipse 50% 50% at 0% 50%, rgba(34, 211, 238, .12) 0, transparent 60%),
     /* 基础渐变 */
-    linear-gradient(180deg, #0B0820 0%, #14092E 50%, #0B0820 100%);
+    linear-gradient(180deg, #050010 0%, #0F0524 50%, #050010 100%);
   background-attachment: fixed;
   position: relative;
 }
@@ -150,27 +152,29 @@ header > * { position: relative; z-index: 1; }
 .header-btn:hover { background: rgba(255,255,255,.35); transform: translateY(-1px); }
 .header-btn:active { transform: translateY(0); }
 
-/* ===== 导航（药丸状 chip tab） ===== */
+/* ===== 导航（药丸状 chip tab：深紫底 + 紫光描边） ===== */
 nav {
   max-width: 1080px; margin: 0 auto; padding: 0 20px;
   display: flex; gap: 8px; margin-top: 18px;
 }
 nav button {
-  background: rgba(26, 18, 64, .6); border: 1.5px solid var(--line); color: var(--text-on-dark-2);
+  background: rgba(31, 14, 69, .7); border: 1.5px solid var(--line); color: var(--text-on-dark-2);
   padding: 10px 22px; border-radius: 99px; cursor: pointer;
   font-size: 14px; font-weight: 700;
   box-shadow: var(--shadow); transition: .2s;
   backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 nav button:hover {
-  color: #fff; border-color: var(--brand-3);
+  color: #fff; border-color: var(--brand-2);
   transform: translateY(-1px);
   box-shadow: var(--shadow-md);
+  background: rgba(91, 33, 182, .35);
 }
 nav button.active {
   background: var(--gradient-brand);
   color: #fff; border-color: transparent;
-  box-shadow: 0 6px 20px rgba(139, 92, 246, .5);
+  box-shadow: 0 6px 20px rgba(168, 85, 247, .55);
   transform: translateY(-1px);
 }
 
