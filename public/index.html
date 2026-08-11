@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>英语默写助手</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ==================== 登录 / 注册 ==================== -->
+<div id="authView">
+  <div class="auth-card">
+    <div class="auth-brand">英语默写助手</div>
+    <p class="auth-slogan">上传题库 · 在线默写 · 科学复习</p>
+    <div class="auth-tabs">
+      <button id="tabLogin" class="active">登录</button>
+      <button id="tabReg">注册</button>
+    </div>
+
+    <!-- 登录 -->
+    <form id="loginForm" class="auth-form">
+      <label class="field">
+        <span>用户名</span>
+        <input id="loginUser" type="text" placeholder="请输入用户名" autocomplete="username">
+      </label>
+      <label class="field">
+        <span>密码</span>
+        <input id="loginPwd" type="password" placeholder="请输入密码" autocomplete="current-password">
+      </label>
+      <button type="submit" class="primary big">登 录</button>
+      <p id="loginMsg" class="auth-msg"></p>
+    </form>
+
+    <!-- 注册 -->
+    <form id="regForm" class="auth-form" hidden>
+      <label class="field">
+        <span>用户名</span>
+        <input id="regUser" type="text" placeholder="2-20 位中英文/数字" autocomplete="username">
+      </label>
+      <label class="field">
+        <span>密码</span>
+        <input id="regPwd" type="password" placeholder="至少 4 位" autocomplete="new-password">
+      </label>
+      <div class="field">
+        <span>我是</span>
+        <div class="role-row">
+          <label><input type="radio" name="role" value="teacher"><b>老师</b>（发布题库）</label>
+          <label><input type="radio" name="role" value="student" checked><b>学生</b>（默写单词）</label>
+        </div>
+      </div>
+      <label class="field" id="fieldClassName" hidden>
+        <span>班级名称</span>
+        <input id="regClass" type="text" placeholder="例如：三年级 A 班（老师创建班级）">
+      </label>
+      <label class="field" id="fieldClassCode">
+        <span>班级码</span>
+        <input id="regCode" type="text" placeholder="向老师索取的 6 位班级码">
+      </label>
+      <button type="submit" class="primary big">注 册</button>
+      <p id="regMsg" class="auth-msg"></p>
+    </form>
+  </div>
+</div>
+
+<!-- ==================== 主应用 ==================== -->
+<div id="appView" hidden>
+  <header>
+    <div class="brand">英语默写助手</div>
+    <div class="userbar">
+      <span id="userInfo" class="user-info"></span>
+      <span id="classBadge" class="class-badge"></span>
+      <button id="logoutBtn" class="header-btn">退出</button>
+    </div>
+  </header>
+
+  <nav id="teacherNav" hidden>
+    <button data-view="teacher-banks" class="active">题库发布</button>
+    <button data-view="teacher-students">班级学生</button>
+    <button data-view="live">大屏显示</button>
+  </nav>
+  <nav id="studentNav" hidden>
+    <button data-view="student-banks" class="active">我的题库</button>
+    <button data-view="practice">今日练习</button>
+    <button data-view="stats">学习统计</button>
+  </nav>
+
+  <div id="dueBanner" hidden>
+    <span id="dueBannerText"></span>
+    <button id="dueGoBtn">立即练习</button>
+  </div>
+
+  <main>
+
+    <!-- 老师 · 题库发布 -->
+    <section id="view-teacher-banks" class="view">
+      <h2>题库发布</h2>
+      <div class="upload-box">
+        <p class="sub">上传 PDF / Word 知识梳理文件，自动提取「英文 + 中文」条目，检查修正后发布给学生。</p>
+        <div class="upload-row">
+          <input type="file" id="fileInput" accept=".pdf,.doc,.docx,.txt">
+          <span id="parseStatus" class="status"></span>
+        </div>
+        <div class="hint small">提示：扫描版（图片）PDF 无法直接提取文字，请先用 OCR 转成文字，或使用 Word 文档。</div>
+      </div>
+
+      <div id="draftBox" hidden>
+        <div class="draft-head">
+          <label class="field inline">
+            <span>题库标题</span>
+            <input id="bankTitle" type="text" placeholder="例如：Unit 1 单词梳理" style="min-width:260px">
+          </label>
+          <div class="lib-tools">
+            <button id="addRowBtn">新增一条</button>
+            <button id="saveBtn" class="primary">发布 / 更新题库</button>
+            <button id="discardBtn" class="ghost-btn">放弃草稿</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table id="libTable">
+            <thead><tr><th>#</th><th>英文</th><th>词性</th><th>中文</th><th>类型</th><th></th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <h3>已发布题库</h3>
+      <div id="bankList" class="bank-list"></div>
+    </section>
+
+    <!-- 老师 · 班级学生 -->
+    <section id="view-teacher-students" class="view">
+      <h2>班级学生</h2>
+      <div id="studentList" class="bank-list"></div>
+    </section>
+
+    <!-- 老师 · 大屏实时看板 -->
+    <section id="view-live" class="view">
+      <h2>默写实时看板</h2>
+      <div class="live-controls">
+        <div class="live-tools">
+          <label>时长 <input id="liveMinutes" type="number" value="10" min="1" max="60"> 分钟</label>
+          <button id="liveStartBtn" class="primary">开始默写</button>
+          <button id="liveStopBtn" class="ghost-btn danger-btn">结束</button>
+          <button id="liveFullBtn" class="ghost-btn">全屏</button>
+        </div>
+        <div id="liveClock" class="live-clock">
+          <span class="live-clock-num" id="liveClockNum">00:00</span>
+          <span class="live-clock-state" id="liveClockState">未开始</span>
+        </div>
+      </div>
+      <div id="liveGrid" class="live-grid"></div>
+      <div class="hint small">老师在课堂上开启「开始默写」，学生端会显示倒计时横幅并自动上报进度。此页每 2 秒自动刷新，适合投屏大屏。</div>
+    </section>
+
+    <!-- 学生 · 我的题库 -->
+    <section id="view-student-banks" class="view">
+      <h2>我的题库</h2>
+      <p class="sub" id="myClassInfo"></p>
+      <div id="stuBankList" class="bank-list"></div>
+    </section>
+
+    <!-- 学生 · 今日练习 / 题库练习 -->
+    <section id="view-practice" class="view">
+      <div id="liveBanner" class="live-banner" hidden>
+        <span class="live-banner-icon">⏳</span>
+        <span id="liveBannerText">老师已开启默写</span>
+        <b id="liveBannerClock">10:00</b>
+      </div>
+      <div id="practiceReady">
+        <h2 id="practiceTitle">今日练习</h2>
+        <p class="sub" id="practiceSub"></p>
+        <button id="startBtn" class="primary big">开始练习</button>
+        <div class="hint">答对得 1 分，答错不扣分。答错时本词会卡住并响起提示音，正确答案闪现几秒后消失，然后重新默写本词，写对才进入下一词。输入过程中会自动检测，拼写正确自动通过。</div>
+        <div class="hint small">复习节奏：5 分钟 → 30 分钟 → 12 小时 → 1 天 → 2 天 → 4 天 → 7 天 → 15 天 → 30 天</div>
+      </div>
+      <div id="practiceCard" hidden>
+        <div class="dict-center">
+          <div class="card-top">
+            <span class="type-tag" id="cardType">单词</span>
+            <span class="score-pill">得分 <b id="score">0</b></span>
+            <span class="remain-pill">剩余 <b id="remaining">0</b></span>
+          </div>
+          <div class="hint" id="promptHint"></div>
+          <div class="prompt" id="cardPrompt"></div>
+          <div class="pos-line" id="cardPos"></div>
+          <div class="answer-row">
+            <div id="letterBox" class="letter-box" title="点击输入"></div>
+            <input id="answerInput" type="text" placeholder="请输入英文..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+          </div>
+          <div class="speak-wrap">
+            <button id="speakBtn">🔊 朗读</button>
+            <div id="waveBox" class="wave-box"></div>
+          </div>
+          <div class="actions">
+            <button id="checkBtn" class="primary">检查 (Enter)</button>
+            <button id="endBtn">结束练习</button>
+          </div>
+          <div class="shortcuts"><kbd>Alt+R</kbd> 朗读 · <kbd>Alt+V</kbd> 查看答案 · <kbd>Enter</kbd> 检查</div>
+          <div id="feedback"></div>
+        </div>
+        <div id="fxLayer"></div>
+      </div>
+      <div id="practiceSummary" hidden>
+        <h2>练习完成</h2>
+        <div class="summary-cards">
+          <div class="s-card"><b id="sumScore">0</b><span>得分</span></div>
+          <div class="s-card"><b id="sumTotal">0</b><span>本轮题目</span></div>
+          <div class="s-card"><b id="sumWrong">0</b><span>出错次数</span></div>
+        </div>
+        <div id="sumWrongList"></div>
+        <button id="againBtn" class="primary">再练一轮</button>
+        <button id="backBanksBtn" class="ghost-btn">返回题库</button>
+      </div>
+    </section>
+
+    <!-- 学生 · 学习统计 -->
+    <section id="view-stats" class="view">
+      <h2>学习统计</h2>
+      <div id="petPanel" class="pet-panel">
+        <div class="pet-left">
+          <div class="pet-emoji" id="petEmoji">🥚</div>
+          <div class="pet-meta">
+            <b id="petName">神秘蛋</b>
+            <span id="petDesc">攒积分领养并升级你的龙龙</span>
+          </div>
+        </div>
+        <div class="pet-right">
+          <div class="pet-bar"><div id="petBar"></div></div>
+          <span id="petProgress"></span>
+        </div>
+        <button id="changePetBtn" class="ghost-btn">更换伙伴</button>
+      </div>
+      <div class="stat-cards">
+        <div class="s-card"><b id="statTotal">0</b><span>总条目</span></div>
+        <div class="s-card"><b id="statDue">0</b><span>今日待复习</span></div>
+        <div class="s-card"><b id="statMastered">0</b><span>已掌握</span></div>
+        <div class="s-card"><b id="statPoints">0</b><span>累计得分</span></div>
+        <div class="s-card"><b id="statSessions">0</b><span>练习次数</span></div>
+      </div>
+      <h3>未来 7 天复习计划</h3>
+      <table class="mini-table">
+        <thead><tr><th>日期</th><th>待复习</th></tr></thead>
+        <tbody id="scheduleBody"></tbody>
+      </table>
+      <h3>近 14 天练习记录</h3>
+      <table class="mini-table">
+        <thead><tr><th>日期</th><th>答对</th><th>答错</th></tr></thead>
+        <tbody id="historyBody"></tbody>
+      </table>
+    </section>
+
+  </main>
+</div>
+
+<!-- 角落宠物：练习时安静地趴在右下角 -->
+<div id="cornerPet" hidden>
+  <div class="corner-pet-emoji" id="cornerPetEmoji">🥚</div>
+  <div class="corner-pet-name" id="cornerPetName">小龙</div>
+</div>
+
+<!-- 领取宠物弹窗：学生注册后选择龙 + 取名 -->
+<div id="petModal" hidden>
+  <div class="modal-mask" onclick="if(event.target===this)closePetModal()">
+    <div class="pet-modal">
+      <h3>领养你的小龙 🐉</h3>
+      <p class="sub">选一只龙龙做你的伙伴，它会在你每次默写时安静地陪着你。随着积分增长，龙龙会从蛋里孵化、逐渐长大！</p>
+      <div id="petPick" class="pet-pick"></div>
+      <div class="pet-name-row">
+        <input id="petNameInput" type="text" maxlength="12" placeholder="给龙龙取个名字（12 字以内）">
+        <button id="petConfirmBtn" class="primary">领养它！</button>
+      </div>
+      <p id="petMsg" class="auth-msg"></p>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
