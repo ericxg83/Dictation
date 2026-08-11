@@ -1644,3 +1644,169 @@ button:active::after, .primary:active::after, .ghost-btn:active::after, .header-
   max-width: 86vw; text-align: center;
 }
 .toast.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+
+/* ===== 宠物面板：可点击查看图鉴 ===== */
+.pet-left { cursor: pointer; user-select: none; padding: 4px 8px; margin: -4px -8px; border-radius: 16px; transition: background .2s; }
+.pet-left:hover { background: rgba(139, 92, 246, .12); }
+.pet-left:active { background: rgba(139, 92, 246, .22); }
+.pet-left:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.pet-handbook-hint {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px; border-radius: 50%;
+  background: var(--gradient-warm); color: #fff;
+  font-size: 14px; flex: 0 0 30px; box-shadow: 0 3px 10px rgba(251, 113, 133, .4);
+  animation: bookBob 2.5s ease-in-out infinite;
+}
+@keyframes bookBob {
+  0%, 100% { transform: translateY(0) rotate(0); }
+  50% { transform: translateY(-3px) rotate(8deg); }
+}
+
+/* ===== 龙龙图鉴弹窗（Pokédex 风格） ===== */
+.handbook-modal {
+  background: linear-gradient(135deg, rgba(34, 24, 80, .97), rgba(26, 18, 64, .97));
+  border: 1.5px solid var(--brand-3);
+  border-radius: 28px; padding: 0;
+  width: 100%; max-width: 760px; max-height: 90vh; overflow: hidden;
+  box-shadow: 0 30px 80px rgba(139, 92, 246, .4), 0 0 0 1px rgba(167, 139, 250, .3);
+  animation: modalRise .4s cubic-bezier(.34, 1.56, .64, 1);
+  position: relative;
+  backdrop-filter: blur(12px);
+  display: flex; flex-direction: column;
+}
+.handbook-close {
+  position: absolute; top: 14px; right: 14px;
+  width: 36px; height: 36px; border-radius: 50%;
+  border: 1.5px solid rgba(167, 139, 250, .4);
+  background: rgba(26, 18, 64, .6); color: #fff;
+  font-size: 18px; cursor: pointer; z-index: 5;
+  display: flex; align-items: center; justify-content: center;
+  transition: .2s;
+}
+.handbook-close:hover { background: rgba(244, 63, 94, .8); border-color: transparent; transform: rotate(90deg); }
+
+.handbook-hero {
+  padding: 24px 24px 18px;
+  display: grid; grid-template-columns: auto 1fr; gap: 18px; align-items: center;
+  position: relative; overflow: hidden;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(251, 113, 133, .2) 0, transparent 50%),
+    radial-gradient(circle at 80% 80%, rgba(139, 92, 246, .22) 0, transparent 50%),
+    linear-gradient(135deg, rgba(34, 24, 80, .9), rgba(26, 18, 64, .9));
+  border-bottom: 1px solid rgba(167, 139, 250, .18);
+  flex: 0 0 auto;
+}
+.handbook-hero::after {
+  content: "📖"; position: absolute; right: 20px; top: 18px;
+  font-size: 28px; opacity: .3;
+}
+.handbook-art {
+  width: 110px; height: 110px;
+  background: rgba(255, 255, 255, .85); border-radius: 22px;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 6px 22px rgba(139, 92, 246, .35);
+  flex: 0 0 110px;
+  animation: petFloat 3.5s ease-in-out infinite;
+}
+.handbook-art .dragon-svg { width: 92px; height: 92px; }
+.handbook-hero-info { min-width: 0; }
+.handbook-hero-info h2 {
+  margin: 0 0 4px; color: #fff; font-size: 22px; font-weight: 900;
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+}
+.handbook-hero-info .en { font-size: 12px; color: #A78BFA; font-weight: 700; letter-spacing: .5px; }
+.handbook-hero-info .stage-pill {
+  display: inline-block; padding: 3px 10px; border-radius: 99px;
+  background: var(--gradient-warm); color: #fff;
+  font-size: 11px; font-weight: 800; margin-top: 6px;
+}
+.handbook-hero-info .meta { font-size: 12px; color: var(--text-on-dark-2); margin-top: 6px; line-height: 1.6; }
+
+.handbook-tabs {
+  display: flex; gap: 6px; padding: 12px 18px 0;
+  background: rgba(26, 18, 64, .4);
+  flex: 0 0 auto;
+}
+.handbook-tab {
+  border: none; background: transparent;
+  color: var(--text-on-dark-2); font-size: 13px; font-weight: 700;
+  padding: 8px 14px; border-radius: 10px 10px 0 0; cursor: pointer;
+  transition: .2s;
+}
+.handbook-tab:hover { color: #fff; background: rgba(139, 92, 246, .12); }
+.handbook-tab.active {
+  color: #fff; background: rgba(139, 92, 246, .25);
+  box-shadow: 0 -2px 0 var(--brand-2) inset;
+}
+
+.handbook-body {
+  flex: 1 1 auto; overflow-y: auto; padding: 18px;
+  scrollbar-width: thin; scrollbar-color: rgba(167, 139, 250, .4) transparent;
+}
+.handbook-body::-webkit-scrollbar { width: 6px; }
+.handbook-body::-webkit-scrollbar-thumb { background: rgba(167, 139, 250, .4); border-radius: 99px; }
+
+/* 当前伙伴详情 */
+.detail-section {
+  background: rgba(255, 255, 255, .04);
+  border: 1px solid rgba(167, 139, 250, .18);
+  border-radius: 14px; padding: 14px 16px; margin-bottom: 12px;
+}
+.detail-section:last-child { margin-bottom: 0; }
+.detail-section h4 {
+  margin: 0 0 8px; font-size: 13px; color: #A78BFA; font-weight: 800;
+  display: flex; align-items: center; gap: 6px;
+  letter-spacing: .3px; text-transform: uppercase;
+}
+.detail-section p {
+  margin: 0; font-size: 13.5px; line-height: 1.75; color: #E5E0FF; font-weight: 500;
+}
+.detail-section .summary { font-size: 14.5px; color: #fff; font-weight: 700; }
+.trait-list { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; }
+.trait-list li { font-size: 12.5px; color: #E5E0FF; line-height: 1.5; padding-left: 4px; }
+
+/* 全部图鉴：网格 */
+.all-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 10px;
+}
+.all-card {
+  background: rgba(255, 255, 255, .05);
+  border: 1.5px solid rgba(167, 139, 250, .22);
+  border-radius: 14px; padding: 10px 8px;
+  text-align: center; cursor: pointer; transition: .2s;
+  position: relative; overflow: hidden;
+}
+.all-card:hover { transform: translateY(-3px); border-color: var(--brand-2); background: rgba(139, 92, 246, .12); }
+.all-card.mine {
+  border-color: #FBBF24;
+  background: linear-gradient(135deg, rgba(251, 191, 36, .12), rgba(244, 114, 22, .08));
+  box-shadow: 0 0 0 2px rgba(251, 191, 36, .25);
+}
+.all-card.mine::before {
+  content: "我的"; position: absolute; top: 6px; left: 6px;
+  background: var(--gradient-warm); color: #fff;
+  padding: 2px 7px; border-radius: 99px;
+  font-size: 10px; font-weight: 800;
+}
+.all-card-art {
+  width: 100%; height: 78px;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(255, 255, 255, .85); border-radius: 10px; margin-bottom: 6px;
+}
+.all-card-art .dragon-svg { height: 70px; width: auto; }
+.all-card-name { font-size: 14px; color: #fff; font-weight: 800; }
+.all-card-en { font-size: 10px; color: #A78BFA; margin-top: 2px; font-weight: 600; }
+.all-card-summary { font-size: 11px; color: #C4BCEC; margin-top: 4px; line-height: 1.4; }
+
+@media (max-width: 720px) {
+  .handbook-modal { max-height: 92vh; border-radius: 22px 22px 0 0; align-self: flex-end; }
+  .handbook-hero { padding: 20px 18px 16px; gap: 12px; }
+  .handbook-art { width: 86px; height: 86px; flex: 0 0 86px; }
+  .handbook-art .dragon-svg { width: 72px; height: 72px; }
+  .handbook-hero-info h2 { font-size: 18px; }
+  .trait-list { grid-template-columns: 1fr; }
+  .all-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .all-card-art { height: 70px; }
+  .all-card-art .dragon-svg { height: 62px; }
+}

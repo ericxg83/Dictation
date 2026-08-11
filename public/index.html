@@ -278,12 +278,13 @@
       </svg>
 
       <div id="petPanel" class="pet-panel">
-        <div class="pet-left">
+        <div class="pet-left" id="petClickable" role="button" tabindex="0" title="点击查看图鉴">
           <div class="pet-emoji" id="petEmoji">🥚</div>
           <div class="pet-meta">
             <b id="petName">神秘蛋</b>
             <span id="petDesc">攒积分领养并升级你的龙龙</span>
           </div>
+          <span class="pet-handbook-hint" aria-hidden="true">📖</span>
         </div>
         <div class="pet-right">
           <div class="pet-bar"><div id="petBar"></div></div>
@@ -401,6 +402,24 @@
         <button id="petConfirmBtn" class="primary">领养它！</button>
       </div>
       <p id="petMsg" class="auth-msg"></p>
+    </div>
+  </div>
+</div>
+
+<!-- 龙龙图鉴弹窗：点击宠物图标打开，展示当前伙伴的详细资料 + 全 10 种龙列表 -->
+<div id="handbookModal" hidden>
+  <div class="modal-mask" onclick="if(event.target===this)closeHandbook()">
+    <div class="handbook-modal">
+      <button class="handbook-close" onclick="closeHandbook()" aria-label="关闭">✕</button>
+      <div class="handbook-hero" id="handbookHero">
+        <!-- 当前伙伴大图 + 名字 + 阶段 -->
+      </div>
+      <div class="handbook-tabs" id="handbookTabs">
+        <!-- 当前/全部 切换 -->
+      </div>
+      <div class="handbook-body" id="handbookBody">
+        <!-- 当前伙伴详情 或 龙龙列表 -->
+      </div>
     </div>
   </div>
 </div>

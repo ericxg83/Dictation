@@ -157,8 +157,19 @@ async function genClassCode() {
 }
 
 // ================= 学习进度 =================
-const INTERVALS = [5, 30, 720, 1440, 2880, 5760, 10080, 21600, 43200]; // 5分/30分/12时/1天/2天/4天/7天/15天/30天
+// 艾宾浩斯遗忘曲线：单位 = 天
+const INTERVALS = [1, 2, 4, 7, 15, 30, 90, 180];
 const DAY_MS = 86400000;
+
+// 把 nextDue 对齐到目标日 00:00（按"天"计，避免小时粒度）
+function startOfDay(ts) {
+  const d = new Date(ts);
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+}
+function nextDueAfterDays(days) {
+  return startOfDay(Date.now() + days * DAY_MS);
+}
 
 function emptyProgress() {
   return {
@@ -169,9 +180,12 @@ function emptyProgress() {
 }
 async function loadProgress(uid) {
   const p = await dbFindProgress(uid);
-  if (p) return { entries: p.entries || [], stats: p.stats || {}, createdAt: p.createdAt };
-  const np = emptyProgress();
-  return np;
+  if (!p) return emptyProgress();
+  const entries = (p.entries || []).map(e => {
+    if (e && e.nextDue) e.nextDue = startOfDay(e.nextDue);
+    return e;
+  });
+  return { entries, stats: p.stats || {}, createdAt: p.createdAt };
 }
 async function saveProgress(uid, p) {
   await dbUpsertProgress(uid, p.entries, p.stats, p.createdAt || Date.now());
@@ -758,12 +772,13 @@ app.post('/api/result', requireAuth, async (req, res) => {
   if (correct) {
     e.level = (e.level || 0) + 1;
     e.correctCount = (e.correctCount || 0) + 1;
-    e.nextDue = now + INTERVALS[Math.min(e.level - 1, INTERVALS.length - 1)] * 60000;
+    const days = INTERVALS[Math.min(e.level - 1, INTERVALS.length - 1)];
+    e.nextDue = nextDueAfterDays(days);
     p.stats.points = (p.stats.points || 0) + 1;
   } else {
     e.level = 0;
     e.wrongCount = (e.wrongCount || 0) + 1;
-    e.nextDue = now + 30 * 60000;
+    e.nextDue = nextDueAfterDays(1); // 答错：明天再复习
   }
   e.lastResult = !!correct;
   e.lastResultAt = now;
