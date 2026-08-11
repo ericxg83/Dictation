@@ -794,27 +794,35 @@ button.del:hover { background: #FADBDB; transform: scale(1.05); }
   100% { opacity: 0; transform: translate(var(--fx), var(--fy)) scale(1.5); }
 }
 
-/* 成就弹窗（达成连击/全对时） */
+/* 成就弹窗（达成连击/全对时：深色玻璃拟态 + 紫粉光晕） */
 .achievement-toast {
-  position: fixed; left: 50%; top: 80px; transform: translate(-50%, -120%);
-  background: linear-gradient(135deg, rgba(255, 255, 255, .98), rgba(255, 245, 230, .98));
-  border: 2.5px solid transparent;
-  border-image: var(--gradient-sunset) 1;
-  border-radius: 18px; padding: 14px 20px; z-index: 110;
+  position: fixed; left: 50%; top: 90px; transform: translate(-50%, -120%);
+  background: linear-gradient(135deg, rgba(91, 33, 182, .92) 0%, rgba(124, 58, 237, .92) 50%, rgba(236, 72, 153, .88) 100%);
+  border: 1.5px solid rgba(244, 114, 182, .5);
+  border-radius: 18px; padding: 14px 22px; z-index: 110;
   display: flex; align-items: center; gap: 12px;
-  box-shadow: 0 12px 40px rgba(236, 72, 153, .25), 0 0 0 4px rgba(255, 255, 255, .4);
+  box-shadow: 0 16px 48px rgba(168, 85, 247, .5), 0 0 60px rgba(236, 72, 153, .3);
   max-width: 90vw;
   transition: transform .5s cubic-bezier(.34, 1.56, .64, 1);
-  backdrop-filter: blur(8px);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
+.achievement-toast::before {
+  content: ""; position: absolute; inset: 0; border-radius: 18px;
+  background: radial-gradient(circle at 0% 0%, rgba(34, 211, 238, .2) 0, transparent 50%),
+              radial-gradient(circle at 100% 100%, rgba(244, 114, 182, .25) 0, transparent 50%);
+  pointer-events: none;
+}
+.achievement-toast > * { position: relative; z-index: 1; }
 .achievement-toast.show { transform: translate(-50%, 0); }
 .achievement-emoji {
   font-size: 36px; line-height: 1; flex: 0 0 36px;
   animation: bounceEmoji 1s ease-in-out infinite;
+  filter: drop-shadow(0 0 8px rgba(251, 191, 36, .6));
 }
 .achievement-text { display: flex; flex-direction: column; }
-.achievement-text b { font-size: 15px; color: var(--text-on-dark); font-weight: 900; }
-.achievement-text span { font-size: 12px; color: var(--text-on-dark-2); font-weight: 600; }
+.achievement-text b { font-size: 15px; color: #fff; font-weight: 900; text-shadow: 0 1px 4px rgba(0, 0, 0, .3); }
+.achievement-text span { font-size: 12px; color: rgba(255, 255, 255, .85); font-weight: 600; text-shadow: 0 1px 2px rgba(0, 0, 0, .2); }
 #sumWrongList { color: var(--text-on-dark-2); margin: 14px 0; font-size: 14px; line-height: 1.8; }
 #sumWrongList .primary, #practiceSummary .primary { margin: 0 6px; }
 
