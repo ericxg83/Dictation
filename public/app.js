@@ -59,108 +59,564 @@ function myDragon() {
 }
 
 // ===== 龙龙 SVG 画布 =====
-const EGGS = ['🥚', '🐣'];
+// 蛋的差异化：纹路 / 颜色 / 斑点暗示蛋中龙的种类
 function eggArt(d) {
-  const color = d ? d.main : '#E8B54A';
-  const spot = d ? d.dark : '#A97C12';
+  if (!d) {
+    return '<svg viewBox="0 0 120 140" class="dragon-svg">' +
+      '<ellipse cx="60" cy="72" rx="38" ry="50" fill="#E8B54A" stroke="#A97C12" stroke-width="3"/>' +
+      '<ellipse cx="60" cy="82" rx="22" ry="28" fill="#FBEECB"/>' +
+      '<circle cx="48" cy="58" r="4" fill="rgba(255,255,255,.4)"/>' +
+      '<circle cx="72" cy="64" r="3" fill="rgba(255,255,255,.35)"/>' +
+      '<path d="M40 78 q4 -3 8 0 M68 80 q4 -3 8 0" stroke="#A97C12" stroke-width="2.5" fill="none" stroke-linecap="round"/>' +
+      '</svg>';
+  }
+  // 按龙种类生成差异化蛋纹
+  const c = d.main, k = d.dark, b = d.belly;
+  let pattern = '';
+  switch (d.trait) {
+    case 'spikes': // 霸王龙：火焰斑
+      pattern = '<path d="M58 50 q-8 6 0 14 q-8 -6 0 -14" fill="' + k + '" opacity=".5"/>' +
+                '<path d="M70 70 l3 -8 l3 8 z M48 80 l3 -8 l3 8 z" fill="' + k + '" opacity=".55"/>';
+      break;
+    case 'plates': // 剑龙：菱形格
+      pattern = '<path d="M40 60 l8 -6 l8 6 l-8 6 z M64 64 l8 -6 l8 6 l-8 6 z M52 84 l8 -6 l8 6 l-8 6 z" fill="' + k + '" opacity=".55"/>';
+      break;
+    case 'frill': // 三角龙：同心圆
+      pattern = '<circle cx="60" cy="74" r="14" fill="none" stroke="' + k + '" stroke-width="2.5" opacity=".55"/>' +
+                '<circle cx="60" cy="74" r="8" fill="none" stroke="' + k + '" stroke-width="2" opacity=".5"/>' +
+                '<circle cx="60" cy="74" r="3" fill="' + k + '" opacity=".55"/>';
+      break;
+    case 'crest': // 翼龙：波浪
+      pattern = '<path d="M38 76 q6 -8 12 0 q6 -8 12 0 q6 -8 12 0 q6 -8 12 0" stroke="' + k + '" stroke-width="2.5" fill="none" opacity=".6"/>';
+      break;
+    case 'long': // 雷龙：圆点阵
+      pattern = '<circle cx="46" cy="60" r="3" fill="' + k + '" opacity=".55"/>' +
+                '<circle cx="60" cy="56" r="3" fill="' + k + '" opacity=".55"/>' +
+                '<circle cx="74" cy="60" r="3" fill="' + k + '" opacity=".55"/>' +
+                '<circle cx="52" cy="80" r="3" fill="' + k + '" opacity=".55"/>' +
+                '<circle cx="68" cy="80" r="3" fill="' + k + '" opacity=".55"/>';
+      break;
+    case 'sail': // 棘龙：锯齿条
+      pattern = '<path d="M44 56 l4 -10 l4 10 l4 -10 l4 10 l4 -10 l4 10 l4 -10 l4 10" stroke="' + k + '" stroke-width="2.2" fill="none" opacity=".6"/>' +
+                '<path d="M46 90 l4 -8 l4 8 l4 -8 l4 8 l4 -8 l4 8" stroke="' + k + '" stroke-width="2" fill="none" opacity=".55"/>';
+      break;
+    case 'club': // 甲龙：鳞片
+      let scales = '';
+      for (let yy = 50; yy < 100; yy += 10) {
+        for (let xx = 42; xx < 82; xx += 10) {
+          scales += '<path d="M' + xx + ' ' + yy + ' q5 -5 10 0" stroke="' + k + '" stroke-width="1.6" fill="none" opacity=".5"/>';
+        }
+      }
+      pattern = scales;
+      break;
+    case 'spiky': // 欧洲龙：尖刺
+      pattern = '<path d="M40 60 l4 -10 l4 10 z M56 54 l4 -10 l4 10 z M72 60 l4 -10 l4 10 z" fill="' + k + '" opacity=".55"/>' +
+                '<path d="M48 84 l4 -8 l4 8 z M64 84 l4 -8 l4 8 z" fill="' + k + '" opacity=".5"/>';
+      break;
+    case 'east': // 东方龙：祥云
+      pattern = '<path d="M40 64 q6 -6 12 0 q-6 6 0 6 q6 0 12 -6 q6 6 12 0" stroke="' + k + '" stroke-width="2" fill="none" opacity=".55"/>' +
+                '<path d="M44 88 q6 -6 12 0 q6 -6 12 0 q6 -6 12 0" stroke="' + k + '" stroke-width="2" fill="none" opacity=".5"/>';
+      break;
+    case 'crystal': // 冰龙：六角雪花
+      pattern = '<g transform="translate(60 70)" stroke="' + k + '" stroke-width="1.6" opacity=".65">' +
+                '<line x1="-12" y1="0" x2="12" y2="0"/>' +
+                '<line x1="0" y1="-12" x2="0" y2="12"/>' +
+                '<line x1="-8" y1="-8" x2="8" y2="8"/>' +
+                '<line x1="-8" y1="8" x2="8" y2="-8"/>' +
+                '</g>' +
+                '<g transform="translate(42 90)" stroke="' + k + '" stroke-width="1.3" opacity=".55">' +
+                '<line x1="-6" y1="0" x2="6" y2="0"/>' +
+                '<line x1="0" y1="-6" x2="0" y2="6"/>' +
+                '<line x1="-4" y1="-4" x2="4" y2="4"/>' +
+                '<line x1="-4" y1="4" x2="4" y2="-4"/>' +
+                '</g>';
+      break;
+    default:
+      pattern = '<circle cx="50" cy="68" r="3" fill="' + k + '" opacity=".5"/><circle cx="70" cy="78" r="3" fill="' + k + '" opacity=".5"/>';
+  }
   return '<svg viewBox="0 0 120 140" class="dragon-svg">' +
-    '<ellipse cx="60" cy="72" rx="38" ry="50" fill="' + color + '" stroke="' + spot + '" stroke-width="3"/>' +
-    '<ellipse cx="60" cy="82" rx="22" ry="28" fill="' + (d ? d.belly : '#FBEECB') + '"/>' +
-    '<circle cx="44" cy="52" r="5" fill="rgba(255,255,255,.45)"/>' +
-    '<circle cx="72" cy="42" r="4" fill="rgba(255,255,255,.4)"/>' +
-    '<circle cx="50" cy="78" r="3" fill="rgba(255,255,255,.35)"/>' +
-    '<path d="M42 60 q5 -4 10 0" stroke="' + spot + '" stroke-width="3" fill="none" stroke-linecap="round"/>' +
-    '<path d="M68 60 q5 -4 10 0" stroke="' + spot + '" stroke-width="3" fill="none" stroke-linecap="round"/>' +
-    '<path d="M52 74 q8 6 16 0" stroke="' + spot + '" stroke-width="3" fill="none" stroke-linecap="round"/>' +
-    '<ellipse cx="46" cy="66" rx="4" ry="2.5" fill="rgba(255,150,150,.55)"/>' +
-    '<ellipse cx="74" cy="66" rx="4" ry="2.5" fill="rgba(255,150,150,.55)"/>' +
+    '<ellipse cx="60" cy="72" rx="38" ry="50" fill="' + c + '" stroke="' + k + '" stroke-width="3"/>' +
+    '<ellipse cx="60" cy="82" rx="22" ry="28" fill="' + b + '" opacity=".75"/>' +
+    pattern +
+    '<ellipse cx="46" cy="56" rx="6" ry="3" fill="rgba(255,255,255,.35)"/>' +
     '</svg>';
 }
 
+// 主调度：按 d.id 派发到独立画法
 function dragonArt(d, stage) {
   if (stage <= 0) return eggArt(d);
-  const s = stage === 1 ? 0.55 : stage === 2 ? 0.78 : 1;
-  const main = d.main, dark = d.dark, belly = d.belly;
-  const hasWing = d.wing && stage >= 2;
-  // 简化身体 + 头部 + 眼睛 + 装饰，随阶段放大
-  let wing = '';
-  if (hasWing) {
-    wing = '<path d="M70 58 Q40 22 22 44 Q30 52 26 64 L58 68 Z" fill="' + dark + '" opacity=".9"/>' +
-           '<path d="M74 56 Q92 30 104 46 Q98 54 100 62 L76 64 Z" fill="' + dark + '" opacity=".7"/>';
-  }
+  const fn = DRAGON_DRAWERS[d.id] || drawGeneric;
+  return fn(d, stage);
+}
+
+function drawGeneric(d, stage) {
+  const s = stage === 1 ? 0.6 : stage === 2 ? 0.8 : 1;
+  const m = d.main, k = d.dark, b = d.belly;
   return '<svg viewBox="0 0 150 140" class="dragon-svg">' +
     '<g transform="translate(75 72) scale(' + s + ') translate(-75 -72)">' +
-    // 尾巴
-    '<path d="M52 96 C36 112 20 110 14 96 C10 88 16 82 22 88 C26 84 30 86 32 90 Z" fill="' + main + '" stroke="' + dark + '" stroke-width="2.5"/>' +
-    // 身体
-    '<ellipse cx="74" cy="86" rx="40" ry="34" fill="' + main + '" stroke="' + dark + '" stroke-width="3"/>' +
-    '<ellipse cx="74" cy="94" rx="26" ry="20" fill="' + belly + '"/>' +
-    // 腿
-    '<ellipse cx="58" cy="116" rx="11" ry="7" fill="' + main + '" stroke="' + dark + '" stroke-width="2.5"/>' +
-    '<ellipse cx="90" cy="116" rx="11" ry="7" fill="' + main + '" stroke="' + dark + '" stroke-width="2.5"/>' +
-    wing +
-    // 头部
-    '<circle cx="112" cy="56" r="26" fill="' + main + '" stroke="' + dark + '" stroke-width="3"/>' +
-    '<ellipse cx="130" cy="62" rx="15" ry="12" fill="' + main + '" stroke="' + dark + '" stroke-width="3"/>' +
-    '<ellipse cx="136" cy="61" rx="4" ry="3" fill="' + dark + '"/>' +
-    // 眼睛
-    '<circle cx="104" cy="50" r="9" fill="#fff" stroke="' + dark + '" stroke-width="2.5"/>' +
-    '<circle cx="107" cy="50" r="4.5" fill="' + dark + '"/>' +
-    '<circle cx="109" cy="48" r="1.6" fill="#fff"/>' +
-    // 腮红
-    '<ellipse cx="92" cy="62" rx="5" ry="3.5" fill="rgba(255,150,150,.6)"/>' +
-    // 嘴
-    '<path d="M126 70 q6 4 12 1" stroke="' + dark + '" stroke-width="2.5" fill="none" stroke-linecap="round"/>' +
-    // 头角
-    '<path d="M104 34 L98 16 L112 28 Z" fill="' + dark + '"/>' +
-    '<path d="M120 34 L126 16 L130 30 Z" fill="' + dark + '"/>' +
-    traitArt(d, stage) +
+    '<ellipse cx="74" cy="86" rx="40" ry="34" fill="' + m + '" stroke="' + k + '" stroke-width="3"/>' +
+    '<ellipse cx="74" cy="94" rx="26" ry="20" fill="' + b + '"/>' +
+    '<circle cx="112" cy="56" r="26" fill="' + m + '" stroke="' + k + '" stroke-width="3"/>' +
+    '<circle cx="104" cy="50" r="6" fill="#fff" stroke="' + k + '" stroke-width="2"/>' +
+    '<circle cx="106" cy="50" r="3" fill="' + k + '"/>' +
     '</g></svg>';
 }
 
-function traitArt(d, stage) {
-  const main = d.main, dark = d.dark, belly = d.belly;
-  const on = stage >= 2;
-  switch (d.trait) {
-    case 'spikes': // 霸王龙：背棘
-      return on ? '<path d="M52 60 L44 44 L60 54 Z M70 52 L70 34 L82 50 Z" fill="' + dark + '"/>' : '';
-    case 'plates': // 剑龙：背板
-      return on
-        ? '<path d="M42 62 L34 46 L52 56 Z M58 52 L56 34 L70 50 Z M74 52 L78 36 L86 54 Z" fill="' + dark + '" opacity=".85"/>'
-        : '';
-    case 'frill': // 三角龙：颈盾 + 鼻角
-      return on
-        ? '<path d="M88 44 L84 22 L104 30 L116 20 L122 40 L108 34 Z" fill="' + belly + '" stroke="' + dark + '" stroke-width="2.5"/>' +
-          '<path d="M108 34 L120 14 L116 38 Z" fill="' + belly + '" stroke="' + dark + '" stroke-width="2"/>'
-        : '';
-    case 'crest': // 翼龙：头冠
-      return on
-        ? '<path d="M118 34 Q130 6 146 10 Q136 26 138 40 L122 36 Z" fill="' + main + '" stroke="' + dark + '" stroke-width="2.5"/>'
-        : '';
-    case 'long': // 雷龙：长颈
-      return '<ellipse cx="96" cy="40" rx="16" ry="24" fill="' + main + '" stroke="' + dark + '" stroke-width="2.5" transform="rotate(-18 96 40)"/>';
-    case 'sail': // 棘龙：背帆
-      return on
-        ? '<path d="M50 58 C46 30 62 24 74 26 C88 28 96 34 100 46 C82 42 66 46 58 62 Z" fill="' + d.belly + '" stroke="' + dark + '" stroke-width="2.5"/>'
-        : '';
-    case 'club': // 甲龙：尾锤
-      return on
-        ? '<circle cx="16" cy="96" r="12" fill="' + main + '" stroke="' + dark + '" stroke-width="3"/>'
-        : '';
-    case 'spiky': // 欧洲龙：背刺
-      return on
-        ? '<path d="M60 58 L54 42 L68 52 Z M78 52 L80 36 L90 52 Z" fill="' + dark + '"/>'
-        : '';
-    case 'east': // 东方龙：长须
-      return '<path d="M136 58 q14 2 14 14" stroke="' + dark + '" stroke-width="3" fill="none" stroke-linecap="round"/>' +
-             '<circle cx="150" cy="72" r="3" fill="' + dark + '"/>';
-    case 'crystal': // 冰龙：冰晶
-      return on
-        ? '<path d="M96 70 L88 56 L104 66 Z M108 74 L116 60 L112 76 Z" fill="#DFF3FF" stroke="' + dark + '" stroke-width="2"/>'
-        : '';
-    default: return '';
-  }
+// ============== 1. 霸王龙 (T-Rex) ==============
+// 标志：大头 + 短前肢 2 指 + 强壮后腿 + 长尾 + 锯齿牙
+function drawTrex(d, stage) {
+  const m = d.main, k = d.dark, b = d.belly;
+  const s = stage === 1 ? 0.6 : stage === 2 ? 0.78 : 1;
+  const adult = stage >= 3, teen = stage >= 2;
+  const teeth = adult ?
+    '<path d="M118 50 l2 5 l2 -5 l2 5 l2 -5 l2 5 l2 -5 l2 5 l2 -5 l2 5 l2 -5 l2 5" fill="#fff" stroke="' + k + '" stroke-width=".7"/>' +
+    '<path d="M118 52 l2 -4 l2 4 l2 -4 l2 4 l2 -4 l2 4 l2 -4 l2 4 l2 -4 l2 4" fill="#fff" stroke="' + k + '" stroke-width=".7"/>' : '';
+  return '<svg viewBox="0 0 160 140" class="dragon-svg">' +
+    '<g transform="translate(80 70) scale(' + s + ') translate(-80 -70)">' +
+    // 长尾（粗→细）
+    '<path d="M50 78 C32 90 12 84 6 70 C2 60 14 56 22 64 L34 72 L48 80 Z" fill="' + m + '" stroke="' + k + '" stroke-width="2.5" stroke-linejoin="round"/>' +
+    // 后腿（粗壮，膝关节）
+    '<path d="M52 84 L46 122 L40 128 L32 128 L40 122 L44 84 Z" fill="' + m + '" stroke="' + k + '" stroke-width="2.5" stroke-linejoin="round"/>' +
+    '<path d="M70 84 L72 124 L66 130 L58 130 L62 124 L60 84 Z" fill="' + m + '" stroke="' + k + '" stroke-width="2.5" stroke-linejoin="round"/>' +
+    // 短前肢（标志性！2 趾）
+    (adult ?
+      '<path d="M82 78 L80 88 L86 88 L86 78 Z" fill="' + m + '" stroke="' + k + '" stroke-width="2"/>' +
+      '<line x1="86" y1="86" x2="92" y2="92" stroke="' + k + '" stroke-width="2.2" stroke-linecap="round"/>' +
+      '<line x1="88" y1="86" x2="94" y2="92" stroke="' + k + '" stroke-width="2.2" stroke-linecap="round"/>'
+    : teen ?
+      '<path d="M82 78 L80 86 L86 86 L86 78 Z" fill="' + m + '" stroke="' + k + '" stroke-width="1.5"/>' +
+      '<line x1="86" y1="84" x2="90" y2="90" stroke="' + k + '" stroke-width="1.5" stroke-linecap="round"/>' +
+      '<line x1="88" y1="84" x2="92" y2="90" stroke="' + k + '" stroke-width="1.5" stroke-linecap="round"/>'
+    :
+      '<ellipse cx="84" cy="82" rx="2" ry="4" fill="' + m + '" stroke="' + k + '" stroke-width="1"/>') +
+    // 身体（横向粗壮，斜向上前）
+    '<path d="M48 64 C46 76 54 88 72 90 C92 90 102 78 98 64 C94 52 78 48 66 50 C56 50 48 56 48 64 Z" fill="' + m + '" stroke="' + k + '" stroke-width="2.5"/>' +
+    '<ellipse cx="72" cy="80" rx="18" ry="8" fill="' + b + '" opacity=".7"/>' +
+    // 短颈
+    '<path d="M88 58 L102 50 L114 54 L106 66 Z" fill="' + m + '" stroke="' + k + '" stroke-width="2.5" stroke-linejoin="round"/>' +
+    // 巨颅（占 1/3 身长）
+    '<path d="M100 40 C108 28 130 28 140 38 C146 44 144 54 134 58 L120 60 L106 54 Z" fill="' + m + '" stroke="' + k + '" stroke-width="2.5" stroke-linejoin="round"/>' +
+    // 上下颌
+    '<path d="M118 56 L142 54 L138 62 L120 60 Z" fill="' + m + '" stroke="' + k + '" stroke-width="2"/>' +
+    teeth +
+    // 眼窝（凶猛，眉骨突出）
+    '<ellipse cx="116" cy="44" rx="6" ry="5" fill="' + k + '"/>' +
+    '<circle cx="117" cy="44" r="2.6" fill="#FBBF24"/>' +
+    '<circle cx="118" cy="43" r="1" fill="#fff"/>' +
+    '<path d="M108 38 L122 34 L120 40 L110 42 Z" fill="' + k + '"/>' +
+    // 鼻孔
+    '<ellipse cx="134" cy="50" rx="2" ry="1.5" fill="' + k + '"/>' +
+    // 颈背纹
+    (teen ? '<path d="M88 60 L84 52 L92 56 Z M100 56 L98 48 L106 54 Z" fill="' + k + '" opacity=".7"/>' : '') +
+    '</g></svg>';
 }
+
+// ============== 2. 剑龙 (Stegosaurus) ==============
+// 标志：小头 + 17 块菱形背板（双排交错）+ 4 根尾刺 + 弓背
+function drawStego(d, stage) {
+  const m = d.main, k = d.dark, b = d.belly;
+  const s = stage === 1 ? 0.6 : stage === 2 ? 0.78 : 1;
+  const adult = stage >= 3, teen = stage >= 2;
+  // 背板：双排交错，成年 5 对最大
+  const plateCount = stage === 1 ? 3 : stage === 2 ? 4 : 5;
+  let plates = '';
+  const plateXs = [56, 68, 80, 92, 104];
+  for (let i = 0; i < plateCount; i++) {
+    const x = plateXs[i];
+    const h = 14 + i * 2;
+    plates += '<path d="M' + (x - 6) + ' 64 L' + x + ' ' + (64 - h) + ' L' + (x + 6) + ' 64 Z" fill="' + k + '" stroke="' + k + '" stroke-width="1.5"/>' +
+              '<path d="M' + (x - 4) + ' 66 L' + x + ' ' + (66 - h + 4) + ' L' + (x + 4) + ' 66 Z" fill="' + b + '" opacity=".6"/>';
+  }
+  // 尾刺
+  const spikes = adult ?
+    '<line x1="20" y1="68" x2="6" y2="56" stroke="' + k + '" stroke-width="3" stroke-linecap="round"/>' +
+    '<line x1="22" y1="70" x2="6" y2="62" stroke="' + k + '" stroke-width="3" stroke-linecap="round"/>' +
+    '<line x1="24" y1="72" x2="10" y2="68" stroke="' + k + '" stroke-width="3" stroke-linecap="round"/>' +
+    '<line x1="26" y1="74" x2="14" y2="76" stroke="' + k + '" stroke-width="3" stroke-linecap="round"/>'
+    : (teen ?
+      '<line x1="20" y1="70" x2="8" y2="64" stroke="' + k + '" stroke-width="2" stroke-linecap="round"/>' +
+      '<line x1="22" y1="72" x2="12" y2="72" stroke="' + k + '" stroke-width="2" stroke-linecap="round"/>'
+      : '');
+  return '<svg viewBox="0 0 160 140" class="dragon-svg">' +
+    '<g transform="translate(80 70) scale(' + s + ') translate(-80 -70)">' +
+    // 长尾
+    '<path d="M44 80 C30 92 16 90 10 80 C6 72 14 68 20 74 L32 78 L42 80 Z" fill="' + m + '" stroke="' + k + '" stroke-width="2.5" stroke-linejoin="round"/>' +
+    spikes +
+    // 后腿（粗壮柱状）
+    '<path d="M52 86 L48 122 L42 128 L36 128 L40 122 L46 86 Z" fill="' + m + '" stroke="' + k + '" stroke-width="2.5" stroke-linejoin="round"/>' +
+    '<path d="M88 86 L92 122 L98 128 L104 128 L100 122 L94 86 Z" fill="' + m + '" stroke="' + k + '" stroke-width="2.5" stroke-linejoin="round"/>' +
+    // 弓背身体（前低后高）
+    '<path d="M44 84 C44 76 50 60 70 56 C90 54 100 70 100 84 C100 92 90 96 70 96 C50 96 44 92 44 84 Z" fill="' + m + '" stroke="' + k + '" stroke-width="2.5"/>' +
+    '<ellipse cx="70" cy="86" rx="22" ry="8" fill="' + b + '" opacity=".7"/>' +
+    plates +
+    // 小头
+    '<path d="M96 64 C98 54 110 52 116 60 C118 66 114 72 108 74 L102 72 L96 68 Z" fill="' + m + '" stroke="' + k + '" stroke-width="2.5" stroke-linejoin="round"/>' +
+    // 喙
+    '<path d="M114 68 L120 70 L116 74 L112 72 Z" fill="' + k + '"/>' +
+    // 小眼
+    '<circle cx="108" cy="62" r="2.5" fill="#fff" stroke="' + k + '" stroke-width="1.5"/>' +
+    '<circle cx="109" cy="62" r="1.2" fill="' + k + '"/>' +
+    // 前肢（短）
+    '<path d="M60 90 L58 110 L56 114 L52 114 L54 110 L56 90 Z" fill="' + m + '" stroke="' + k + '" stroke-width="2"/>' +
+    (adult ? '<path d="M76 90 L78 110 L80 114 L84 114 L82 110 L80 90 Z" fill="' + m + '" stroke="' + k + '" stroke-width="2"/>' : '') +
+    '</g></svg>';
+}
+
+// ============== 3. 三角龙 (Triceratops) ==============
+// 标志：巨大颈盾 + 2 眉角 + 1 鼻角 + 鹦鹉嘴 + 四足
+function drawTricera(d, stage) {
+  const m = d.main, k = d.dark, b = d.belly;
+  const s = stage === 1 ? 0.6 : stage === 2 ? 0.78 : 1;
+  const adult = stage >= 3, teen = stage >= 2;
+  const hornLen = adult ? 16 : teen ? 12 : 8;
+  return '<svg viewBox="0 0 160 140" class="dragon-svg">' +
+    '<g transform="translate(80 70) scale(' + s + ') translate(-80 -70)">' +
+    // 尾
+    '<path d="M28 80 C18 86 8 80 8 72 C8 66 14 64 18 68 L26 72 Z" fill="' + m + '" stroke="' + k + '" stroke-width="2.5" stroke-linejoin="round"/>' +
+    // 四足
+    '<path d="M40 92 L36 124 L32 128 L26 128 L30 124 L34 92 Z" fill="' + m + '" stroke="' + k + '" stroke-width="2.5" stroke-linejoin="round"/>' +
+    '<path d="M70 92 L72 124 L76 128 L82 128 L78 124 L74 92 Z" fill="' + m + '" stroke="' + k + '" stroke-width="2.5" stroke-linejoin="round"/>' +
+    '<path d="M88 92 L90 124 L94 128 L100 128 L96 124 L92 92 Z" fill="' + m + '" stroke="' + k + '" stroke-width="2.5" stroke-linejoin="round"/>' +
+    // 桶状身体
+    '<path d="M36 84 C32 70 50 56 76 56 C100 56 108 70 104 84 C100 96 80 100 60 98 C42 96 36 92 36 84 Z" fill="' + m + '" stroke="' + k + '" stroke-width="2.5"/>' +
+    '<ellipse cx="70" cy="88" rx="24" ry="8" fill="' + b + '" opacity=".7"/>' +
+    // 颈盾（巨大，半圆，边缘锯齿）
+    '<path d="M96 56 C100 28 130 22 142 36 C146 46 142 58 132 62 L120 62 L108 60 Z" fill="' + m + '" stroke="' + k + '" stroke-width="2.5" stroke-linejoin="round"/>' +
+    // 颈盾纹
+    '<path d="M108 50 L120 40 L132 50 M112 56 L124 46 M118 60 L130 54" stroke="' + k + '" stroke-width="1.5" fill="none" opacity=".6"/>' +
+    // 头
+    '<path d="M104 60 C108 52 122 52 130 60 L132 70 C130 78 118 80 110 76 L102 70 Z" fill="' + m + '" stroke="' + k + '" stroke-width="2.5" stroke-linejoin="round"/>' +
+    // 鹦鹉喙
+    '<path d="M130 68 L142 70 L138 76 L130 74 Z" fill="' + k + '"/>' +
+    // 鼻角（短粗）
+    '<path d="M118 60 L120 50 L124 58 Z" fill="' + k + '" stroke="' + k + '" stroke-width="1.5"/>' +
+    // 左眉角
+    '<path d="M108 56 L' + (110 - hornLen / 2) + ' ' + (56 - hornLen) + ' L' + (114 - hornLen / 2) + ' 58 Z" fill="' + k + '" stroke="' + k + '" stroke-width="1.2"/>' +
+    // 右眉角
+    '<path d="M122 56 L' + (124 + hornLen / 2) + ' ' + (56 - hornLen) + ' L' + (126 + hornLen / 2) + ' 58 Z" fill="' + k + '" stroke="' + k + '" stroke-width="1.2"/>' +
+    // 眼
+    '<circle cx="114" cy="64" r="2.5" fill="#fff" stroke="' + k + '" stroke-width="1.2"/>' +
+    '<circle cx="115" cy="64" r="1.2" fill="' + k + '"/>' +
+    // 颈盾边缘锯齿
+    '<path d="M100 38 l3 -4 l3 4 l3 -4 l3 4 l3 -4 l3 4 l3 -4 l3 4 l3 -4 l3 4 l3 -4 l3 4" stroke="' + k + '" stroke-width="1.5" fill="none"/>' +
+    '</g></svg>';
+}
+
+// ============== 4. 翼龙 (Pteranodon) ==============
+// 标志：巨大翅膀（翼指延伸）+ 长喙 + 后冠 + 飞行/站立
+function drawPtero(d, stage) {
+  const m = d.main, k = d.dark, b = d.belly;
+  const s = stage === 1 ? 0.6 : stage === 2 ? 0.78 : 1;
+  const adult = stage >= 3, teen = stage >= 2;
+  const wingSpan = adult ? 70 : teen ? 56 : 40;
+  return '<svg viewBox="0 0 160 140" class="dragon-svg">' +
+    '<g transform="translate(80 70) scale(' + s + ') translate(-80 -70)">' +
+    // 左翼（翼指延伸）
+    '<path d="M70 70 Q' + (70 - wingSpan * 0.7) + ' ' + (70 - wingSpan * 0.4) + ' ' + (70 - wingSpan) + ' ' + (70 - wingSpan * 0.1) + ' Q' + (70 - wingSpan * 0.5) + ' ' + (70 + 10) + ' ' + (70 - wingSpan * 0.3) + ' ' + (70 + 18) + ' Z" fill="' + m + '" stroke="' + k + '" stroke-width="2" stroke-linejoin="round"/>' +
+    '<line x1="70" y1="70" x2="' + (70 - wingSpan) + '" y2="' + (70 - wingSpan * 0.1) + '" stroke="' + k + '" stroke-width="1.2" opacity=".6"/>' +
+    '<line x1="72" y1="72" x2="' + (70 - wingSpan * 0.6) + '" y2="' + (70 + 4) + '" stroke="' + k + '" stroke-width="1" opacity=".5"/>' +
+    // 右翼
+    '<path d="M88 70 Q' + (88 + wingSpan * 0.7) + ' ' + (70 - wingSpan * 0.4) + ' ' + (88 + wingSpan) + ' ' + (70 - wingSpan * 0.1) + ' Q' + (88 + wingSpan * 0.5) + ' ' + (70 + 10) + ' ' + (88 + wingSpan * 0.3) + ' ' + (70 + 18) + ' Z" fill="' + m + '" stroke="' + k + '" stroke-width="2" stroke-linejoin="round" opacity=".92"/>' +
+    '<line x1="88" y1="70" x2="' + (88 + wingSpan) + '" y2="' + (70 - wingSpan * 0.1) + '" stroke="' + k + '" stroke-width="1.2" opacity=".6"/>' +
+    // 身体（小，紧凑）
+    '<ellipse cx="80" cy="76" rx="14" ry="16" fill="' + m + '" stroke="' + k + '" stroke-width="2.5"/>' +
+    '<ellipse cx="80" cy="80" rx="8" ry="10" fill="' + b + '" opacity=".7"/>' +
+    // 后冠（长，向后）
+    '<path d="M76 64 L' + (76 - wingSpan * 0.3) + ' ' + (64 - 14) + ' L' + (78 - wingSpan * 0.3) + ' 60 L80 64 Z" fill="' + m + '" stroke="' + k + '" stroke-width="2" stroke-linejoin="round"/>' +
+    // 长喙（无牙）
+    '<path d="M80 70 L120 74 L122 78 L118 80 L82 78 Z" fill="' + m + '" stroke="' + k + '" stroke-width="2" stroke-linejoin="round"/>' +
+    // 喙尖
+    '<path d="M118 76 L122 78 L118 80 Z" fill="' + k + '"/>' +
+    // 眼
+    '<circle cx="86" cy="70" r="3" fill="#fff" stroke="' + k + '" stroke-width="1.5"/>' +
+    '<circle cx="87" cy="70" r="1.5" fill="' + k + '"/>' +
+    // 爪
+    '<line x1="76" y1="90" x2="74" y2="106" stroke="' + k + '" stroke-width="2" stroke-linecap="round"/>' +
+    '<line x1="84" y1="90" x2="86" y2="106" stroke="' + k + '" stroke-width="2" stroke-linecap="round"/>' +
+    (adult ? '<path d="M70 106 l-2 4 M72 108 l-2 4 M74 110 l-2 4" stroke="' + k + '" stroke-width="1.5" stroke-linecap="round"/>' : '') +
+    '</g></svg>';
+}
+
+// ============== 5. 雷龙 (Brachiosaurus) ==============
+// 标志：极长颈（前肢比后肢长）+ 长尾 + 小头 + 柱状腿
+function drawBrachio(d, stage) {
+  const m = d.main, k = d.dark, b = d.belly;
+  const s = stage === 1 ? 0.55 : stage === 2 ? 0.75 : 1;
+  const adult = stage >= 3, teen = stage >= 2;
+  return '<svg viewBox="0 0 200 160" class="dragon-svg">' +
+    '<g transform="translate(100 80) scale(' + s + ') translate(-100 -80)">' +
+    // 长尾
+    '<path d="M40 90 C20 96 6 90 4 78 C2 68 12 64 20 70 L36 80 L52 88 Z" fill="' + m + '" stroke="' + k + '" stroke-width="2.5" stroke-linejoin="round"/>' +
+    // 后腿（短）
+    '<path d="M52 96 L48 134 L42 140 L36 140 L40 134 L46 96 Z" fill="' + m + '" stroke="' + k + '" stroke-width="2.5" stroke-linejoin="round"/>' +
+    // 前腿（长！标志性）
+    '<path d="M88 80 L86 140 L80 146 L74 146 L78 140 L82 80 Z" fill="' + m + '" stroke="' + k + '" stroke-width="2.5" stroke-linejoin="round"/>' +
+    // 桶状身体（前高后低）
+    '<path d="M44 84 C44 70 60 56 86 56 C112 56 124 68 124 84 C124 96 110 100 88 100 C58 100 44 96 44 84 Z" fill="' + m + '" stroke="' + k + '" stroke-width="2.5"/>' +
+    '<ellipse cx="84" cy="90" rx="26" ry="8" fill="' + b + '" opacity=".7"/>' +
+    // 长颈（从肩部斜向上）
+    '<path d="M110 64 C124 50 140 36 152 26 C158 22 162 24 162 30 C160 38 148 50 132 60 L114 70 Z" fill="' + m + '" stroke="' + k + '" stroke-width="2.5" stroke-linejoin="round"/>' +
+    // 小头
+    '<ellipse cx="158" cy="28" rx="12" ry="9" fill="' + m + '" stroke="' + k + '" stroke-width="2.5"/>' +
+    // 鼻拱
+    '<path d="M158 22 Q156 18 160 18 Q164 18 164 22 L168 24 L168 28 L160 28 Z" fill="' + m + '" stroke="' + k + '" stroke-width="2"/>' +
+    // 眼
+    '<circle cx="156" cy="28" r="2" fill="#fff" stroke="' + k + '" stroke-width="1"/>' +
+    '<circle cx="157" cy="28" r="1" fill="' + k + '"/>' +
+    // 嘴
+    '<path d="M168 30 L172 30 L172 32 L168 32" fill="' + k + '"/>' +
+    // 颈纹
+    (teen ? '<path d="M120 60 l-3 6 M132 50 l-3 6 M144 40 l-3 6" stroke="' + k + '" stroke-width="1.5" fill="none" opacity=".6"/>' : '') +
+    '</g></svg>';
+}
+
+// ============== 6. 棘龙 (Spinosaurus) ==============
+// 标志：巨大背帆（神经棘）+ 鳄鱼长嘴 + 粗壮身体
+function drawSpino(d, stage) {
+  const m = d.main, k = d.dark, b = d.belly;
+  const s = stage === 1 ? 0.6 : stage === 2 ? 0.78 : 1;
+  const adult = stage >= 3, teen = stage >= 2;
+  const sailH = adult ? 50 : teen ? 38 : 26;
+  // 背帆：半圆形带条纹
+  let sail = '<path d="M50 ' + (84 - sailH) + ' Q80 ' + (84 - sailH - 8) + ' 110 ' + (84 - sailH) + ' L106 84 L54 84 Z" fill="' + b + '" stroke="' + k + '" stroke-width="2.5" stroke-linejoin="round" opacity=".85"/>';
+  for (let i = 0; i < 5; i++) {
+    const x = 56 + i * 12;
+    sail += '<line x1="' + x + '" y1="' + (84 - sailH * (0.4 + i * 0.12)) + '" x2="' + x + '" y2="84" stroke="' + k + '" stroke-width="1.5" opacity=".5"/>';
+  }
+  return '<svg viewBox="0 0 160 140" class="dragon-svg">' +
+    '<g transform="translate(80 70) scale(' + s + ') translate(-80 -70)">' +
+    // 长尾
+    '<path d="M50 84 C30 96 8 90 6 76 C4 66 14 62 22 70 L34 78 L48 84 Z" fill="' + m + '" stroke="' + k + '" stroke-width="2.5" stroke-linejoin="round"/>' +
+    // 后腿
+    '<path d="M52 88 L48 122 L42 128 L36 128 L40 122 L46 88 Z" fill="' + m + '" stroke="' + k + '" stroke-width="2.5" stroke-linejoin="round"/>' +
+    '<path d="M70 88 L72 124 L66 130 L60 130 L62 124 L60 88 Z" fill="' + m + '" stroke="' + k + '" stroke-width="2.5" stroke-linejoin="round"/>' +
+    // 身体
+    '<path d="M48 76 C46 86 54 92 72 92 C90 92 98 84 96 74 C92 64 78 60 66 62 C56 62 48 68 48 76 Z" fill="' + m + '" stroke="' + k + '" stroke-width="2.5"/>' +
+    sail +
+    // 长鳄鱼嘴
+    '<path d="M88 66 L130 64 L130 70 L92 72 Z" fill="' + m + '" stroke="' + k + '" stroke-width="2.5" stroke-linejoin="round"/>' +
+    // 嘴张开
+    '<path d="M96 72 L128 70 L126 76 L100 76 Z" fill="' + k + '" opacity=".7"/>' +
+    // 圆锥牙
+    (adult ?
+      '<path d="M104 70 l-1 5 M110 70 l-1 5 M116 70 l-1 5 M122 70 l-1 5" stroke="#fff" stroke-width="1.2" stroke-linecap="round"/>' +
+      '<path d="M104 76 l-1 -4 M110 76 l-1 -4 M116 76 l-1 -4 M122 76 l-1 -4" stroke="#fff" stroke-width="1.2" stroke-linecap="round"/>'
+    : '') +
+    // 眼
+    '<circle cx="98" cy="66" r="2.5" fill="#fff" stroke="' + k + '" stroke-width="1.2"/>' +
+    '<circle cx="99" cy="66" r="1.2" fill="' + k + '"/>' +
+    // 头顶小冠
+    '<path d="M88 62 L86 56 L92 60 Z" fill="' + k + '"/>' +
+    '</g></svg>';
+}
+
+// ============== 7. 甲龙 (Ankylosaurus) ==============
+// 标志：全身骨甲 + 尾锤 + 矮胖身体 + 横向宽体
+function drawAnkylo(d, stage) {
+  const m = d.main, k = d.dark, b = d.belly;
+  const s = stage === 1 ? 0.6 : stage === 2 ? 0.78 : 1;
+  const adult = stage >= 3, teen = stage >= 2;
+  // 骨甲：背上一排三角刺 + 体侧鳞甲
+  let armor = '';
+  for (let i = 0; i < 7; i++) {
+    const x = 40 + i * 12;
+    armor += '<path d="M' + (x - 4) + ' 62 L' + x + ' 54 L' + (x + 4) + ' 62 Z" fill="' + k + '"/>';
+  }
+  // 体侧鳞片
+  let sideArmor = '';
+  for (let i = 0; i < 4; i++) {
+    const y = 78 + i * 6;
+    sideArmor += '<path d="M40 ' + y + ' q6 -4 12 0 M60 ' + y + ' q6 -4 12 0 M80 ' + y + ' q6 -4 12 0" stroke="' + k + '" stroke-width="1.4" fill="none" opacity=".6"/>';
+  }
+  return '<svg viewBox="0 0 160 140" class="dragon-svg">' +
+    '<g transform="translate(80 70) scale(' + s + ') translate(-80 -70)">' +
+    // 尾（粗壮，末端锤）
+    '<path d="M40 80 C28 86 18 88 12 80 C8 74 14 70 20 74 L34 78 Z" fill="' + m + '" stroke="' + k + '" stroke-width="2.5" stroke-linejoin="round"/>' +
+    // 尾锤（两个球）
+    (adult ?
+      '<circle cx="10" cy="80" r="8" fill="' + k + '" stroke="' + k + '" stroke-width="2"/>' +
+      '<circle cx="6" cy="76" r="5" fill="' + k + '" stroke="' + k + '" stroke-width="1.5"/>' +
+      '<circle cx="6" cy="84" r="5" fill="' + k + '" stroke="' + k + '" stroke-width="1.5"/>'
+    : (teen ?
+      '<circle cx="12" cy="80" r="6" fill="' + k + '" stroke="' + k + '" stroke-width="1.5"/>'
+      : '<circle cx="14" cy="80" r="4" fill="' + k + '" stroke="' + k + '" stroke-width="1.2"/>')) +
+    // 四足（短粗）
+    '<path d="M44 96 L42 122 L36 128 L30 128 L34 122 L40 96 Z" fill="' + m + '" stroke="' + k + '" stroke-width="2.5" stroke-linejoin="round"/>' +
+    '<path d="M100 96 L102 122 L108 128 L114 128 L110 122 L106 96 Z" fill="' + m + '" stroke="' + k + '" stroke-width="2.5" stroke-linejoin="round"/>' +
+    // 矮胖宽体（几乎贴地）
+    '<path d="M40 88 C36 76 50 64 70 62 C90 62 110 76 108 88 C106 100 90 104 70 102 C50 100 40 96 40 88 Z" fill="' + m + '" stroke="' + k + '" stroke-width="2.5"/>' +
+    '<ellipse cx="72" cy="92" rx="22" ry="6" fill="' + b + '" opacity=".6"/>' +
+    armor +
+    sideArmor +
+    // 小头（低，几乎贴地）
+    '<path d="M108 70 C112 60 124 60 128 68 L130 78 C128 84 118 86 112 82 L106 76 Z" fill="' + m + '" stroke="' + k + '" stroke-width="2.5" stroke-linejoin="round"/>' +
+    // 头甲
+    '<path d="M112 64 L116 60 L120 64 L124 60 L128 64" stroke="' + k + '" stroke-width="1.5" fill="none"/>' +
+    // 喙
+    '<path d="M128 78 L134 80 L130 82 L126 80 Z" fill="' + k + '"/>' +
+    // 眼
+    '<circle cx="118" cy="72" r="2" fill="#fff" stroke="' + k + '" stroke-width="1"/>' +
+    '<circle cx="119" cy="72" r="1" fill="' + k + '"/>' +
+    // 角
+    '<path d="M114 66 L112 60 L116 64 Z" fill="' + k + '"/>' +
+    '<path d="M122 64 L120 58 L124 62 Z" fill="' + k + '"/>' +
+    '</g></svg>';
+}
+
+// ============== 8. 欧洲龙 (Euro Dragon) ==============
+// 标志：蝙蝠翼 + 尖刺背 + 喷火（嘴前火焰）+ 四足 + 角
+function drawEuro(d, stage) {
+  const m = d.main, k = d.dark, b = d.belly;
+  const s = stage === 1 ? 0.6 : stage === 2 ? 0.78 : 1;
+  const adult = stage >= 3, teen = stage >= 2;
+  // 蝙蝠翼
+  const wingSpan = adult ? 56 : teen ? 44 : 32;
+  const leftWing = '<path d="M68 64 L' + (68 - wingSpan) + ' ' + (64 - wingSpan * 0.4) + ' L' + (60 - wingSpan * 0.6) + ' ' + (64 - wingSpan * 0.1) + ' L' + (50 - wingSpan * 0.4) + ' ' + (64 + wingSpan * 0.2) + ' L' + (60 - wingSpan * 0.2) + ' ' + (64 + wingSpan * 0.1) + ' L68 ' + (64 + wingSpan * 0.1) + ' Z" fill="' + k + '" stroke="' + k + '" stroke-width="1.5" stroke-linejoin="round" opacity=".9"/>';
+  const rightWing = '<path d="M92 64 L' + (92 + wingSpan) + ' ' + (64 - wingSpan * 0.4) + ' L' + (100 + wingSpan * 0.6) + ' ' + (64 - wingSpan * 0.1) + ' L' + (110 + wingSpan * 0.4) + ' ' + (64 + wingSpan * 0.2) + ' L' + (100 + wingSpan * 0.2) + ' ' + (64 + wingSpan * 0.1) + ' L92 ' + (64 + wingSpan * 0.1) + ' Z" fill="' + k + '" stroke="' + k + '" stroke-width="1.5" stroke-linejoin="round" opacity=".9"/>';
+  // 翼指骨
+  const wingBones = '<line x1="68" y1="64" x2="' + (68 - wingSpan) + '" y2="' + (64 - wingSpan * 0.4) + '" stroke="' + k + '" stroke-width="1.5" opacity=".7"/>' +
+                    '<line x1="68" y1="64" x2="' + (60 - wingSpan * 0.6) + '" y2="' + (64 - wingSpan * 0.1) + '" stroke="' + k + '" stroke-width="1.2" opacity=".6"/>' +
+                    '<line x1="68" y1="64" x2="' + (50 - wingSpan * 0.4) + '" y2="' + (64 + wingSpan * 0.2) + '" stroke="' + k + '" stroke-width="1.2" opacity=".6"/>' +
+                    '<line x1="92" y1="64" x2="' + (92 + wingSpan) + '" y2="' + (64 - wingSpan * 0.4) + '" stroke="' + k + '" stroke-width="1.5" opacity=".7"/>' +
+                    '<line x1="92" y1="64" x2="' + (100 + wingSpan * 0.6) + '" y2="' + (64 - wingSpan * 0.1) + '" stroke="' + k + '" stroke-width="1.2" opacity=".6"/>' +
+                    '<line x1="92" y1="64" x2="' + (110 + wingSpan * 0.4) + '" y2="' + (64 + wingSpan * 0.2) + '" stroke="' + k + '" stroke-width="1.2" opacity=".6"/>';
+  return '<svg viewBox="0 0 180 140" class="dragon-svg">' +
+    '<g transform="translate(90 70) scale(' + s + ') translate(-90 -70)">' +
+    // 尾
+    '<path d="M58 90 C42 100 24 96 18 86 C14 78 22 74 28 80 L42 88 L54 90 Z" fill="' + m + '" stroke="' + k + '" stroke-width="2.5" stroke-linejoin="round"/>' +
+    // 后腿
+    '<path d="M60 92 L56 122 L50 128 L44 128 L48 122 L54 92 Z" fill="' + m + '" stroke="' + k + '" stroke-width="2.5" stroke-linejoin="round"/>' +
+    // 前腿
+    '<path d="M88 92 L90 122 L94 128 L100 128 L96 122 L92 92 Z" fill="' + m + '" stroke="' + k + '" stroke-width="2.5" stroke-linejoin="round"/>' +
+    // 身体
+    '<path d="M56 78 C54 90 64 100 82 100 C100 100 108 90 104 78 C100 66 84 60 70 62 C60 62 56 70 56 78 Z" fill="' + m + '" stroke="' + k + '" stroke-width="2.5"/>' +
+    '<ellipse cx="80" cy="86" rx="20" ry="8" fill="' + b + '" opacity=".7"/>' +
+    // 翼
+    leftWing + rightWing + wingBones +
+    // 背刺
+    (teen ? '<path d="M64 64 l-2 -8 l4 6 z M76 60 l-2 -10 l4 8 z M88 60 l-2 -10 l4 8 z M100 64 l-2 -8 l4 6 z" fill="' + k + '"/>' : '') +
+    // 颈
+    '<path d="M100 70 L114 60 L126 64 L114 76 Z" fill="' + m + '" stroke="' + k + '" stroke-width="2.5" stroke-linejoin="round"/>' +
+    // 头
+    '<path d="M118 60 C120 50 134 48 142 56 C146 62 142 70 134 72 L124 70 L118 66 Z" fill="' + m + '" stroke="' + k + '" stroke-width="2.5" stroke-linejoin="round"/>' +
+    // 角（双角后弯）
+    '<path d="M126 50 L120 38 L128 48 Z" fill="' + k + '"/>' +
+    '<path d="M134 48 L130 36 L138 46 Z" fill="' + k + '"/>' +
+    // 嘴
+    '<path d="M140 64 L150 62 L148 68 L142 68 Z" fill="' + m + '" stroke="' + k + '" stroke-width="2"/>' +
+    (adult ? '<path d="M148 64 l4 -4 l-2 6 l4 -2 l-2 6 l4 -2 l-2 6 l4 -2" fill="#FBBF24" stroke="#F97316" stroke-width="1"/>' : '') +
+    // 眼（凶）
+    '<ellipse cx="130" cy="60" rx="4" ry="3" fill="' + k + '"/>' +
+    '<circle cx="131" cy="60" r="1.5" fill="#FBBF24"/>' +
+    '<circle cx="131.5" cy="59.5" r=".6" fill="#fff"/>' +
+    '</g></svg>';
+}
+
+// ============== 9. 东方龙 (Chinese Dragon) ==============
+// 标志：蛇身 + 鹿角 + 鹰爪 + 鱼鳞 + 长须 + 飘逸
+function drawEast(d, stage) {
+  const m = d.main, k = d.dark, b = d.belly;
+  const s = stage === 1 ? 0.55 : stage === 2 ? 0.75 : 1;
+  const adult = stage >= 3, teen = stage >= 2;
+  // 蛇身（S 形）
+  const bodyPath = 'M30 110 C20 90 40 70 50 80 C60 90 50 110 70 100 C90 90 80 60 100 50 C120 40 130 30 130 30';
+  return '<svg viewBox="0 0 180 140" class="dragon-svg">' +
+    '<g transform="translate(90 70) scale(' + s + ') translate(-90 -70)">' +
+    // 蛇身主路径
+    '<path d="' + bodyPath + '" fill="none" stroke="' + k + '" stroke-width="22" stroke-linecap="round"/>' +
+    '<path d="' + bodyPath + '" fill="none" stroke="' + m + '" stroke-width="18" stroke-linecap="round"/>' +
+    // 鳞片（沿线排列）
+    (teen ? '<path d="M40 100 l4 4 l-2 -6 l4 4 l-2 -6 l4 4 l-2 -6 l4 4 l-2 -6 l4 4 l-2 -6 l4 4 M60 90 l4 4 l-2 -6 l4 4 l-2 -6 l4 4 l-2 -6 l4 4 l-2 -6 l4 4 l-2 -6 l4 4 M85 75 l4 4 l-2 -6 l4 4 l-2 -6 l4 4 l-2 -6 l4 4 l-2 -6 l4 4 l-2 -6 l4 4 M110 50 l4 4 l-2 -6 l4 4 l-2 -6 l4 4" stroke="' + k + '" stroke-width="1.4" fill="none" opacity=".6"/>' : '') +
+    // 鳍
+    '<path d="M52 78 l-4 -10 l8 4 z" fill="' + m + '" stroke="' + k + '" stroke-width="1.5"/>' +
+    '<path d="M72 96 l4 -12 l-8 6 z" fill="' + m + '" stroke="' + k + '" stroke-width="1.5"/>' +
+    '<path d="M90 76 l-4 -10 l8 4 z" fill="' + m + '" stroke="' + k + '" stroke-width="1.5"/>' +
+    // 鹰爪（4 趾）
+    '<path d="M28 110 l-4 8 m4 -8 l0 8 m4 -8 l4 8" stroke="' + k + '" stroke-width="2" stroke-linecap="round" fill="none"/>' +
+    // 鹿角
+    '<path d="M124 32 L116 22 L120 26 L114 16 L122 24 L120 14" stroke="' + k + '" stroke-width="2.5" fill="none" stroke-linecap="round"/>' +
+    '<path d="M134 28 L140 16 L138 22 L146 12 L142 22" stroke="' + k + '" stroke-width="2.5" fill="none" stroke-linecap="round"/>' +
+    // 头（长吻）
+    '<path d="M120 36 C118 30 132 26 140 32 C144 36 142 42 138 44 L130 44 L122 40 Z" fill="' + m + '" stroke="' + k + '" stroke-width="2.5" stroke-linejoin="round"/>' +
+    // 长须
+    '<path d="M138 44 q12 0 14 12" stroke="' + k + '" stroke-width="2.2" fill="none" stroke-linecap="round"/>' +
+    '<path d="M136 46 q14 4 14 16" stroke="' + k + '" stroke-width="1.8" fill="none" stroke-linecap="round"/>' +
+    // 鼻
+    '<ellipse cx="140" cy="38" rx="2" ry="1.5" fill="' + k + '"/>' +
+    // 眼
+    '<circle cx="130" cy="36" r="2.5" fill="#fff" stroke="' + k + '" stroke-width="1.2"/>' +
+    '<circle cx="131" cy="36" r="1.2" fill="' + k + '"/>' +
+    // 眉
+    '<path d="M126 32 L132 30 L130 34 Z" fill="' + k + '"/>' +
+    // 嘴须
+    '<path d="M138 42 q4 2 6 0" stroke="' + k + '" stroke-width="1.5" fill="none"/>' +
+    '</g></svg>';
+}
+
+// ============== 10. 冰龙 (Ice Dragon) ==============
+// 标志：冰晶翼 + 冰角 + 冰锥背刺 + 冰蓝色调
+function drawIce(d, stage) {
+  const m = d.main, k = d.dark, b = d.belly;
+  const s = stage === 1 ? 0.6 : stage === 2 ? 0.78 : 1;
+  const adult = stage >= 3, teen = stage >= 2;
+  // 冰晶翼（晶体形状）
+  const wingSpan = adult ? 50 : teen ? 40 : 30;
+  const iceWingLeft = '<path d="M70 60 L' + (70 - wingSpan) + ' ' + (60 - wingSpan * 0.5) + ' L' + (50 - wingSpan * 0.4) + ' ' + (60 + wingSpan * 0.3) + ' L70 ' + (60 + wingSpan * 0.2) + ' Z" fill="' + b + '" stroke="' + k + '" stroke-width="1.8" stroke-linejoin="round" opacity=".7"/>' +
+                      '<path d="M70 60 L' + (40 - wingSpan * 0.2) + ' ' + (60 - wingSpan * 0.2) + ' M70 60 L' + (60 - wingSpan * 0.4) + ' ' + (60 + wingSpan * 0.1) + '" stroke="' + k + '" stroke-width="1.2" opacity=".6"/>' +
+                      '<path d="M' + (70 - wingSpan * 0.5) + ' ' + (60 - wingSpan * 0.3) + ' l-3 -6 l6 3 z" fill="#fff" opacity=".8"/>' +
+                      '<path d="M' + (50 - wingSpan * 0.3) + ' ' + (60 + wingSpan * 0.1) + ' l-3 4 l6 -2 z" fill="#fff" opacity=".7"/>';
+  const iceWingRight = '<path d="M90 60 L' + (90 + wingSpan) + ' ' + (60 - wingSpan * 0.5) + ' L' + (110 + wingSpan * 0.4) + ' ' + (60 + wingSpan * 0.3) + ' L90 ' + (60 + wingSpan * 0.2) + ' Z" fill="' + b + '" stroke="' + k + '" stroke-width="1.8" stroke-linejoin="round" opacity=".7"/>' +
+                       '<path d="M90 60 L' + (120 + wingSpan * 0.2) + ' ' + (60 - wingSpan * 0.2) + ' M90 60 L' + (100 + wingSpan * 0.4) + ' ' + (60 + wingSpan * 0.1) + '" stroke="' + k + '" stroke-width="1.2" opacity=".6"/>' +
+                       '<path d="M' + (90 + wingSpan * 0.5) + ' ' + (60 - wingSpan * 0.3) + ' l3 -6 l-6 3 z" fill="#fff" opacity=".8"/>' +
+                       '<path d="M' + (110 + wingSpan * 0.3) + ' ' + (60 + wingSpan * 0.1) + ' l3 4 l-6 -2 z" fill="#fff" opacity=".7"/>';
+  // 冰锥背刺
+  const iceSpines = teen ?
+    '<path d="M62 64 l-2 -10 l4 8 z M76 60 l-2 -12 l4 10 z M90 60 l-2 -12 l4 10 z M104 64 l-2 -10 l4 8 z" fill="#DFF3FF" stroke="' + k + '" stroke-width="1"/>'
+    : '';
+  return '<svg viewBox="0 0 180 140" class="dragon-svg">' +
+    '<g transform="translate(90 70) scale(' + s + ') translate(-90 -70)">' +
+    // 尾
+    '<path d="M50 88 C30 96 10 92 6 80 C4 70 14 66 22 72 L36 80 Z" fill="' + m + '" stroke="' + k + '" stroke-width="2.5" stroke-linejoin="round"/>' +
+    // 后腿
+    '<path d="M52 92 L48 122 L42 128 L36 128 L40 122 L46 92 Z" fill="' + m + '" stroke="' + k + '" stroke-width="2.5" stroke-linejoin="round"/>' +
+    // 前腿
+    '<path d="M88 92 L90 122 L94 128 L100 128 L96 122 L92 92 Z" fill="' + m + '" stroke="' + k + '" stroke-width="2.5" stroke-linejoin="round"/>' +
+    // 身体
+    '<path d="M48 76 C46 88 56 96 76 96 C96 96 104 88 102 76 C98 64 84 60 70 62 C58 62 48 68 48 76 Z" fill="' + m + '" stroke="' + k + '" stroke-width="2.5"/>' +
+    '<ellipse cx="76" cy="84" rx="20" ry="8" fill="' + b + '" opacity=".7"/>' +
+    // 冰翼
+    iceWingLeft + iceWingRight + iceSpines +
+    // 颈
+    '<path d="M98 64 L110 54 L120 58 L110 70 Z" fill="' + m + '" stroke="' + k + '" stroke-width="2.5" stroke-linejoin="round"/>' +
+    // 头
+    '<path d="M112 54 C114 44 128 42 134 50 C138 56 134 64 126 66 L118 64 L114 60 Z" fill="' + m + '" stroke="' + k + '" stroke-width="2.5" stroke-linejoin="round"/>' +
+    // 冰角（透明）
+    '<path d="M120 48 L116 32 L122 44 Z" fill="#DFF3FF" stroke="' + k + '" stroke-width="1.5"/>' +
+    '<path d="M128 46 L126 28 L132 42 Z" fill="#DFF3FF" stroke="' + k + '" stroke-width="1.5"/>' +
+    '<path d="M132 48 L138 34 L134 50 Z" fill="#DFF3FF" stroke="' + k + '" stroke-width="1.5"/>' +
+    // 嘴
+    '<path d="M132 60 L142 58 L140 64 L134 64 Z" fill="' + m + '" stroke="' + k + '" stroke-width="2"/>' +
+    // 鼻息（冷气）
+    (adult ? '<path d="M142 60 q4 -2 6 0 q-2 4 -6 2 M144 56 q4 -4 8 -2 q-2 4 -6 4" stroke="' + k + '" stroke-width="1.2" fill="none" opacity=".6"/>' : '') +
+    // 眼（冰蓝）
+    '<circle cx="122" cy="54" r="2.5" fill="#fff" stroke="' + k + '" stroke-width="1"/>' +
+    '<circle cx="123" cy="54" r="1.2" fill="#22D3EE"/>' +
+    '</g></svg>';
+}
+
+// 各龙独立画法索引
+const DRAGON_DRAWERS = {
+  trex: drawTrex,
+  stego: drawStego,
+  tricera: drawTricera,
+  ptero: drawPtero,
+  brachio: drawBrachio,
+  spino: drawSpino,
+  ankylo: drawAnkylo,
+  euro: drawEuro,
+  east: drawEast,
+  ice: drawIce
+};
 
 function currentStageIndex(points) {
   let idx = 0;
@@ -826,11 +1282,12 @@ let _liveClockTimer = null;
 let _liveBannerHideTimer = null;
 function studentLiveClock() {
   const banner = $('#liveBanner');
-  if (!banner) return;
+  const wrap = $('#liveBannerWrap');
+  if (!banner || !wrap) return;
   if (!currentUser) return;
   // 切到非练习页时，强制隐藏并清掉自动隐藏定时器
   if (currentUser.role !== 'student' || $('#view-practice').hidden) {
-    banner.hidden = true;
+    wrap.hidden = true;
     if (_liveBannerHideTimer) { clearTimeout(_liveBannerHideTimer); _liveBannerHideTimer = null; }
     return;
   }
@@ -838,32 +1295,32 @@ function studentLiveClock() {
     if (d.active) {
       // 老师正在开启的默写 → 显示倒计时
       if (_liveBannerHideTimer) { clearTimeout(_liveBannerHideTimer); _liveBannerHideTimer = null; }
-      banner.hidden = false;
+      wrap.hidden = false;
       $('#liveBannerText').textContent = '老师已开启默写';
       $('#liveBannerClock').textContent = fmtClock(d.remaining);
       // 给倒计时一个强调色
       banner.classList.remove('ended');
     } else if (d.ended) {
       // 已结束（老师手动结束 / 自然超时）：显示一次，5 秒后自动隐藏
-      banner.hidden = false;
+      wrap.hidden = false;
       $('#liveBannerText').textContent = '默写已结束';
       $('#liveBannerClock').textContent = '00:00';
       banner.classList.add('ended');
       if (!_liveBannerHideTimer) {
         _liveBannerHideTimer = setTimeout(() => {
-          banner.hidden = true;
+          wrap.hidden = true;
           banner.classList.remove('ended');
           _liveBannerHideTimer = null;
         }, 5000);
       }
     } else {
       // 没有活动 session 也不处于"刚结束"状态 → 隐藏
-      banner.hidden = true;
+      wrap.hidden = true;
       banner.classList.remove('ended');
       if (_liveBannerHideTimer) { clearTimeout(_liveBannerHideTimer); _liveBannerHideTimer = null; }
     }
   }).catch(() => {
-    banner.hidden = true;
+    wrap.hidden = true;
     banner.classList.remove('ended');
   });
 }

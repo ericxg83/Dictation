@@ -595,22 +595,29 @@ button.del:hover { background: #FADBDB; transform: scale(1.05); }
 
 /* ===== 学生端倒计时横幅 ===== */
 .live-banner {
-  background: linear-gradient(120deg, #FFF6DE, #FFF0C8); color: #7A5B00;
-  border-radius: var(--radius); padding: 10px 18px; margin-bottom: 14px;
-  display: flex; align-items: center; gap: 10px; justify-content: center; font-weight: 700;
-  border: 1px solid #F0DC9A;
+  background: linear-gradient(120deg, rgba(124, 58, 237, .25), rgba(168, 85, 247, .18));
+  color: var(--text-on-dark);
+  border-radius: 99px; padding: 6px 14px; margin-bottom: 12px;
+  display: inline-flex; align-items: center; gap: 8px; justify-content: center;
+  font-weight: 700; font-size: 13px; letter-spacing: .2px;
+  border: 1px solid rgba(168, 85, 247, .45);
+  box-shadow: 0 4px 14px rgba(124, 58, 237, .25);
+  align-self: center;
 }
-.live-banner-icon { font-size: 18px; }
+.live-banner-icon { font-size: 14px; }
 .live-banner b {
-  background: #7A5B00; color: #fff; border-radius: 99px; padding: 2px 12px;
-  font-size: 15px; font-variant-numeric: tabular-nums;
+  background: linear-gradient(135deg, #7C3AED, #A855F7); color: #fff;
+  border-radius: 99px; padding: 1px 10px;
+  font-size: 12px; font-variant-numeric: tabular-nums; font-weight: 800;
+  letter-spacing: .3px;
 }
 .live-banner.ended {
-  background: linear-gradient(120deg, #F2F4F8, #E8ECF3); color: #5C6B85;
-  border-color: #D8DEEA;
+  background: linear-gradient(120deg, rgba(91, 33, 182, .2), rgba(34, 211, 238, .12));
+  border-color: rgba(34, 211, 238, .35);
+  color: var(--text-on-dark-2);
   animation: liveBannerFade 5s ease forwards;
 }
-.live-banner.ended b { background: #5C6B85; }
+.live-banner.ended b { background: linear-gradient(135deg, #5B21B6, #22D3EE); }
 @keyframes liveBannerFade {
   0% { opacity: 0; transform: translateY(-6px); }
   10%, 80% { opacity: 1; transform: translateY(0); }
@@ -795,6 +802,7 @@ button.del:hover { background: #FADBDB; transform: scale(1.05); }
 }
 
 /* 成就弹窗（达成连击/全对时：深色玻璃拟态 + 紫粉光晕） */
+[hidden] { display: none !important; }
 .achievement-toast {
   position: fixed; left: 50%; top: 90px; transform: translate(-50%, -120%);
   background: linear-gradient(135deg, rgba(91, 33, 182, .92) 0%, rgba(124, 58, 237, .92) 50%, rgba(236, 72, 153, .88) 100%);
