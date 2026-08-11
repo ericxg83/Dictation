@@ -1000,17 +1000,21 @@ function flashAnswer() {
   speak(it.english);
   $('#practiceCard').classList.remove('bad');
   $('#practiceCard').classList.add('flash');
-  session.flashTimer = setTimeout(() => {
-    session.flashTimer = null;
-    $('#answerInput').value = '';
-    renderLetterCells('');
-    $('#answerInput').disabled = false;
-    $('#answerInput').focus();
-    $('#practiceCard').classList.remove('flash');
-    $('#feedback').innerHTML = '';
-    _warned = false;
-    checking = false;
-  }, 3000);
+  session.flashTimer = setTimeout(clearFlash, 3000);
+}
+
+// 结束闪现：恢复输入框，等待重新默写本词（可被 Enter 提前触发，跳过等待）
+function clearFlash() {
+  if (!session) return;
+  if (session.flashTimer) { clearTimeout(session.flashTimer); session.flashTimer = null; }
+  $('#answerInput').value = '';
+  renderLetterCells('');
+  $('#answerInput').disabled = false;
+  $('#answerInput').focus();
+  $('#practiceCard').classList.remove('flash');
+  $('#feedback').innerHTML = '';
+  _warned = false;
+  checking = false;
 }
 
 // 快捷键 Alt+V：直接查看答案，视为答错一次
@@ -1089,6 +1093,11 @@ $('#answerInput').addEventListener('keydown', e => {
   if (e.altKey && (e.key === 'r' || e.key === 'R')) { e.preventDefault(); if (session && session.current) speak(session.current.english); return; }
   if (e.altKey && (e.key === 'v' || e.key === 'V')) { e.preventDefault(); viewAnswer(); return; }
   if (e.key === 'Enter') { e.preventDefault(); checkAnswer(); }
+});
+// 闪现答案期间输入框被禁用，回车事件需在 document 上监听：回车可直接跳过闪现，立即重新默写
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Enter') return;
+  if (session && session.locked && session.flashTimer) { e.preventDefault(); clearFlash(); }
 });
 $('#answerInput').addEventListener('input', () => { renderLetterCells($('#answerInput').value); autoSpace(); autoCheckTyping(); throttleLiveReport(); });
 $('#speakBtn').onclick = () => { if (session && session.current) speak(session.current.english); };
