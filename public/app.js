@@ -1,4 +1,4 @@
-﻿const $ = s => document.querySelector(s);
+const $ = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
@@ -1162,8 +1162,40 @@ $('#checkBtn').onclick = () => checkAnswer();
 $('#answerInput').addEventListener('keydown', e => {
   if (e.altKey && (e.key === 'r' || e.key === 'R')) { e.preventDefault(); if (session && session.current) speak(session.current.english); return; }
   if (e.altKey && (e.key === 'v' || e.key === 'V')) { e.preventDefault(); viewAnswer(); return; }
-  if (e.key === 'Enter') { e.preventDefault(); checkAnswer(); }
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    // 遇到错误字母：回车撤销（删除）最后一个字符；输入正确时再提交
+    const el = $('#answerInput');
+    if (el.value && undoLastChar()) return;
+    checkAnswer();
+  }
 });
+
+// 回车撤销：若最后一个输入字符对应的格子被标红（与答案不一致），删除它；
+// 否则不删，按回车进入提交流程。这样用户敲错时回车能立即取消错字母。
+function undoLastChar() {
+  const el = $('#answerInput');
+  if (!el || !el.value) return false;
+  const cells = session.letterCells || [];
+  // 找到最后一个被填入的格子
+  let lastIdx = -1;
+  for (let i = cells.length - 1; i >= 0; i--) {
+    if (cells[i].classList.contains('filled')) { lastIdx = i; break; }
+  }
+  if (lastIdx < 0) return false;
+  // 该格子对应的期望字母
+  const exp = session.expLetters || '';
+  if (lastIdx >= exp.length) return false;
+  // 当前值去掉所有空白后的对应位置字母
+  const typedNoSpace = String(el.value).replace(/\s+/g, '');
+  const cur = typedNoSpace[lastIdx] || '';
+  if (cur && cur.toLowerCase() === exp[lastIdx]) return false; // 字母正确，回车不删，去走提交
+  // 删除最后一个非空白字符（以及其后可能存在的自动补空格）
+  el.value = el.value.replace(/\S\s*$/, '');
+  renderLetterCells(el.value);
+  _warned = false;
+  return true;
+}
 // 闪现答案期间输入框被禁用，回车事件需在 document 上监听：回车可直接跳过闪现，立即重新默写
 document.addEventListener('keydown', e => {
   if (e.key !== 'Enter') return;

@@ -225,7 +225,37 @@ async function extractWithPdfjs(buffer) {
   for (let i = 1; i <= doc.numPages; i++) {
     const page = await doc.getPage(i);
     const tc = await page.getTextContent();
-    text += tc.items.map(it => it.str).join(' ') + '\n';
+    const items = tc.items
+      .map(it => ({ str: it.str, x: it.transform[4], y: it.transform[5] }))
+      .filter(it => it.str && it.str.trim() !== '');
+    if (!items.length) continue;
+    // 1) 按 y 坐标聚类成行（PDF 坐标系 y 向上为正，所以行内 y 接近）
+    items.sort((a, b) => (b.y - a.y) || (a.x - b.x));
+    const rows = [];
+    let cur = [], curY = null;
+    for (const it of items) {
+      if (curY === null || Math.abs(it.y - curY) <= 6) { cur.push(it); curY = it.y; }
+      else { rows.push(cur); cur = [it]; curY = it.y; }
+    }
+    if (cur.length) rows.push(cur);
+    // 2) 每行按 x 排序，再按 x 间隙 > 40 切成"列"
+    for (const row of rows) {
+      row.sort((a, b) => a.x - b.x);
+      const cells = [];
+      let cell = [row[0]], prevX = row[0].x;
+      for (let k = 1; k < row.length; k++) {
+        if (row[k].x - prevX > 40) { cells.push(cell); cell = []; }
+        cell.push(row[k]);
+        prevX = row[k].x;
+      }
+      cells.push(cell);
+      // 3) 每个单元格输出为一行
+      cells.forEach(c => {
+        const t = c.map(it => it.str).join('').replace(/\s+/g, ' ').trim();
+        if (t) text += t + '\n';
+      });
+    }
+    text += '\n';
   }
   return text;
 }
