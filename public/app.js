@@ -1471,7 +1471,7 @@ function showNext() {
   $('#cardPrompt').textContent = it.chinese;
   $('#cardPos').textContent = it.pos || '';
   $('#cardPos').hidden = !it.pos;
-  $('#promptHint').innerHTML = (it.type === 'sentence' ? '根据中文写出英文句子' : (it.type === 'word' ? '根据中文写出单词' : '根据中文写出词组'));
+  const ph = $('#promptHint'); if (ph) ph.textContent = (it.type === 'sentence' ? '根据中文写出英文句子' : (it.type === 'word' ? '根据中文写出单词' : '根据中文写出词组'));
   throttleLiveReport();
   buildLetterBox();
   $('#answerInput').value = '';
@@ -1497,15 +1497,24 @@ function buildLetterBox() {
   session._wasWrong = false;
   const box = $('#letterBox');
   box.innerHTML = '';
+  // 顶部小标签：词性 + 字符数
+  const tip = document.createElement('div');
+  tip.className = 'letter-box-tip';
+  tip.innerHTML = '<span class="tip-dot"></span><span>' + typeLabel(it.type) + '</span><span class="tip-count">· 共 ' + session.expLetters.length + ' 字符</span>';
+  box.appendChild(tip);
+  // 真正容纳格子的容器（display: contents 让子元素直接参与父 flex 流）
+  const inner = document.createElement('div');
+  inner.className = 'letter-box-inner';
+  box.appendChild(inner);
   const words = primary.split(/\s+/).filter(Boolean);
   let li = 0;
   words.forEach((word, w) => {
-    if (w > 0) { const gap = document.createElement('div'); gap.className = 'l-gap'; box.appendChild(gap); }
+    if (w > 0) { const gap = document.createElement('div'); gap.className = 'l-gap'; inner.appendChild(gap); }
     for (const ch of word) {
       const cell = document.createElement('div');
       cell.className = 'l-cell';
       cell.dataset.i = li;
-      box.appendChild(cell);
+      inner.appendChild(cell);
       session.letterCells.push(cell);
       li++;
     }
@@ -1522,13 +1531,15 @@ function renderLetterCells(inputVal) {
   const exp = session.expLetters || '';
   const typed = String(inputVal || '').replace(/\s+/g, '');
   cells.forEach((cell, i) => {
-    cell.classList.remove('filled', 'wrong');
+    cell.classList.remove('filled', 'wrong', 'current');
     if (i < typed.length) {
       cell.textContent = typed[i];
       cell.classList.add('filled');
       if (typed[i].toLowerCase() !== exp[i]) cell.classList.add('wrong');
     } else {
       cell.textContent = '';
+      // 当前应填入的位置：脉冲提示
+      if (i === typed.length && i < exp.length) cell.classList.add('current');
     }
   });
   // 新敲入的字母是错的 → 提示音

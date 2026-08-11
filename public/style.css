@@ -393,13 +393,14 @@ button.del:hover { background: #FADBDB; transform: scale(1.05); }
 .letter-box-wrap { position: relative; }
 .letter-box {
   display: flex; flex-wrap: wrap; gap: 6px; align-items: center; justify-content: center;
-  padding: 22px 14px 18px; min-height: 90px;
+  padding: 30px 14px 18px; min-height: 96px;
   background: linear-gradient(180deg, rgba(11, 8, 32, .65), rgba(26, 18, 64, .55));
   border: 2px solid rgba(167, 139, 250, .25);
   border-radius: 18px;
   box-shadow: inset 0 0 30px rgba(139, 92, 246, .12);
   position: relative;
 }
+.letter-box-inner { display: contents; }
 /* 标题行小标签：在 letter-box 顶部显示词性 + 计数 */
 .letter-box-tip {
   position: absolute; top: 6px; left: 12px; font-size: 11px; font-weight: 700;
@@ -1437,7 +1438,7 @@ button:active::after, .primary:active::after, .ghost-btn:active::after, .header-
   .l-cell::after { left: 4px; right: 4px; bottom: 5px; height: 3px; }
   .l-cell.filled::after { height: 3.5px; }
   .l-gap { width: 10px; flex: 0 0 auto; }
-  .letter-box-tip { font-size: 10px; left: 10px; }
+  .letter-box-tip { font-size: 10px; left: 10px; top: 5px; }
   /* 极窄屏再缩小 */
   @media (max-width: 380px) {
     .l-cell { width: 24px; height: 36px; font-size: 19px; border-radius: 8px; }
@@ -1498,7 +1499,7 @@ button:active::after, .primary:active::after, .ghost-btn:active::after, .header-
   body.immersive.keyboard-up .dict-center { padding: 10px 12px; }
   body.immersive.keyboard-up .speak-wrap,
   body.immersive.keyboard-up .shortcuts { display: none; }
-  body.immersive.keyboard-up .letter-box { min-height: 58px; padding: 22px 8px 12px; }
+  body.immersive.keyboard-up .letter-box { min-height: 58px; padding: 26px 8px 10px; }
   body.immersive.keyboard-up .l-cell { height: 38px; font-size: 20px; width: 26px; border-radius: 8px; }
   body.immersive.keyboard-up .l-cell::after { height: 2.5px; }
 
