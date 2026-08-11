@@ -193,7 +193,6 @@
             <span class="score-pill">得分 <b id="score">0</b></span>
             <span class="remain-pill">剩余 <b id="remaining">0</b></span>
           </div>
-          <div class="hint" id="promptHint"></div>
           <div class="prompt" id="cardPrompt"></div>
           <div class="pos-line" id="cardPos"></div>
           <div class="answer-row">
@@ -235,6 +234,30 @@
     <!-- 学生 · 学习统计 -->
     <section id="view-stats" class="view">
       <h2>学习统计</h2>
+
+      <!-- SVG 渐变定义（进度环复用） -->
+      <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+        <defs>
+          <linearGradient id="grad-brand" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#6366F1"/>
+            <stop offset="100%" stop-color="#8B5CF6"/>
+          </linearGradient>
+          <linearGradient id="grad-warm" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#FB923C"/>
+            <stop offset="100%" stop-color="#F43F5E"/>
+          </linearGradient>
+          <linearGradient id="grad-mint" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#10B981"/>
+            <stop offset="100%" stop-color="#06B6D4"/>
+          </linearGradient>
+          <linearGradient id="grad-aurora" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#6366F1"/>
+            <stop offset="50%" stop-color="#EC4899"/>
+            <stop offset="100%" stop-color="#F59E0B"/>
+          </linearGradient>
+        </defs>
+      </svg>
+
       <div id="petPanel" class="pet-panel">
         <div class="pet-left">
           <div class="pet-emoji" id="petEmoji">🥚</div>
@@ -245,17 +268,61 @@
         </div>
         <div class="pet-right">
           <div class="pet-bar"><div id="petBar"></div></div>
-          <span id="petProgress"></span>
+          <div class="pet-progress-label">
+            <span id="petProgress"></span>
+          </div>
         </div>
-        <button id="changePetBtn" class="ghost-btn">更换伙伴</button>
+        <button id="changePetBtn" class="pet-change-btn">🔄 更换伙伴</button>
       </div>
-      <div class="stat-cards">
-        <div class="s-card"><b id="statTotal">0</b><span>总条目</span></div>
-        <div class="s-card"><b id="statDue">0</b><span>今日待复习</span></div>
-        <div class="s-card"><b id="statMastered">0</b><span>已掌握</span></div>
-        <div class="s-card"><b id="statPoints">0</b><span>累计得分</span></div>
-        <div class="s-card"><b id="statSessions">0</b><span>练习次数</span></div>
+
+      <div class="stats-hero">
+        <h3>你的累计得分</h3>
+        <p>答对一题得 1 分，答错不扣分 · 积分能解锁龙龙升级</p>
+        <div class="stats-hero-num">
+          <span id="statPointsHero">0</span>
+          <small>分</small>
+        </div>
       </div>
+
+      <div class="ring-grid">
+        <div class="ring-card">
+          <svg class="ring-svg" viewBox="0 0 100 100">
+            <circle class="ring-bg" cx="50" cy="50" r="42"/>
+            <circle id="ringTotal" class="ring-fg brand" cx="50" cy="50" r="42"
+                    stroke-dasharray="263.9" stroke-dashoffset="263.9" transform="rotate(-90 50 50)"/>
+            <text class="ring-num" x="50" y="50" id="statTotal">0</text>
+          </svg>
+          <div class="ring-card-label">总条目 📚</div>
+        </div>
+        <div class="ring-card">
+          <svg class="ring-svg" viewBox="0 0 100 100">
+            <circle class="ring-bg" cx="50" cy="50" r="42"/>
+            <circle id="ringMastered" class="ring-fg mint" cx="50" cy="50" r="42"
+                    stroke-dasharray="263.9" stroke-dashoffset="263.9" transform="rotate(-90 50 50)"/>
+            <text class="ring-num" x="50" y="50" id="statMastered">0</text>
+          </svg>
+          <div class="ring-card-label">已掌握 🌱</div>
+        </div>
+        <div class="ring-card">
+          <svg class="ring-svg" viewBox="0 0 100 100">
+            <circle class="ring-bg" cx="50" cy="50" r="42"/>
+            <circle id="ringDue" class="ring-fg warm" cx="50" cy="50" r="42"
+                    stroke-dasharray="263.9" stroke-dashoffset="263.9" transform="rotate(-90 50 50)"/>
+            <text class="ring-num" x="50" y="50" id="statDue">0</text>
+          </svg>
+          <div class="ring-card-label">今日待复习 ⏰</div>
+        </div>
+        <div class="ring-card">
+          <svg class="ring-svg" viewBox="0 0 100 100">
+            <circle class="ring-bg" cx="50" cy="50" r="42"/>
+            <circle id="ringSessions" class="ring-fg aurora" cx="50" cy="50" r="42"
+                    stroke-dasharray="263.9" stroke-dashoffset="263.9" transform="rotate(-90 50 50)"/>
+            <text class="ring-num" x="50" y="50" id="statSessions">0</text>
+          </svg>
+          <div class="ring-card-label">练习次数 ✍️</div>
+        </div>
+      </div>
+
       <h3>未来 7 天复习计划</h3>
       <table class="mini-table">
         <thead><tr><th>日期</th><th>待复习</th></tr></thead>
@@ -287,13 +354,28 @@
   <div class="corner-pet-name" id="cornerPetName">小龙</div>
 </div>
 
+<!-- 连击 badge（练习卡片右上角） -->
+<div id="comboBadge" class="combo-badge">🔥 <b id="comboNum">0</b> 连击</div>
+
+<!-- 连击大字（屏幕中央飞起） -->
+<div id="comboFlash" class="combo-flash"></div>
+
+<!-- 成就弹窗（全对/连击/里程碑时） -->
+<div id="achievement" class="achievement-toast">
+  <div class="achievement-emoji" id="achievementEmoji">🏆</div>
+  <div class="achievement-text">
+    <b id="achievementTitle">成就解锁</b>
+    <span id="achievementDesc">恭喜达成</span>
+  </div>
+</div>
+
 <!-- 领取/更换宠物弹窗：学生注册后选龙 + 取名；更换会损失经验值 -->
 <div id="petModal" hidden>
   <div class="modal-mask" onclick="if(event.target===this)closePetModal()">
     <div class="pet-modal">
       <h3 id="petModalTitle">领养你的小龙 🐉</h3>
       <p class="sub" id="petModalSub">选一只龙龙做你的伙伴，它会在你每次默写时安静地陪着你。随着积分增长，龙龙会从蛋里孵化、逐渐长大！</p>
-      <p class="sub warn-text" id="petChangeWarn" hidden>⚠️ 更换伙伴会损失当前 20% 的经验值，龙龙可能会降级。它是陪伴你成长的伙伴，确定要更换吗？</p>
+      <p class="warn-box" id="petChangeWarn" hidden>⚠️ 更换伙伴会损失当前 20% 的经验值，龙龙可能会降级。它是陪伴你成长的伙伴，确定要更换吗？</p>
       <div id="petPick" class="pet-pick"></div>
       <div class="pet-name-row">
         <input id="petNameInput" type="text" maxlength="12" placeholder="给龙龙取个名字（12 字以内）">

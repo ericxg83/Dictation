@@ -550,6 +550,7 @@ $('#discardBtn').onclick = () => { resetDraft(); setStatus('已放弃草稿。')
 
 let editingBankId = null; // 正在编辑的题库 id（null = 新建草稿）
 
+// ================= 老师 · 题库列表（已发布） =================
 async function loadBanks() {
   const d = await api('/api/bank');
   const wrap = $('#bankList');
@@ -561,16 +562,16 @@ async function loadBanks() {
   d.banks.forEach(b => {
     const card = document.createElement('div');
     card.className = 'bank-card';
-    const time = new Date(b.updatedAt).toLocaleString('zh-CN');
+    const time = new Date(b.updatedAt).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
     const btns = document.createElement('div');
     btns.className = 'bank-btns';
     const editBtn = document.createElement('button');
     editBtn.className = 'ghost-btn';
-    editBtn.textContent = '编辑';
+    editBtn.textContent = '✏️ 编辑';
     editBtn.onclick = () => editBank(b);
     const delBtn = document.createElement('button');
     delBtn.className = 'ghost-btn danger-btn';
-    delBtn.textContent = '删除';
+    delBtn.textContent = '🗑 删除';
     delBtn.onclick = async () => {
       if (!confirm('确定删除题库「' + b.title + '」？学生进度不受影响，但题库将不可再练习。')) return;
       await api('/api/bank/' + b.id, { method: 'DELETE' });
@@ -579,12 +580,15 @@ async function loadBanks() {
     };
     btns.appendChild(editBtn);
     btns.appendChild(delBtn);
-    card.appendChild(
-      Object.assign(document.createElement('div'), {
-        className: 'bank-main',
-        innerHTML: '<b>' + esc(b.title) + '</b><span class="bank-meta">' + b.count + ' 条 · 更新于 ' + time + '</span>'
-      })
-    );
+    const main = document.createElement('div');
+    main.className = 'bank-main';
+    main.innerHTML =
+      '<b>' + esc(b.title) + '</b>' +
+      '<div class="bank-meta">' +
+        '<span class="bank-meta-item bank-meta-count">📚 ' + b.count + ' 条</span>' +
+        '<span class="bank-meta-item">🕒 ' + esc(time) + '</span>' +
+      '</div>';
+    card.appendChild(main);
     card.appendChild(btns);
     wrap.appendChild(card);
   });
@@ -628,18 +632,26 @@ async function loadStudents() {
     d.students.forEach(s => {
       const last = s.lastActive ? new Date(s.lastActive).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '从未练习';
       const dragon = s.pet ? (DRAGON_KINDS.find(k => k.id === s.pet.dragonId) || null) : null;
-      const petTxt = dragon ? (dragon.name + (s.pet.name ? '（' + s.pet.name + '）' : '')) : '未领养';
+      const petTxt = dragon ? (dragon.name + (s.pet.name ? '（' + s.pet.name + '）' : '')) : '未领养龙龙';
       const nameTxt = s.name && s.name !== s.username ? s.name + '（' + s.username + '）' : (s.name || s.username);
       const card = document.createElement('div');
       card.className = 'stu-card';
+      const stageIdx = dragon ? Math.min(3, Math.floor((s.points || 0) / 10)) : 0;
+      const stageLabel = dragon ? (['龙蛋', '幼龙', '少年龙', '成年龙'][stageIdx] || '龙蛋') : '';
       card.innerHTML =
-        '<div class="stu-name">' + esc(nameTxt) + ' <span style="font-weight:400;color:var(--ink-3);font-size:12px">· ' + esc(petTxt) + '</span></div>' +
-        '<div class="stu-meta">总 <b>' + s.total + '</b></div>' +
-        '<div class="stu-meta">掌握 <b>' + s.mastered + '</b></div>' +
-        '<div class="stu-meta">待复习 <b>' + s.due + '</b></div>' +
-        '<div class="stu-meta">得分 <b>' + s.points + '</b></div>' +
-        '<div class="stu-meta" style="grid-column:1/-1;color:var(--ink-3);font-size:12px">最近：' + esc(last) + '</div>' +
-        '<div class="stu-actions"><button class="ghost-btn" data-id="' + esc(s.id) + '" data-name="' + esc(s.name || s.username) + '">改名</button></div>';
+        '<div class="stu-pet">' + (dragon ? dragonArt(dragon, stageIdx) : '🥚') + '</div>' +
+        '<div class="stu-card-body">' +
+          '<div class="stu-name">' + esc(nameTxt) + '</div>' +
+          '<div class="stu-pet-name">' + esc(petTxt) + (stageLabel ? ' · ' + stageLabel : '') + '</div>' +
+          '<div class="stu-stats">' +
+            '<div class="stu-stat">📚 总 <b>' + s.total + '</b></div>' +
+            '<div class="stu-stat mastered">🌱 掌握 <b>' + s.mastered + '</b></div>' +
+            '<div class="stu-stat due">⏰ 待复习 <b>' + s.due + '</b></div>' +
+            '<div class="stu-stat pts">⭐ 得分 <b>' + s.points + '</b></div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="stu-last-active">🕒 ' + esc(last) + '</div>' +
+        '<div class="stu-actions"><button class="ghost-btn" data-id="' + esc(s.id) + '" data-name="' + esc(s.name || s.username) + '">✏️ 改名</button></div>';
       card.querySelector('button').onclick = () => {
         const cur = card.querySelector('button').dataset.name;
         const v = prompt('修改「' + cur + '」的姓名：', cur);
@@ -654,7 +666,7 @@ async function loadStudents() {
     wrap.appendChild(cards);
     return;
   }
-  // 桌面：原表格
+  // 桌面：原表格（也升级一下表头）
   const table = document.createElement('table');
   table.className = 'mini-table';
   table.innerHTML = '<thead><tr><th>学生</th><th>宠物</th><th>总条目</th><th>已掌握</th><th>待复习</th><th>得分</th><th>最近活跃</th><th></th></tr></thead>';
@@ -663,7 +675,7 @@ async function loadStudents() {
     const tr = document.createElement('tr');
     const last = s.lastActive ? new Date(s.lastActive).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '从未练习';
     const dragon = s.pet ? (DRAGON_KINDS.find(k => k.id === s.pet.dragonId) || null) : null;
-    const petTxt = dragon ? (dragon.name + (s.pet.name ? '(' + s.pet.name + ')' : '')) : '未领养';
+    const petTxt = dragon ? (dragon.name + (s.pet.name ? '（' + s.pet.name + '）' : '')) : '未领养';
     const nameTd = document.createElement('td');
     const nameTxt = s.name && s.name !== s.username ? s.name + '（' + s.username + '）' : (s.name || s.username);
     nameTd.textContent = nameTxt;
@@ -815,6 +827,7 @@ let _liveBannerHideTimer = null;
 function studentLiveClock() {
   const banner = $('#liveBanner');
   if (!banner) return;
+  if (!currentUser) return;
   // 切到非练习页时，强制隐藏并清掉自动隐藏定时器
   if (currentUser.role !== 'student' || $('#view-practice').hidden) {
     banner.hidden = true;
@@ -863,17 +876,25 @@ async function loadStudentBanks() {
   $('#myClassInfo').textContent = d.classInfo ? '所在班级：' + d.classInfo.name : '你还没有加入班级，请找老师获取班级码后重新注册。';
   const wrap = $('#stuBankList');
   if (!d.banks.length) {
-    wrap.innerHTML = '<div class="empty">老师还没有发布题库，稍后再来看看。</div>';
+    wrap.innerHTML = '<div class="empty">老师还没有发布题库，稍后再来看看～</div>';
     return;
   }
   wrap.innerHTML = '';
-  d.banks.forEach(b => {
+  d.banks.forEach((b, idx) => {
     const card = document.createElement('div');
-    card.className = 'bank-card';
-    card.innerHTML = '' +
-      '<div class="bank-main"><b>' + esc(b.title) + '</b>' +
-      '<span class="bank-meta">' + b.count + ' 条</span></div>' +
-      '<button class="primary" data-pick="' + b.id + '">开始默写</button>';
+    card.className = 'bank-card is-student';
+    // 表情包轮播（让卡片更活泼）
+    const emojis = ['📚', '✏️', '🎯', '🌟', '🚀', '🎓', '💪', '🔥', '🧠', '⚡'];
+    const emoji = emojis[idx % emojis.length];
+    card.innerHTML =
+      '<div class="bank-main">' +
+        '<b>' + emoji + ' ' + esc(b.title) + '</b>' +
+        '<div class="bank-meta">' +
+          '<span class="bank-meta-item bank-meta-count">📚 ' + b.count + ' 条单词</span>' +
+          '<span class="bank-meta-item">⚡ 点击开始挑战</span>' +
+        '</div>' +
+      '</div>' +
+      '<button class="primary" data-pick="' + b.id + '">开始默写 🚀</button>';
     card.querySelector('[data-pick]').onclick = () => startBankPractice(b);
     wrap.appendChild(card);
   });
@@ -952,6 +973,8 @@ async function startPractice(force) {
 function startPracticeFrom(items) {
   // items 进来时已经被 shuffle；这里不再洗，保证「再练一轮」也能复用同一乱序队列
   _skippedCount = 0;
+  _combo = 0; _maxCombo = 0;
+  const badge = $('#comboBadge'); if (badge) badge.classList.remove('show');
   session = {
     queue: items.map(it => Object.assign({}, it, { missCount: 0 })),
     score: 0, wrong: 0, total: items.length,
@@ -1115,6 +1138,7 @@ async function checkAnswer() {
   renderCornerPet();
 
   if (correct) {
+    bumpCombo();
     // 正确：清掉锁定状态
     session.locked = false;
     if (session.flashTimer) { clearTimeout(session.flashTimer); session.flashTimer = null; }
@@ -1150,6 +1174,7 @@ async function checkAnswer() {
     }
   } else {
     // 答错：卡住本词，不进入下一词；提示音 + 闪现正确答案几秒后消失，再重新默写本词
+    resetCombo();
     session.wrong++;
     if (it.strike === 0) it.strike = 3;
     session.locked = true;
@@ -1194,6 +1219,7 @@ function viewAnswer() {
   if (checking || !session || !session.current) return;
   if (session.flashTimer) return;
   const it = session.current;
+  resetCombo();
   session.wrong++;
   if (it.strike === 0) it.strike = 3;
   session.locked = true;
@@ -1214,6 +1240,8 @@ function skipCurrent() {
   if (!session || !session.current) return;
   if (session.locked && session.flashTimer) return; // 闪现答案时不允许跳过
   if (checking) return;
+  // 跳过会中断连击（不算答对）
+  resetCombo();
   const cur = session.queue.shift();
   if (!cur) return;
   // 计算插入位置：保证不会立刻又出现（跳过至少 3 个）
@@ -1252,7 +1280,7 @@ function showPracticeView() {
   enterImmersive();
 }
 
-// 正确时的游戏特效：分数飘升 + 星星
+// 正确时的游戏特效：分数飘升 + 星星 + 角落宠物弹跳
 function fxCorrect() {
   renderCornerPet();
   const card = $('#practiceCard');
@@ -1277,6 +1305,94 @@ function fxCorrect() {
   pet.classList.remove('pop');
   void pet.offsetWidth;
   pet.classList.add('pop');
+}
+
+// ===== 连击 combo 系统 =====
+// 连续答对累积，达到 3/5/8/10/15 时触发大字 + 成就提示
+let _combo = 0;
+let _maxCombo = 0;
+function bumpCombo() {
+  _combo++;
+  if (_combo > _maxCombo) _maxCombo = _combo;
+  const badge = $('#comboBadge');
+  if (badge) {
+    badge.classList.remove('show');
+    void badge.offsetWidth;
+    badge.classList.add('show');
+    $('#comboNum').textContent = _combo;
+    // 隐藏计时器：10 秒无新连击自动收起
+    clearTimeout(bumpCombo._t);
+    bumpCombo._t = setTimeout(() => badge.classList.remove('show'), 10000);
+  }
+  // 大字只在 3 连击及以上出现
+  if (_combo >= 3) {
+    showComboFlash(_combo);
+  }
+  // 成就：达成 5/8/10/15 连击
+  if ([5, 8, 10, 15, 20, 30].includes(_combo)) {
+    showAchievement('🔥 ' + _combo + ' 连击！', '太稳了，键盘都在冒烟～');
+  }
+}
+function resetCombo() {
+  if (_combo >= 3) {
+    // 之前的连击中断了，给个温柔的提示
+    if (_combo >= 5) showAchievement('💔 连击中断', '答对 ' + _combo + ' 次，再来！');
+  }
+  _combo = 0;
+  const badge = $('#comboBadge');
+  if (badge) badge.classList.remove('show');
+}
+function showComboFlash(n) {
+  const el = $('#comboFlash');
+  if (!el) return;
+  el.textContent = n + ' COMBO!';
+  el.classList.remove('show');
+  void el.offsetWidth;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 1100);
+}
+let _achT = null;
+function showAchievement(title, desc) {
+  const el = $('#achievement');
+  if (!el) return;
+  $('#achievementTitle').textContent = title;
+  $('#achievementDesc').textContent = desc;
+  el.classList.remove('show');
+  void el.offsetWidth;
+  el.classList.add('show');
+  if (_achT) clearTimeout(_achT);
+  _achT = setTimeout(() => el.classList.remove('show'), 2800);
+  haptic([20, 60, 20]);
+}
+
+// 礼花：完成练习 / 达成里程碑时全屏爆炸
+function fireworks() {
+  const colors = ['#6366F1', '#8B5CF6', '#EC4899', '#FB923C', '#10B981', '#06B6D4', '#FBBF24'];
+  // 4 个发射点：屏幕四个角
+  const origins = [
+    { x: window.innerWidth * 0.15, y: window.innerHeight * 0.7 },
+    { x: window.innerWidth * 0.5,  y: window.innerHeight * 0.85 },
+    { x: window.innerWidth * 0.85, y: window.innerHeight * 0.7 },
+    { x: window.innerWidth * 0.3,  y: window.innerHeight * 0.85 },
+    { x: window.innerWidth * 0.7,  y: window.innerHeight * 0.85 }
+  ];
+  origins.forEach((o, idx) => {
+    setTimeout(() => {
+      for (let i = 0; i < 14; i++) {
+        const d = document.createElement('div');
+        d.className = 'firework';
+        d.style.background = colors[Math.floor(Math.random() * colors.length)];
+        d.style.left = o.x + 'px';
+        d.style.top = o.y + 'px';
+        const angle = (i / 14) * Math.PI * 2 + Math.random() * 0.3;
+        const dist = 80 + Math.random() * 100;
+        d.style.setProperty('--fx', Math.cos(angle) * dist + 'px');
+        d.style.setProperty('--fy', Math.sin(angle) * dist - 30 + 'px');
+        document.body.appendChild(d);
+        setTimeout(() => d.remove(), 1300);
+      }
+    }, idx * 200);
+  });
 }
 
 function shakeCard() {
@@ -1464,6 +1580,11 @@ async function endSession() {
   _skippedCount = 0;
   session = null;
   checking = false;
+  // 保存本轮最大连击，结算时用
+  const maxCombo = _maxCombo;
+  const isPerfect = !s.wrong && skipped === 0 && s.score > 0;
+  _combo = 0; _maxCombo = 0;
+  const badge = $('#comboBadge'); if (badge) badge.classList.remove('show');
   $('#practiceCard').hidden = true;
   $('#practiceSummary').hidden = false;
   $('#sumScore').textContent = s.score;
@@ -1474,20 +1595,70 @@ async function endSession() {
     ? '<p>本轮出错的题目已按艾宾浩斯记忆法安排复习，明天记得再来！</p>'
     : '<p>全部正确，太棒了！继续保持！</p>';
   $('#backBanksBtn').hidden = !bank;
+  // 礼花：全对 / 最高连击 >= 5 / 完成超过 10 题 → 触发全屏礼花
+  if (isPerfect || maxCombo >= 5 || s.total >= 10) fireworks();
+  // 成就
+  if (isPerfect) {
+    setTimeout(() => showAchievement('🏆 完美通关！', '本轮 ' + s.score + ' 题全部正确，太牛了！'), 600);
+  } else if (maxCombo >= 8) {
+    setTimeout(() => showAchievement('🔥 最高 ' + maxCombo + ' 连击！', '手感来了，下次再创纪录～'), 600);
+  } else if (maxCombo >= 5) {
+    setTimeout(() => showAchievement('🔥 最高 ' + maxCombo + ' 连击！', '节奏感很棒，继续保持～'), 600);
+  }
   prepareToday();
 }
 
 // ================= 统计 =================
+// 进度环动画：把数字 0 → 目标，offset 0 → 目标
+function animateRing(ring, numEl, target) {
+  if (!ring) return;
+  // 圆周长 ≈ 263.9 (r=42)
+  const C = 263.9;
+  const max = Math.max(target, 1);
+  // 让进度按"满分=一定上限"展示，避太小看不出进度
+  const denom = Math.max(max, 20);
+  const pct = Math.min(1, target / denom);
+  const offset = C * (1 - pct);
+  // 强制先设成 0 再过渡到目标
+  ring.style.strokeDashoffset = C;
+  setTimeout(() => { ring.style.strokeDashoffset = offset; }, 50);
+  // 数字递增动画
+  const start = parseInt(numEl.textContent, 10) || 0;
+  const dur = 900;
+  const t0 = performance.now();
+  function step(t) {
+    const k = Math.min(1, (t - t0) / dur);
+    const eased = 1 - Math.pow(1 - k, 3);
+    numEl.textContent = Math.round(start + (target - start) * eased);
+    if (k < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
 async function loadStats() {
   const d = await api('/api/stats');
   totalPoints = d.points;
   renderPetPanel();
   renderCornerPet();
-  $('#statTotal').textContent = d.total;
-  $('#statDue').textContent = d.due;
-  $('#statMastered').textContent = d.mastered;
-  $('#statPoints').textContent = d.points;
-  $('#statSessions').textContent = d.sessions;
+  // 大数字：累计得分
+  const hero = $('#statPointsHero');
+  if (hero) {
+    const start = parseInt(hero.textContent, 10) || 0;
+    const dur = 1200;
+    const t0 = performance.now();
+    function step(t) {
+      const k = Math.min(1, (t - t0) / dur);
+      const eased = 1 - Math.pow(1 - k, 3);
+      hero.textContent = Math.round(start + (d.points - start) * eased);
+      if (k < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
+  // 4 个进度环：总/已掌握/待复习/练习次数
+  animateRing($('#ringTotal'), $('#statTotal'), d.total);
+  animateRing($('#ringMastered'), $('#statMastered'), d.mastered);
+  animateRing($('#ringDue'), $('#statDue'), d.due);
+  animateRing($('#ringSessions'), $('#statSessions'), d.sessions);
   $('#scheduleBody').innerHTML = d.schedule.map(s => '<tr><td>' + s.date + '</td><td>' + s.count + ' 项</td></tr>').join('');
   $('#historyBody').innerHTML = d.history.length
     ? d.history.map(h => '<tr><td>' + h.date + '</td><td>' + h.correct + '</td><td>' + h.wrong + '</td></tr>').join('')
