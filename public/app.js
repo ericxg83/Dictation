@@ -209,9 +209,15 @@ function renderPetPick() {
   });
 }
 function openPetModal() {
+  const isChange = !!(currentUser.pet && currentUser.pet.dragonId);
   _pickedDragon = (currentUser.pet && currentUser.pet.dragonId) || DRAGON_KINDS[0].id;
   $('#petNameInput').value = currentUser.pet ? currentUser.pet.name || '' : '';
   $('#petMsg').textContent = '';
+  $('#petModalTitle').textContent = isChange ? '更换伙伴' : '领养你的小龙 🐉';
+  $('#petModalSub').textContent = isChange
+    ? '你已经有一只龙龙了。更换伙伴会损失当前 20% 的经验值，且它已陪伴你的时光不会保留。'
+    : '选一只龙龙做你的伙伴，它会在你每次默写时安静地陪着你。随着积分增长，龙龙会从蛋里孵化、逐渐长大！';
+  $('#petChangeWarn').hidden = !isChange;
   renderPetPick();
   $('#petModal').hidden = false;
 }
@@ -221,13 +227,22 @@ $('#petConfirmBtn').onclick = async () => {
   const name = $('#petNameInput').value.trim();
   $('#petMsg').textContent = '';
   if (!name) { $('#petMsg').textContent = '给龙龙取个名字吧'; return; }
+  const isChange = !!(currentUser.pet && currentUser.pet.dragonId);
+  if (isChange) {
+    if (!confirm('更换伙伴将损失当前 20% 的经验值，龙龙可能会降级。确定要更换吗？')) return;
+  }
   try {
     const r = await api('/api/pet', { method: 'POST', body: { dragonId: _pickedDragon, name } });
     if (currentUser) currentUser.pet = r.pet;
+    if (typeof r.points === 'number') totalPoints = r.points;
     closePetModal();
     renderPetPanel();
     renderCornerPet();
-    alert('领养成功！你的「' + name + '」会陪着你的，记得每天来默写给它升级～');
+    if (isChange && r.lostPoints > 0) {
+      alert('已更换伙伴！本次损失了 ' + r.lostPoints + ' 点经验值。从今天起，好好陪你的新龙龙成长吧～');
+    } else {
+      alert('领养成功！你的「' + name + '」会陪着你的，记得每天来默写给它升级～');
+    }
   } catch (e) { $('#petMsg').textContent = e.message; }
 };
 
@@ -715,7 +730,13 @@ async function loadStudentBanks() {
 
 let currentBank = null;
 async function startBankPractice(bank) {
-  const d = await api('/api/bank/' + bank.id);
+  let d;
+  try {
+    d = await api('/api/bank/' + bank.id);
+  } catch (e) {
+    alert('加载题库失败：' + e.message);
+    return;
+  }
   const now = Date.now();
   const items = d.entries
     .filter(e => (e.level || 0) < 4 && (e.nextDue || 0) <= now)

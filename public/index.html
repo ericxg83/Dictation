@@ -259,12 +259,13 @@
   <div class="corner-pet-name" id="cornerPetName">小龙</div>
 </div>
 
-<!-- 领取宠物弹窗：学生注册后选择龙 + 取名 -->
+<!-- 领取/更换宠物弹窗：学生注册后选龙 + 取名；更换会损失经验值 -->
 <div id="petModal" hidden>
   <div class="modal-mask" onclick="if(event.target===this)closePetModal()">
     <div class="pet-modal">
-      <h3>领养你的小龙 🐉</h3>
-      <p class="sub">选一只龙龙做你的伙伴，它会在你每次默写时安静地陪着你。随着积分增长，龙龙会从蛋里孵化、逐渐长大！</p>
+      <h3 id="petModalTitle">领养你的小龙 🐉</h3>
+      <p class="sub" id="petModalSub">选一只龙龙做你的伙伴，它会在你每次默写时安静地陪着你。随着积分增长，龙龙会从蛋里孵化、逐渐长大！</p>
+      <p class="sub warn-text" id="petChangeWarn" hidden>⚠️ 更换伙伴会损失当前 20% 的经验值，龙龙可能会降级。它是陪伴你成长的伙伴，确定要更换吗？</p>
       <div id="petPick" class="pet-pick"></div>
       <div class="pet-name-row">
         <input id="petNameInput" type="text" maxlength="12" placeholder="给龙龙取个名字（12 字以内）">

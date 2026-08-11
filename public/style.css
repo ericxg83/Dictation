@@ -389,6 +389,7 @@ button.del:hover { background: #FADBDB; }
 }
 .pet-modal h3 { font-size: 20px; margin: 0 0 6px; color: var(--ink); text-align: center; }
 .pet-modal .sub { text-align: center; font-size: 13px; }
+.warn-text { color: var(--warn); font-weight: 600; }
 .pet-pick { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 12px; margin: 18px 0; }
 .pet-opt {
   border: 2px solid var(--line); border-radius: var(--radius); padding: 12px 8px;

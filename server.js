@@ -90,7 +90,7 @@ async function dbInsertUser(u) {
 }
 async function dbUpdateUser(u) {
   await q('UPDATE users SET username=$2, salt=$3, password=$4, role=$5, class_id=$6, pet=$7 WHERE id=$1',
-    [u.id, u.username, u.salt, u.password, u.role, u.classId || null, JSON.stringify(u.pet || null)]);
+    [u.id, u.username, u.salt, u.password, u.role, u.class_id || u.classId || null, JSON.stringify(u.pet || null)]);
 }
 
 // ---- 会话 ----
@@ -143,7 +143,8 @@ function requireRole(role) {
     if (req.user.role !== role) return res.status(403).json({ error: '无权限操作' });
     next();
   };
-}function publicUser(u) { return { id: u.id, username: u.username, role: u.role, classId: u.class_id, pet: u.pet || null }; }
+}
+function publicUser(u) { return { id: u.id, username: u.username, role: u.role, classId: u.class_id || u.classId || null, pet: u.pet || null }; }
 async function getClassInfo(u) {
   if (!u.class_id) return null;
   return (await q('SELECT id, name, code, teacher_id AS "teacherId" FROM classes WHERE id = $1', [u.class_id])).rows[0] || null;
@@ -514,9 +515,25 @@ app.post('/api/pet', requireAuth, requireRole('student'), async (req, res) => {
   if (DRAGON_IDS.indexOf(id) === -1) return res.status(400).json({ error: '请选择一只龙龙' });
   const petName = String(name || '').trim().slice(0, 12);
   if (!petName) return res.status(400).json({ error: '给龙龙取个名字吧（12 字以内）' });
-  req.user.pet = { dragonId: id, name: petName, claimedAt: Date.now() };
+  const old = req.user.pet;
+  let lostPoints = 0;
+  if (old && old.dragonId) {
+    // 更换伙伴：损失当前 20% 经验值（龙龙可能降级）
+    const p = await loadProgress(req.user.id);
+    const cur = p.stats.points || 0;
+    lostPoints = Math.max(1, Math.round(cur * 0.2));
+    p.stats.points = Math.max(0, cur - lostPoints);
+    await saveProgress(req.user.id, p);
+  }
+  req.user.pet = {
+    dragonId: id, name: petName,
+    claimedAt: (old && old.claimedAt) || Date.now(),
+    changedAt: Date.now(),
+    changedCount: ((old && old.changedCount) || 0) + 1
+  };
   await dbUpdateUser(req.user);
-  res.json({ ok: true, pet: req.user.pet });
+  const fresh = await loadProgress(req.user.id);
+  res.json({ ok: true, pet: req.user.pet, lostPoints, points: fresh.stats.points || 0 });
 });
 
 // ================= 路由：文档解析 =================
