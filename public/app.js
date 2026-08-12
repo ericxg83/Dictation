@@ -2840,13 +2840,16 @@ function buildLetterBox() {
   const words = primary.split(/\s+/).filter(Boolean);
   let li = 0;
   words.forEach((word, w) => {
-    if (w > 0) { const gap = document.createElement('div'); gap.className = 'l-gap'; inner.appendChild(gap); }
+    // 每个单词整体包一层 l-word，作为不可拆的换行单元：
+    // 单词放得下就与同行单词并排；放不下时整词换行，避免单词内部被拆开
+    const wordWrap = document.createElement('div');
+    wordWrap.className = 'l-word';
     for (const ch of word) {
       if (/[A-Za-z0-9]/.test(ch)) {
         const cell = document.createElement('div');
         cell.className = 'l-cell';
         cell.dataset.i = li;
-        inner.appendChild(cell);
+        wordWrap.appendChild(cell);
         session.letterCells.push(cell);
         li++;
       } else {
@@ -2854,16 +2857,15 @@ function buildLetterBox() {
         const punct = document.createElement('div');
         punct.className = 'l-punct';
         punct.textContent = ch;
-        inner.appendChild(punct);
+        wordWrap.appendChild(punct);
       }
     }
+    inner.appendChild(wordWrap);
     session.wordEnds.push(li);
   });
   // 期望输入长度 = 字母数 + 词间空格数（用于拼写过长判断）
   session.expectedLen = session.expLetters.length + Math.max(0, words.length - 1);
   renderLetterCells('');
-  // 重新检测横向溢出（在新词长度变化时）
-  setTimeout(updateLetterBoxOverflow, 0);
 }
 
 // 把当前输入渲染进字母格子；错字母标红并提示音；词组/句子自动补空格
@@ -3289,51 +3291,26 @@ function haptic(pattern) {
   try { navigator.vibrate(pattern); } catch (e) {}
 }
 
-// 4) 字母格子宽度适配：先测单行总宽；适中长度单词缩放保持一行，
-//    单词过长时直接换行显示全部（永不出现横向滚动条/横向滚动）
+// 4) 字母格子宽度：固定字母宽度 + 多行换行布局，不再缩放。
+//    内容过长时由 CSS flex-wrap 自动换行，单词整体作为不可拆单元（l-word 包装）。
 function updateLetterBoxOverflow() {
-  const box = document.getElementById('letterBox');
-  if (!box) return;
-  // 先恢复默认比例并清掉单行模式
-  box.classList.remove('fit-line');
-  box.style.setProperty('--lscale', '1');
-  const cs = getComputedStyle(box);
-  const padL = parseFloat(cs.paddingLeft) || 0;
-  const padR = parseFloat(cs.paddingRight) || 0;
-  const avail = box.clientWidth - padL - padR;
-  // 临时强制单行测出内容的自然总宽
-  box.classList.add('fit-line');
-  const natural = box.scrollWidth - padL - padR;
-  if (natural <= avail + 2) {
-    box.classList.remove('fit-line'); // 本来就能放下，回到可换行布局（也会是单行）
-    return;
-  }
-  // 计算缩放比例，留 2px 余量；缩到 35% 还放不下就换行（极限长词才换行）
-  const scale = (avail - 2) / natural;
-  if (scale >= 0.35) {
-    box.classList.add('fit-line'); // 适中长度：缩成单行
-    box.style.setProperty('--lscale', scale.toFixed(3));
-  } else {
-    box.classList.remove('fit-line'); // 太长：保持换行，显示全部内容
-  }
+  // 当前实现：字母格固定大小，长内容自动换行，无需任何缩放/测量
+  // 保留空函数仅为兼容 resize/orientationchange 监听
 }
 
-// 5) 输入时保证当前字母可见（移动端已改为自动缩放适配，通常无需滚动；桌面/换行兜底时仍可用）
+// 5) 输入时保证当前字母可见（采用多行换行布局后无需横向滚动，仅做垂直滚动兜底）
 function scrollLetterBoxToCaret() {
   const box = document.getElementById('letterBox');
   if (!box || !session || !session.letterCells) return;
   const idx = (session._lastLen || 0);
   const cell = session.letterCells[idx] || session.letterCells[session.letterCells.length - 1];
   if (!cell) return;
-  // 仅在横向溢出时滚动
-  if (box.scrollWidth > box.clientWidth + 2) {
-    const boxRect = box.getBoundingClientRect();
-    const cellRect = cell.getBoundingClientRect();
-    if (cellRect.left < boxRect.left || cellRect.right > boxRect.right) {
-      box.scrollTo({ left: cell.offsetLeft - 16, behavior: 'smooth' });
-    }
+  // 字母已自动换行显示，仅在极少数情况下（如行高溢出）做垂直滚动
+  const cellRect = cell.getBoundingClientRect();
+  const boxRect = box.getBoundingClientRect();
+  if (cellRect.top < boxRect.top || cellRect.bottom > boxRect.bottom) {
+    box.scrollTo({ top: cell.offsetTop - 16, behavior: 'smooth' });
   }
-  updateLetterBoxOverflow();
 }
 
 // 6) 简单的 toast 提示（替代部分 alert）

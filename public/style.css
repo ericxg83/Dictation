@@ -769,8 +769,12 @@ button.del:hover { background: #FADBDB; transform: scale(1.05); }
   box-shadow: inset 0 0 30px rgba(139, 92, 246, .12);
   position: relative;
 }
-.letter-box.fit-line { flex-wrap: nowrap; justify-content: center; }
 .letter-box-inner { display: contents; }
+/* 单词整体包装：整词作为不可拆的换行单元，放不下时整词换到下一行 */
+.l-word {
+  display: inline-flex; flex-wrap: wrap; align-items: center; justify-content: center;
+  gap: 0;
+}
 /* 标题行小标签：在 letter-box 顶部显示词性 + 计数 */
 .letter-box-tip {
   position: absolute; top: 6px; left: 12px; font-size: 11px; font-weight: 700;
@@ -784,11 +788,11 @@ button.del:hover { background: #FADBDB; transform: scale(1.05); }
   box-shadow: 0 0 0 4px rgba(139, 92, 246, .25), inset 0 0 30px rgba(139, 92, 246, .2);
   background: linear-gradient(180deg, rgba(11, 8, 32, .8), rgba(26, 18, 64, .7));
 }
-/* 字母格子：去掉边框只保留下划线（尺寸跟随 --lscale 缩放） */
+/* 字母格子：去掉边框只保留下划线；固定宽度，长句/词组自动换行 */
 .l-cell {
-  width: calc(32px * var(--lscale, 1)); height: calc(46px * var(--lscale, 1));
+  width: 32px; height: 46px;
   display: flex; align-items: center; justify-content: center;
-  font-size: calc(26px * var(--lscale, 1)); font-weight: 800; color: var(--text-on-dark); text-transform: lowercase;
+  font-size: 26px; font-weight: 800; color: var(--text-on-dark); text-transform: lowercase;
   transition: transform .12s, background .12s, box-shadow .12s;
   background: transparent;
   border-radius: 10px;
@@ -841,12 +845,11 @@ button.del:hover { background: #FADBDB; transform: scale(1.05); }
   box-shadow: 0 0 10px rgba(240, 171, 252, .7);
   animation: underPulse 1.2s ease-in-out infinite;
 }
-.l-gap { width: calc(14px * var(--lscale, 1)); }
 /* 标点提示（空格变间隔，逗号/句号/撇号/连字符等直接显示，无需默写） */
 .l-punct {
   display: flex; align-items: center; justify-content: center;
   min-width: 8px; padding: 0 1px;
-  font-size: calc(24px * var(--lscale, 1)); font-weight: 700; line-height: 1;
+  font-size: 24px; font-weight: 700; line-height: 1;
   color: rgba(196, 181, 253, .95);
   text-shadow: 0 0 8px rgba(167, 139, 250, .45);
 }
@@ -2272,26 +2275,22 @@ button:active::after, .primary:active::after, .ghost-btn:active::after, .header-
   .prompt { font-size: 20px; line-height: 1.4; margin: 8px 0 2px; word-break: break-word; }
   .pos-line { font-size: 14px; min-height: 20px; margin-bottom: 4px; }
   .answer-row { margin-top: 10px; }
-  /* 字母格子：默认换行布局（永不横向滚动），超长内容自动换行；适中长度单词自动缩放保持单行 */
+  /* 字母格子：固定大小 + 多行换行布局，长句/词组自动换行，绝不缩小字母 */
   .letter-box {
-    --lscale: 1; /* 由 JS 按实际宽度计算，整体缩放格子 */
     padding: 22px 8px 12px; min-height: 60px;
-    gap: calc(4px * var(--lscale));
-    overflow: hidden; flex-wrap: wrap; justify-content: center;
+    gap: 6px;
+    flex-wrap: wrap; justify-content: center;
     border-radius: 14px;
   }
-  .letter-box.fit-line { flex-wrap: nowrap; justify-content: center; }
-  .l-cell { width: calc(22px * var(--lscale)); height: calc(32px * var(--lscale)); font-size: calc(17px * var(--lscale)); border-radius: 8px; }
+  .l-cell { width: 22px; height: 32px; font-size: 17px; border-radius: 8px; }
   .l-cell::after { left: 3px; right: 3px; bottom: 4px; height: 2.5px; }
   .l-cell.filled::after { height: 3px; }
-  .l-gap { width: calc(8px * var(--lscale)); flex: 0 0 auto; }
-  .l-punct { font-size: calc(16px * var(--lscale)); min-width: 5px; flex: 0 0 auto; }
+  .l-punct { font-size: 16px; min-width: 5px; }
   .letter-box-tip { font-size: 10px; left: 8px; top: 4px; gap: 5px; }
-  /* 极窄屏再缩小 */
+  /* 极窄屏再缩小（保持固定值，仅微调以适配更窄屏幕） */
   @media (max-width: 380px) {
-    .l-cell { width: calc(20px * var(--lscale)); height: calc(30px * var(--lscale)); font-size: calc(15px * var(--lscale)); border-radius: 7px; }
-    .l-gap { width: calc(6px * var(--lscale)); }
-    .l-punct { font-size: calc(14px * var(--lscale)); min-width: 4px; }
+    .l-cell { width: 20px; height: 30px; font-size: 15px; border-radius: 7px; }
+    .l-punct { font-size: 14px; min-width: 4px; }
     .prompt { font-size: 18px; }
   }
   .speak-wrap { margin-top: 10px; }
@@ -2391,9 +2390,9 @@ button:active::after, .primary:active::after, .ghost-btn:active::after, .header-
   body.immersive.keyboard-up .speak-wrap,
   body.immersive.keyboard-up .shortcuts { display: none; }
   body.immersive.keyboard-up .letter-box { min-height: 58px; padding: 26px 8px 10px; }
-  body.immersive.keyboard-up .l-cell { height: calc(38px * var(--lscale)); font-size: calc(20px * var(--lscale)); width: calc(26px * var(--lscale)); border-radius: 8px; }
+  body.immersive.keyboard-up .l-cell { height: 38px; font-size: 20px; width: 26px; border-radius: 8px; }
   body.immersive.keyboard-up .l-cell::after { height: 2.5px; }
-  body.immersive.keyboard-up .l-punct { font-size: calc(18px * var(--lscale)); }
+  body.immersive.keyboard-up .l-punct { font-size: 18px; }
 
   /* 沉浸式默写：紧凑布局（在横屏/小屏高度下生效） */
   body.immersive .actions { gap: 6px; }
