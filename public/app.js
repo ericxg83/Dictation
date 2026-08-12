@@ -2752,9 +2752,9 @@ function updateLetterBoxOverflow() {
     box.classList.remove('fit-line'); // 本来就能放下，回到可换行布局（也会是单行）
     return;
   }
-  // 计算缩放比例，留 2px 余量；缩到 55% 还放不下就换行
+  // 计算缩放比例，留 2px 余量；缩到 35% 还放不下就换行（极限长词才换行）
   const scale = (avail - 2) / natural;
-  if (scale >= 0.55) {
+  if (scale >= 0.35) {
     box.classList.add('fit-line'); // 适中长度：缩成单行
     box.style.setProperty('--lscale', scale.toFixed(3));
   } else {

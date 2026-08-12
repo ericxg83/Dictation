@@ -2018,47 +2018,55 @@ button:active::after, .primary:active::after, .ghost-btn:active::after, .header-
   .bank-meta::before { width: 28px; height: 28px; }
 
   /* ===== 学生 · 默写卡（核心移动端体验） ===== */
-  #practiceCard { padding: 22px 16px 16px; }
-  #practiceReady, #practiceSummary { padding: 28px 18px; }
-  .count-picker { padding: 12px 12px 10px; border-radius: 14px; }
+  #practiceCard { padding: 18px 14px 14px; border-radius: 18px; }
+  #practiceReady, #practiceSummary { padding: 24px 16px; }
+  .count-picker { padding: 10px 10px 8px; border-radius: 14px; }
   .count-chip { padding: 7px 14px; font-size: 13px; min-width: 52px; }
   .count-custom input { width: 110px; padding: 8px 10px; font-size: 15px; }
   .dict-center { max-width: 100%; }
-  .card-top { gap: 6px; }
-  .type-tag, .score-pill, .remain-pill { padding: 5px 12px; font-size: 12px; }
-  .prompt { font-size: 26px; margin: 14px 0 2px; word-break: break-word; }
-  .pos-line { font-size: 15px; }
-  .answer-row { margin-top: 14px; }
+  .card-top { gap: 6px; margin-bottom: 6px; }
+  .type-tag, .score-pill, .remain-pill { padding: 4px 11px; font-size: 12px; }
+  /* 提示文字与中文问题：小一字号，长内容也只占 1-2 行；过长自动换行不撑破 */
+  #promptHint { font-size: 12px; margin-top: 6px; line-height: 1.5; }
+  .prompt { font-size: 20px; line-height: 1.4; margin: 8px 0 2px; word-break: break-word; }
+  .pos-line { font-size: 14px; min-height: 20px; margin-bottom: 4px; }
+  .answer-row { margin-top: 10px; }
   /* 字母格子：默认换行布局（永不横向滚动），超长内容自动换行；适中长度单词自动缩放保持单行 */
   .letter-box {
     --lscale: 1; /* 由 JS 按实际宽度计算，整体缩放格子 */
-    padding: 24px 10px 16px; min-height: 70px;
-    gap: calc(5px * var(--lscale));
+    padding: 22px 8px 12px; min-height: 60px;
+    gap: calc(4px * var(--lscale));
     overflow: hidden; flex-wrap: wrap; justify-content: center;
-    border-radius: 16px;
+    border-radius: 14px;
   }
   .letter-box.fit-line { flex-wrap: nowrap; justify-content: center; }
-  .l-cell { width: calc(28px * var(--lscale)); height: calc(40px * var(--lscale)); font-size: calc(22px * var(--lscale)); border-radius: 9px; }
-  .l-cell::after { left: 4px; right: 4px; bottom: 5px; height: 3px; }
-  .l-cell.filled::after { height: 3.5px; }
-  .l-gap { width: calc(10px * var(--lscale)); flex: 0 0 auto; }
-  .l-punct { font-size: calc(20px * var(--lscale)); min-width: 6px; flex: 0 0 auto; }
-  .letter-box-tip { font-size: 10px; left: 10px; top: 5px; }
+  .l-cell { width: calc(22px * var(--lscale)); height: calc(32px * var(--lscale)); font-size: calc(17px * var(--lscale)); border-radius: 8px; }
+  .l-cell::after { left: 3px; right: 3px; bottom: 4px; height: 2.5px; }
+  .l-cell.filled::after { height: 3px; }
+  .l-gap { width: calc(8px * var(--lscale)); flex: 0 0 auto; }
+  .l-punct { font-size: calc(16px * var(--lscale)); min-width: 5px; flex: 0 0 auto; }
+  .letter-box-tip { font-size: 10px; left: 8px; top: 4px; gap: 5px; }
   /* 极窄屏再缩小 */
   @media (max-width: 380px) {
-    .l-cell { width: calc(24px * var(--lscale)); height: calc(36px * var(--lscale)); font-size: calc(19px * var(--lscale)); border-radius: 8px; }
-    .l-gap { width: calc(8px * var(--lscale)); }
-    .l-punct { font-size: calc(17px * var(--lscale)); min-width: 5px; }
+    .l-cell { width: calc(20px * var(--lscale)); height: calc(30px * var(--lscale)); font-size: calc(15px * var(--lscale)); border-radius: 7px; }
+    .l-gap { width: calc(6px * var(--lscale)); }
+    .l-punct { font-size: calc(14px * var(--lscale)); min-width: 4px; }
+    .prompt { font-size: 18px; }
   }
-  .speak-wrap { margin-top: 12px; }
-  #speakBtn { padding: 9px 22px; font-size: 14px; }
-  .actions { gap: 8px; }
+  .speak-wrap { margin-top: 10px; }
+  #speakBtn { padding: 8px 20px; font-size: 13px; }
+  .actions { gap: 8px; margin-top: 14px; }
   .actions button { flex: 1; min-width: 0; }
-  .shortcuts { font-size: 11px; }
+  .shortcuts { font-size: 11px; margin-top: 8px; }
 
   /* 软键盘弹出：把卡片往中间挤，避免被遮挡；body 加 bottom safe-area */
   body.keyboard-up #practiceCard { padding-bottom: 8px; }
   body.keyboard-up #cornerPet { display: none !important; }
+  /* 软键盘弹出时进一步压缩：提示/问题字号再小一档，朗读+快捷键隐藏 */
+  body.keyboard-up .prompt { font-size: 18px; margin: 4px 0 2px; }
+  body.keyboard-up #promptHint { display: none; }
+  body.keyboard-up .speak-wrap { display: none; }
+  body.keyboard-up .shortcuts { display: none; }
 
   /* 角落宠物：小屏更小，且抬到 tab 栏上方 */
   #cornerPet { right: 10px; bottom: calc(64px + env(safe-area-inset-bottom)); }
