@@ -634,6 +634,9 @@ button.del:hover { background: #FADBDB; transform: scale(1.05); }
   opacity: 0; border: none; background: transparent; outline: none; font-size: 24px;
   color: transparent; caret-color: transparent;
   z-index: 10; pointer-events: auto; cursor: text;
+  /* 屏蔽中文 IME，避免 IME 拦截退格键或弹出候选框 */
+  ime-mode: disabled;
+  -webkit-ime-mode: disabled;
 }
 #answerInput:disabled { cursor: not-allowed; }
 .answer-row input::placeholder { color: transparent; }

@@ -2839,11 +2839,18 @@ document.addEventListener('keydown', e => {
 });
 // 记录上一次输入值的长度，用于判断是「输入」还是「退格」；
 // 退格时不再触发 autoSpace，否则会立即把刚删掉的空格补回来。
+// 同时用 keydown 显式标记 BackSpace 键，避开中文 IME 拦截退格 / 长度差失效等边界场景。
 let _lastInputLen = 0;
+let _bsFlag = false;
+$('#answerInput').addEventListener('keydown', e => {
+  if (e.key === 'Backspace') _bsFlag = true;
+});
 $('#answerInput').addEventListener('input', () => {
   const el = $('#answerInput');
   const newVal = el.value;
-  const isBackspace = newVal.length < _lastInputLen;
+  // 双保险：keydown 已标记 或 长度缩短，都视为退格
+  const isBackspace = _bsFlag || newVal.length < _lastInputLen;
+  _bsFlag = false;
   renderLetterCells(newVal);
   if (!isBackspace) autoSpace();
   // 退格判定基准需同步到「真实值长度」（autoSpace 会悄悄补一个空格），
@@ -2854,7 +2861,10 @@ $('#answerInput').addEventListener('input', () => {
   scrollLetterBoxToCaret();
 });
 // 重置时清掉旧长度，避免上一轮的字符数干扰下一轮
-$('#answerInput').addEventListener('focus', () => { _lastInputLen = $('#answerInput').value.length; });
+$('#answerInput').addEventListener('focus', () => {
+  _lastInputLen = $('#answerInput').value.length;
+  _bsFlag = false;
+});
 // 字母格子滚动时同步渐变指示
 const _letterBox = document.getElementById('letterBox');
 if (_letterBox) _letterBox.addEventListener('scroll', updateLetterBoxOverflow, { passive: true });
