@@ -2717,25 +2717,30 @@ function haptic(pattern) {
   try { navigator.vibrate(pattern); } catch (e) {}
 }
 
-// 4) 字母格子横向滚动指示：检测 overflow 状态，给外层加 has-overflow-* 类
+// 4) 字母格子宽度适配：超长单词时整体缩放格子让整行放进屏幕，实在放不下再换行（移动端不再出现横向滚动条）
 function updateLetterBoxOverflow() {
-  const wrap = document.getElementById('letterBoxWrap');
-  if (!wrap) return;
   const box = document.getElementById('letterBox');
   if (!box) return;
-  const hasH = box.scrollWidth > box.clientWidth + 2;
-  wrap.classList.toggle('has-overflow', hasH);
-  if (hasH) {
-    const left = box.scrollLeft > 2;
-    const right = box.scrollLeft + box.clientWidth < box.scrollWidth - 2;
-    wrap.classList.toggle('has-overflow-left', left);
-    wrap.classList.toggle('has-overflow-right', right);
+  // 先恢复默认比例再测量
+  box.style.setProperty('--lscale', '1');
+  box.classList.remove('wrap-overflow');
+  const cs = getComputedStyle(box);
+  const padL = parseFloat(cs.paddingLeft) || 0;
+  const padR = parseFloat(cs.paddingRight) || 0;
+  const avail = box.clientWidth - padL - padR;
+  const natural = box.scrollWidth - padL - padR;
+  if (natural <= avail + 2) return; // 放得下，保持默认
+  // 计算缩放比例，留 2px 余量，最小缩到 55%（再小就换行）
+  let scale = (avail - 2) / natural;
+  if (scale >= 0.55) {
+    box.style.setProperty('--lscale', scale.toFixed(3));
   } else {
-    wrap.classList.remove('has-overflow-left', 'has-overflow-right');
+    box.style.setProperty('--lscale', '0.55');
+    box.classList.add('wrap-overflow'); // 极长单词/句子：换行而不是横向滚动
   }
 }
 
-// 5) 输入时自动滚到当前字母，让用户始终看得到输入位置
+// 5) 输入时保证当前字母可见（移动端已改为自动缩放适配，通常无需滚动；桌面/换行兜底时仍可用）
 function scrollLetterBoxToCaret() {
   const box = document.getElementById('letterBox');
   if (!box || !session || !session.letterCells) return;

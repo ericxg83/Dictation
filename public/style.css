@@ -545,20 +545,6 @@ button.del:hover { background: #FADBDB; transform: scale(1.05); }
 }
 .letter-box-tip .tip-dot { width: 6px; height: 6px; border-radius: 50%; background: #A78BFA; box-shadow: 0 0 6px #A78BFA; }
 .letter-box-tip .tip-count { color: rgba(196, 181, 253, .55); font-weight: 600; }
-.letter-box-wrap.has-overflow::after {
-  content: ""; position: absolute; right: -2px; top: 8px; bottom: 8px; width: 28px;
-  border-radius: 0 15px 15px 0; pointer-events: none;
-  background: linear-gradient(90deg, rgba(11,8,32,0), rgba(139,92,246,.3));
-  opacity: 0; transition: opacity .2s;
-}
-.letter-box-wrap.has-overflow-right::after { opacity: 1; }
-.letter-box-wrap.has-overflow-left::before {
-  content: ""; position: absolute; left: -2px; top: 8px; bottom: 8px; width: 28px;
-  border-radius: 15px 0 0 15px; pointer-events: none; z-index: 1;
-  background: linear-gradient(90deg, rgba(139,92,246,.3), rgba(11,8,32,0));
-  opacity: 0; transition: opacity .2s;
-}
-.letter-box-wrap.has-overflow-left::before { opacity: 1; }
 .letter-box:focus-within {
   border-color: var(--brand-3);
   box-shadow: 0 0 0 4px rgba(139, 92, 246, .25), inset 0 0 30px rgba(139, 92, 246, .2);
@@ -2039,26 +2025,26 @@ button:active::after, .primary:active::after, .ghost-btn:active::after, .header-
   .prompt { font-size: 26px; margin: 14px 0 2px; word-break: break-word; }
   .pos-line { font-size: 15px; }
   .answer-row { margin-top: 14px; }
-  /* 字母格子：横向可滑动 + 自动缩放 */
+  /* 字母格子：超长单词自动缩放适配屏幕，必要时才换行（不再横向滚动） */
   .letter-box {
-    padding: 24px 10px 16px; min-height: 70px; gap: 5px;
-    overflow-x: auto; flex-wrap: nowrap; justify-content: flex-start;
-    -webkit-overflow-scrolling: touch; scroll-snap-type: x proximity;
+    --lscale: 1; /* 由 JS 按实际宽度计算，整体缩放格子 */
+    padding: 24px 10px 16px; min-height: 70px;
+    gap: calc(5px * var(--lscale));
+    overflow: hidden; flex-wrap: nowrap; justify-content: flex-start;
     border-radius: 16px;
-    scrollbar-width: none; -ms-overflow-style: none;
   }
-  .letter-box::-webkit-scrollbar { display: none; }
-  .l-cell { width: 28px; height: 40px; font-size: 22px; scroll-snap-align: start; flex: 0 0 auto; border-radius: 9px; }
+  .letter-box.wrap-overflow { flex-wrap: wrap; justify-content: center; }
+  .l-cell { width: calc(28px * var(--lscale)); height: calc(40px * var(--lscale)); font-size: calc(22px * var(--lscale)); border-radius: 9px; }
   .l-cell::after { left: 4px; right: 4px; bottom: 5px; height: 3px; }
   .l-cell.filled::after { height: 3.5px; }
-  .l-gap { width: 10px; flex: 0 0 auto; }
-  .l-punct { font-size: 20px; min-width: 6px; flex: 0 0 auto; }
+  .l-gap { width: calc(10px * var(--lscale)); flex: 0 0 auto; }
+  .l-punct { font-size: calc(20px * var(--lscale)); min-width: 6px; flex: 0 0 auto; }
   .letter-box-tip { font-size: 10px; left: 10px; top: 5px; }
   /* 极窄屏再缩小 */
   @media (max-width: 380px) {
-    .l-cell { width: 24px; height: 36px; font-size: 19px; border-radius: 8px; }
-    .l-gap { width: 8px; }
-    .l-punct { font-size: 17px; min-width: 5px; }
+    .l-cell { width: calc(24px * var(--lscale)); height: calc(36px * var(--lscale)); font-size: calc(19px * var(--lscale)); border-radius: 8px; }
+    .l-gap { width: calc(8px * var(--lscale)); }
+    .l-punct { font-size: calc(17px * var(--lscale)); min-width: 5px; }
   }
   .speak-wrap { margin-top: 12px; }
   #speakBtn { padding: 9px 22px; font-size: 14px; }
@@ -2152,9 +2138,9 @@ button:active::after, .primary:active::after, .ghost-btn:active::after, .header-
   body.immersive.keyboard-up .speak-wrap,
   body.immersive.keyboard-up .shortcuts { display: none; }
   body.immersive.keyboard-up .letter-box { min-height: 58px; padding: 26px 8px 10px; }
-  body.immersive.keyboard-up .l-cell { height: 38px; font-size: 20px; width: 26px; border-radius: 8px; }
+  body.immersive.keyboard-up .l-cell { height: calc(38px * var(--lscale)); font-size: calc(20px * var(--lscale)); width: calc(26px * var(--lscale)); border-radius: 8px; }
   body.immersive.keyboard-up .l-cell::after { height: 2.5px; }
-  body.immersive.keyboard-up .l-punct { font-size: 18px; }
+  body.immersive.keyboard-up .l-punct { font-size: calc(18px * var(--lscale)); }
 
   /* 沉浸式默写：紧凑布局（在横屏/小屏高度下生效） */
   body.immersive .actions { gap: 6px; }
