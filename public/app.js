@@ -1215,6 +1215,18 @@ function gradeMatch(bankGrade, filter) {
   return bankGrade === filter;
 }
 
+// 自然排序：让 8A_Unit1_A 自动排在 8A_Unit1_B 之前、8A_Unit1_C 之前，再排 8A_Unit2_A
+// 数字按数值比较、字母按字典序比较、不区分大小写
+function naturalKey(s) {
+  return String(s || '').toLowerCase().replace(/(\d+)/g, (m) => '\0' + m.padStart(10, '0') + '\0');
+}
+function naturalCompare(a, b) {
+  const ka = naturalKey(a), kb = naturalKey(b);
+  if (ka < kb) return -1;
+  if (ka > kb) return 1;
+  return 0;
+}
+
 function renderDraft() {
   $('#draftBox').hidden = !draft.length;
   if (!draft.length) return;
@@ -1329,6 +1341,8 @@ function renderBankList(banks) {
   const groups = { '6': [], '7': [], '8': [], '9': [], none: [] };
   filtered.forEach(b => { (b.grade && groups[b.grade] ? groups[b.grade] : groups.none).push(b); });
   const order = ['6', '7', '8', '9', 'none'];
+  // 同一年级内按题库标题自然排序（8A_Unit1_A → 8A_Unit1_B → 8A_Unit1_C → 8A_Unit2_A）
+  order.forEach(g => groups[g].sort((a, b) => naturalCompare(a.title, b.title)));
   wrap.innerHTML = '';
   // 仅显示有内容的分组
   order.forEach(g => {
@@ -1521,7 +1535,9 @@ async function loadLiveBanksForPicker() {
   try {
     const d = await api('/api/banks');
     const cur = sel.value;
-    sel.innerHTML = '<option value="">选择题库…</option>' + d.banks.map(b => '<option value="' + b.id + '">' + esc(b.title) + '</option>').join('');
+    // 按题库标题自然排序（8A_Unit1_A → 8A_Unit1_B → … → 8A_Unit2_A），方便老师按单元/课时顺序挑选
+    const sorted = d.banks.slice().sort((a, b) => naturalCompare(a.title, b.title));
+    sel.innerHTML = '<option value="">选择题库…</option>' + sorted.map(b => '<option value="' + b.id + '">' + esc(b.title) + '</option>').join('');
     if (cur) sel.value = cur;
   } catch (e) { /* 忽略：拉取失败时保留占位项 */ }
 }
@@ -1923,11 +1939,15 @@ function renderStuBankList(banks) {
   // 按年级分组（全部模式）或 单一列表
   wrap.innerHTML = '';
   if (filterVal) {
-    renderStuBankCards(filtered, wrap, 0);
+    // 单一年级筛选：也按题库标题自然排序
+    const sorted = filtered.slice().sort((a, b) => naturalCompare(a.title, b.title));
+    renderStuBankCards(sorted, wrap, 0);
   } else {
     const groups = { '6': [], '7': [], '8': [], '9': [], none: [] };
     filtered.forEach(b => { (b.grade && groups[b.grade] ? groups[b.grade] : groups.none).push(b); });
     const order = ['6', '7', '8', '9', 'none'];
+    // 同一年级内按题库标题自然排序
+    order.forEach(g => groups[g].sort((a, b) => naturalCompare(a.title, b.title)));
     let offset = 0;
     order.forEach(g => {
       const list = groups[g];
