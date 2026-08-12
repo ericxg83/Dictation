@@ -622,6 +622,14 @@ button.del:hover { background: #FADBDB; transform: scale(1.05); }
   animation: underPulse 1.2s ease-in-out infinite;
 }
 .l-gap { width: 14px; }
+/* 标点提示（空格变间隔，逗号/句号/撇号/连字符等直接显示，无需默写） */
+.l-punct {
+  display: flex; align-items: center; justify-content: center;
+  min-width: 8px; padding: 0 1px;
+  font-size: 24px; font-weight: 700; line-height: 1;
+  color: rgba(196, 181, 253, .95);
+  text-shadow: 0 0 8px rgba(167, 139, 250, .45);
+}
 @keyframes cellShake {
   0%,100% { transform: translateX(0) }
   25% { transform: translateX(-4px) } 75% { transform: translateX(4px) }
@@ -2029,11 +2037,13 @@ button:active::after, .primary:active::after, .ghost-btn:active::after, .header-
   .l-cell::after { left: 4px; right: 4px; bottom: 5px; height: 3px; }
   .l-cell.filled::after { height: 3.5px; }
   .l-gap { width: 10px; flex: 0 0 auto; }
+  .l-punct { font-size: 20px; min-width: 6px; flex: 0 0 auto; }
   .letter-box-tip { font-size: 10px; left: 10px; top: 5px; }
   /* 极窄屏再缩小 */
   @media (max-width: 380px) {
     .l-cell { width: 24px; height: 36px; font-size: 19px; border-radius: 8px; }
     .l-gap { width: 8px; }
+    .l-punct { font-size: 17px; min-width: 5px; }
   }
   .speak-wrap { margin-top: 12px; }
   #speakBtn { padding: 9px 22px; font-size: 14px; }
@@ -2129,6 +2139,7 @@ button:active::after, .primary:active::after, .ghost-btn:active::after, .header-
   body.immersive.keyboard-up .letter-box { min-height: 58px; padding: 26px 8px 10px; }
   body.immersive.keyboard-up .l-cell { height: 38px; font-size: 20px; width: 26px; border-radius: 8px; }
   body.immersive.keyboard-up .l-cell::after { height: 2.5px; }
+  body.immersive.keyboard-up .l-punct { font-size: 18px; }
 
   /* 沉浸式默写：紧凑布局（在横屏/小屏高度下生效） */
   body.immersive .actions { gap: 6px; }

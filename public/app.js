@@ -1508,6 +1508,7 @@ function enterLiveBoard() {
 async function loadLiveBoard() {
   let d;
   try { d = await api('/api/live/board'); } catch (e) { return; }
+  console.log('[loadLiveBoard]', { players: d.players.length, sessionActive: d.session && !d.session.ended });
   renderLiveClock(d.session);
   renderLiveStats(d.players, d.session);
   renderLiveGrid(d.players, d.session);
@@ -1575,6 +1576,7 @@ function renderLiveGrid(players, sess) {
   grid.innerHTML = '';
   const all = players;
   all.forEach((p, i) => {
+    console.log('[renderLiveGrid] player:', p.username, 'typed:', (p.typed || '').substring(0, 20), 'word:', p.word);
     const d = DRAGON_KINDS.find(k => k.id === p.dragonId) || DRAGON_KINDS[0];
     const total = p.total || 0;
     const answered = Math.min(p.answered || 0, total);
@@ -1759,6 +1761,7 @@ function liveStatus() {
   const done = !!(session && !session.queue.length && $('#practiceSummary') && !$('#practiceSummary').hidden);
   const locked = !!(session && session.locked);
   const d = myDragon() || DRAGON_KINDS[0];
+  console.log('[liveStatus]', { word, typed: typed.substring(0, 20), typedLen, locked, hasSession: !!session });
   api('/api/live/report', {
     method: 'POST',
     body: {
@@ -2174,11 +2177,12 @@ function showNext() {
 }
 
 // 根据答案生成字母格子：每个字母一个下划线格，词组/句子的空格显示为间隔
+// 标点提示：空格自动变间隔，逗号/句号/撇号/连字符等非字母字符直接显示，无需默写
 function buildLetterBox() {
   const it = session.current;
   const primary = String(it.english || '').split(/[\/；;]/)[0].trim();
   session.primary = primary;
-  session.expLetters = primary.replace(/\s+/g, '').toLowerCase();
+  session.expLetters = primary.replace(/[^A-Za-z0-9]/g, '').toLowerCase();
   session.letterCells = [];
   session.wordEnds = [];
   session._lastLen = 0;
@@ -2188,7 +2192,7 @@ function buildLetterBox() {
   // 顶部小标签：词性 + 字符数
   const tip = document.createElement('div');
   tip.className = 'letter-box-tip';
-  tip.innerHTML = '<span class="tip-dot"></span><span>' + typeLabel(it.type) + '</span><span class="tip-count">· 共 ' + session.expLetters.length + ' 字符</span>';
+  tip.innerHTML = '<span class="tip-dot"></span><span>' + typeLabel(it.type) + '</span><span class="tip-count">· 共 ' + session.expLetters.length + ' 个字母</span>';
   box.appendChild(tip);
   // 真正容纳格子的容器（display: contents 让子元素直接参与父 flex 流）
   const inner = document.createElement('div');
@@ -2199,15 +2203,25 @@ function buildLetterBox() {
   words.forEach((word, w) => {
     if (w > 0) { const gap = document.createElement('div'); gap.className = 'l-gap'; inner.appendChild(gap); }
     for (const ch of word) {
-      const cell = document.createElement('div');
-      cell.className = 'l-cell';
-      cell.dataset.i = li;
-      inner.appendChild(cell);
-      session.letterCells.push(cell);
-      li++;
+      if (/[A-Za-z0-9]/.test(ch)) {
+        const cell = document.createElement('div');
+        cell.className = 'l-cell';
+        cell.dataset.i = li;
+        inner.appendChild(cell);
+        session.letterCells.push(cell);
+        li++;
+      } else {
+        // 标点提示（逗号/句号/撇号/连字符等）：直接显示，无需默写
+        const punct = document.createElement('div');
+        punct.className = 'l-punct';
+        punct.textContent = ch;
+        inner.appendChild(punct);
+      }
     }
     session.wordEnds.push(li);
   });
+  // 期望输入长度 = 字母数 + 词间空格数（用于拼写过长判断）
+  session.expectedLen = session.expLetters.length + Math.max(0, words.length - 1);
   renderLetterCells('');
   // 重新检测横向溢出（在新词长度变化时）
   setTimeout(updateLetterBoxOverflow, 0);
@@ -2218,7 +2232,8 @@ function renderLetterCells(inputVal) {
   if (!session) return;
   const cells = session.letterCells || [];
   const exp = session.expLetters || '';
-  const typed = String(inputVal || '').replace(/\s+/g, '');
+  // 输入中的标点视为提示（如手打逗号/撇号），不参与逐格比对
+  const typed = String(inputVal || '').replace(/[^A-Za-z0-9\s]/g, '').replace(/\s+/g, '');
   cells.forEach((cell, i) => {
     cell.classList.remove('filled', 'wrong', 'current');
     if (i < typed.length) {
@@ -2272,7 +2287,7 @@ function autoCheckTyping() {
     return;
   }
   // 已输入的字符数超过正确答案长度，判定为拼写错误，提示音提醒（只在越过阈值时响一次）
-  const ansLen = String(session.current.english).replace(/\s+/g, ' ').trim().length;
+  const ansLen = session.expectedLen || (session.expLetters || '').length;
   if (input.trim().length > ansLen) {
     if (!_warned) { playWarn(); _warned = true; }
   } else {
@@ -2708,8 +2723,8 @@ function undoLastChar() {
   // 该格子对应的期望字母
   const exp = session.expLetters || '';
   if (lastIdx >= exp.length) return false;
-  // 当前值去掉所有空白后的对应位置字母
-  const typedNoSpace = String(el.value).replace(/\s+/g, '');
+  // 当前值去掉所有空白后的对应位置字母（标点视为提示，不参与比对）
+  const typedNoSpace = String(el.value).replace(/[^A-Za-z0-9\s]/g, '').replace(/\s+/g, '');
   const cur = typedNoSpace[lastIdx] || '';
   if (cur && cur.toLowerCase() === exp[lastIdx]) return false; // 字母正确，回车不删，去走提交
   // 删除最后一个非空白字符（以及其后可能存在的自动补空格）
