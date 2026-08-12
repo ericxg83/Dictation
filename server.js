@@ -979,6 +979,13 @@ app.get('/api/today', requireAuth, async (req, res) => {
   res.json({ items, total: p.entries.length, dueCount: items.length, points: p.stats.points || 0 });
 });
 
+function pointsByType(type) {
+  // 单词 1 分，词组 2 分，句子 3 分
+  if (type === 'phrase') return 2;
+  if (type === 'sentence') return 3;
+  return 1;
+}
+
 app.post('/api/result', requireAuth, async (req, res) => {
   const { id, correct } = req.body || {};
   const p = await loadProgress(req.user.id);
@@ -990,20 +997,28 @@ app.post('/api/result', requireAuth, async (req, res) => {
     e.correctCount = (e.correctCount || 0) + 1;
     const days = INTERVALS[Math.min(e.level - 1, INTERVALS.length - 1)];
     e.nextDue = nextDueAfterDays(days);
-    p.stats.points = (p.stats.points || 0) + 1;
+    const gain = pointsByType(e.type);
+    p.stats.points = (p.stats.points || 0) + gain;
+    e.lastGain = gain;
   } else {
     e.level = 0;
     e.wrongCount = (e.wrongCount || 0) + 1;
     e.nextDue = nextDueAfterDays(1); // 答错：明天再复习
+    e.lastGain = 0;
   }
   e.lastResult = !!correct;
   e.lastResultAt = now;
   p.stats.lastAt = now;
   const today = new Date().toISOString().slice(0, 10);
-  const h = p.stats.history[today] = p.stats.history[today] || { correct: 0, wrong: 0 };
-  if (correct) h.correct++; else h.wrong++;
+  const h = p.stats.history[today] = p.stats.history[today] || { correct: 0, wrong: 0, points: 0 };
+  if (correct) {
+    h.correct++;
+    h.points = (h.points || 0) + (e.lastGain || 0);
+  } else {
+    h.wrong++;
+  }
   await saveProgress(req.user.id, p);
-  res.json({ ok: true, item: publicProgEntry(e), points: p.stats.points, today: h });
+  res.json({ ok: true, item: publicProgEntry(e), points: p.stats.points, today: h, gain: e.lastGain });
 });
 
 app.post('/api/sessionEnd', requireAuth, async (req, res) => {
@@ -1148,6 +1163,276 @@ app.post('/api/live/report', requireAuth, requireRole('student'), async (req, re
     done: !!b.done,
     lastAt: Date.now()
   };
+  res.json({ ok: true });
+});
+
+// ================= 路由：自由组队 PK =================
+// 房间存储在内存，重启清空。每房最多 6 名玩家。
+// 房间结构：
+//   { id, code, hostId, bankId, bankTitle, count, minutes, mode,
+//     status: 'waiting' | 'racing' | 'ended',
+//     startedAt, endedAt, endReason, players: { [uid]: {...} }, sequence: [...] }
+// 题目一次性预生成（与房间绑定，不与个人进度同步），保证所有玩家默写相同内容。
+const pkRooms = {}; // code -> room
+const PK_MAX_PLAYERS = 6;
+const PK_MIN_COUNT = 5;
+const PK_MAX_COUNT = 60;
+const PK_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // 去除 0/1/I/O 减少误读
+
+function genPkCode() {
+  let code;
+  let attempts = 0;
+  do {
+    code = '';
+    for (let i = 0; i < 6; i++) {
+      code += PK_CODE_ALPHABET[Math.floor(Math.random() * PK_CODE_ALPHABET.length)];
+    }
+    attempts++;
+  } while (pkRooms[code] && attempts < 50);
+  return code;
+}
+
+function pkRoomFor(user) {
+  // 同一用户仅允许同时在一个房间内（避免多设备冲突）
+  for (const code of Object.keys(pkRooms)) {
+    const r = pkRooms[code];
+    if (r.players[user.id]) return r;
+  }
+  return null;
+}
+
+function pkPublicRoom(r, viewerId) {
+  if (!r) return null;
+  const players = Object.values(r.players)
+    .sort((a, b) => (b.score || 0) - (a.score || 0))
+    .map(p => ({
+      uid: p.uid,
+      name: p.name,
+      dragonId: p.dragonId,
+      petName: p.petName,
+      stage: p.stage,
+      points: p.points,
+      isHost: !!p.isHost,
+      ready: !!p.ready,
+      finished: !!p.finished,
+      score: p.score || 0,
+      correct: p.correct || 0,
+      wrong: p.wrong || 0,
+      answered: p.answered || 0,
+      lastAt: p.lastAt || 0
+    }));
+  let remaining = 0;
+  if (r.status === 'racing') {
+    const elapsed = Math.floor((Date.now() - r.startedAt) / 1000);
+    remaining = Math.max(0, (r.minutes || 0) * 60 - elapsed);
+  }
+  return {
+    code: r.code,
+    status: r.status,
+    mode: r.mode || 'group',
+    bankId: r.bankId,
+    bankTitle: r.bankTitle,
+    count: r.count,
+    minutes: r.minutes,
+    startedAt: r.startedAt,
+    endedAt: r.endedAt,
+    endReason: r.endReason,
+    hostId: r.hostId,
+    players,
+    remaining,
+    maxPlayers: PK_MAX_PLAYERS,
+    viewerUid: viewerId
+  };
+}
+
+async function loadBankForUser(user, bankId) {
+  const cls = await getClassInfo(user);
+  if (!cls) return { error: '你还没有加入班级' };
+  const bank = (await q('SELECT * FROM banks WHERE id = $1 AND class_id = $2', [bankId, cls.id])).rows[0];
+  if (!bank) return { error: '题库不存在或不属于本班' };
+  return { bank };
+}
+
+app.post('/api/pk/create', requireAuth, requireRole('student'), async (req, res) => {
+  const body = req.body || {};
+  const mode = body.mode === 'solo' ? 'solo' : 'group';
+  const bankId = String(body.bankId || '').trim();
+  if (!bankId) return res.status(400).json({ error: '请选择题库' });
+  const rawCount = parseInt(body.count, 10);
+  const count = Math.max(PK_MIN_COUNT, Math.min(PK_MAX_COUNT, isNaN(rawCount) ? 20 : rawCount));
+  const rawMinutes = parseInt(body.minutes, 10);
+  const minutes = Math.max(1, Math.min(20, isNaN(rawMinutes) ? 5 : rawMinutes));
+  const { bank, error } = await loadBankForUser(req.user, bankId);
+  if (error) return res.status(400).json({ error });
+  if (!Array.isArray(bank.entries) || bank.entries.length === 0) {
+    return res.status(400).json({ error: '题库为空，无法 PK' });
+  }
+  // 强制先退出已有房间
+  const old = pkRoomFor(req.user);
+  if (old) delete old.players[req.user.id];
+
+  const code = genPkCode();
+  const pet = (req.user.pet || {});
+  const dId = (pet.dragonId || 'trex');
+  const room = {
+    code,
+    id: genId('pk'),
+    hostId: req.user.id,
+    bankId: bank.id,
+    bankTitle: bank.title,
+    count: Math.min(count, bank.entries.length),
+    minutes,
+    mode,
+    status: 'waiting',
+    startedAt: 0,
+    endedAt: 0,
+    endReason: '',
+    players: {}
+  };
+  room.players[req.user.id] = {
+    uid: req.user.id,
+    name: req.user.name || req.user.username,
+    dragonId: dId,
+    petName: pet.name || '',
+    stage: 0,
+    points: 0,
+    isHost: true,
+    ready: false,
+    finished: false,
+    score: 0, correct: 0, wrong: 0, answered: 0,
+    lastAt: Date.now()
+  };
+  // solo 模式：直接开赛，跳过等待
+  if (mode === 'solo') {
+    room.status = 'racing';
+    room.startedAt = Date.now();
+    room.players[req.user.id].ready = true;
+  }
+  pkRooms[code] = room;
+  res.json({ ok: true, room: pkPublicRoom(room, req.user.id) });
+});
+
+app.post('/api/pk/join', requireAuth, requireRole('student'), async (req, res) => {
+  const code = String((req.body || {}).code || '').trim().toUpperCase();
+  if (!code) return res.status(400).json({ error: '请输入房间号' });
+  const room = pkRooms[code];
+  if (!room) return res.status(404).json({ error: '房间不存在或已关闭' });
+  if (room.status !== 'waiting') return res.status(400).json({ error: '该房间已开始或已结束' });
+  if (Object.keys(room.players).length >= PK_MAX_PLAYERS) {
+    return res.status(400).json({ error: '房间已满（最多 ' + PK_MAX_PLAYERS + ' 人）' });
+  }
+  // 强制先退出已有房间
+  const old = pkRoomFor(req.user);
+  if (old && old !== room) delete old.players[req.user.id];
+  if (room.players[req.user.id]) {
+    return res.json({ ok: true, room: pkPublicRoom(room, req.user.id) });
+  }
+  const pet = (req.user.pet || {});
+  room.players[req.user.id] = {
+    uid: req.user.id,
+    name: req.user.name || req.user.username,
+    dragonId: pet.dragonId || 'trex',
+    petName: pet.name || '',
+    stage: 0,
+    points: 0,
+    isHost: false,
+    ready: false,
+    finished: false,
+    score: 0, correct: 0, wrong: 0, answered: 0,
+    lastAt: Date.now()
+  };
+  res.json({ ok: true, room: pkPublicRoom(room, req.user.id) });
+});
+
+app.get('/api/pk/room/:code', requireAuth, requireRole('student'), async (req, res) => {
+  const code = String(req.params.code || '').toUpperCase();
+  const room = pkRooms[code];
+  if (!room) return res.status(404).json({ error: '房间不存在' });
+  // 计时结束：自动结束房间
+  if (room.status === 'racing') {
+    const elapsed = Math.floor((Date.now() - room.startedAt) / 1000);
+    if (elapsed >= (room.minutes || 0) * 60) {
+      room.status = 'ended';
+      room.endedAt = Date.now();
+      room.endReason = 'timeup';
+    }
+  }
+  // 同时返回该用户的题库条目（首次进入比赛时拉取）
+  let items = [];
+  if (room.status === 'racing' && room.players[req.user.id]) {
+    const { bank, error } = await loadBankForUser(req.user, room.bankId);
+    if (!error && bank && Array.isArray(bank.entries)) {
+      const need = room.count;
+      const all = bank.entries.slice();
+      // 用 code + bankId 当种子做一次稳定洗牌，保证每名玩家拿到的题目顺序一致
+      let seed = 0;
+      for (let i = 0; i < code.length; i++) seed = (seed * 31 + code.charCodeAt(i)) >>> 0;
+      for (let i = all.length - 1; i > 0; i--) {
+        seed = (seed * 1103515245 + 12345) >>> 0;
+        const j = seed % (i + 1);
+        [all[i], all[j]] = [all[j], all[i]];
+      }
+      items = all.slice(0, need).map(e => ({
+        english: e.english, chinese: e.chinese, pos: e.pos || '', type: e.type
+      }));
+    }
+  }
+  res.json({ ok: true, room: pkPublicRoom(room, req.user.id), items });
+});
+
+app.post('/api/pk/start', requireAuth, requireRole('student'), async (req, res) => {
+  const code = String((req.body || {}).code || '').toUpperCase();
+  const room = pkRooms[code];
+  if (!room) return res.status(404).json({ error: '房间不存在' });
+  if (room.hostId !== req.user.id) return res.status(403).json({ error: '只有房主可以开始比赛' });
+  if (room.status !== 'waiting') return res.status(400).json({ error: '房间已开始或已结束' });
+  if (Object.keys(room.players).length < 1) return res.status(400).json({ error: '房间内没有玩家' });
+  room.status = 'racing';
+  room.startedAt = Date.now();
+  for (const uid of Object.keys(room.players)) {
+    room.players[uid].ready = true;
+    room.players[uid].startedAt = room.startedAt;
+  }
+  res.json({ ok: true, room: pkPublicRoom(room, req.user.id) });
+});
+
+app.post('/api/pk/report', requireAuth, requireRole('student'), async (req, res) => {
+  const code = String((req.body || {}).code || '').toUpperCase();
+  const room = pkRooms[code];
+  if (!room) return res.status(404).json({ error: '房间不存在' });
+  const p = room.players[req.user.id];
+  if (!p) return res.status(403).json({ error: '你不在此房间' });
+  const b = req.body || {};
+  p.score = Number(b.score) || 0;
+  p.correct = Number(b.correct) || 0;
+  p.wrong = Number(b.wrong) || 0;
+  p.answered = Number(b.answered) || 0;
+  p.finished = !!b.finished;
+  p.dragonId = String(b.dragonId || p.dragonId || 'trex');
+  p.petName = String(b.petName || p.petName || '');
+  p.stage = Number(b.stage) || 0;
+  p.points = Number(b.points) || 0;
+  p.lastAt = Date.now();
+  if (p.finished && room.status === 'racing') {
+    // 不立即结束房间，让其他人继续 / 计时结束统一结算
+  }
+  res.json({ ok: true });
+});
+
+app.post('/api/pk/leave', requireAuth, requireRole('student'), async (req, res) => {
+  const code = String((req.body || {}).code || '').toUpperCase();
+  const room = pkRooms[code];
+  if (!room) return res.json({ ok: true });
+  delete room.players[req.user.id];
+  // 房主退出 / 房间空：销毁
+  if (Object.keys(room.players).length === 0 || room.hostId === req.user.id) {
+    if (room.status !== 'ended') {
+      room.status = 'ended';
+      room.endedAt = Date.now();
+      room.endReason = 'host_left';
+    }
+    delete pkRooms[code];
+  }
   res.json({ ok: true });
 });
 

@@ -1036,7 +1036,17 @@ function switchView(name) {
   if (name === 'live') { enterLiveBoard(); return; }
   if (name === 'student-banks') loadStudentBanks();
   if (name === 'practice') { currentBank = null; prepareToday(); }
+  if (name === 'pk') {
+    // 离开 PK：如果正在比赛，弹窗确认（避免误触）
+    if (session && session.pk) { /* 比赛中保留沉浸态，只切 nav */ }
+    switchToPk();
+    return;
+  }
   if (name === 'stats') loadStats();
+  // 离开 PK 视图（非比赛状态）：清掉房间引用
+  if (name !== 'pk' && !session) {
+    // 安全起见只清 polling，不清 _pkCode（重进时还能恢复）
+  }
   stopLivePoll();
   // 切页后滚到顶（移动端 iOS 上 instant 比 smooth 体验更好）
   window.scrollTo({ top: 0, behavior: 'instant' in window ? 'instant' : 'auto' });
@@ -1899,6 +1909,508 @@ function activeView() {
 setInterval(studentLiveClock, 1000);
 setInterval(throttleLiveReport, 1000);
 
+// ================= 自由组队 PK =================
+let _pkRoom = null;             // 当前所在房间的公共快照
+let _pkCode = '';               // 当前房间号
+let _pkItems = [];              // 比赛题目（PK 用）
+let _pkMode = '';               // 'solo' / 'group'
+let _pkReportTimer = null;      // PK 进度上报节流
+let _pkRaceTick = null;         // PK 倒计时
+let _pkForceEnded = false;      // 主动离开 / 结算时避免重复动画
+let _pkSessionSaved = false;    // 结算结果是否已上报到 /api/sessionEnd
+
+function showPkView() {
+  $$('.view').forEach(v => v.hidden = v.id !== 'view-pk');
+  const nav = $('#studentNav');
+  if (nav) Array.from(nav.querySelectorAll('button')).forEach(b => b.classList.toggle('active', b.dataset.view === 'pk'));
+  const tabbar = $('#mobileTabbar');
+  if (tabbar) Array.from(tabbar.querySelectorAll('button')).forEach(b => b.classList.toggle('active', b.dataset.view === 'pk'));
+  document.body.classList.remove('practice-mode');
+  // 已在房间中：拉一次状态决定显示 lobby / waiting / racing / result
+  if (_pkCode) { pollPkRoom(); return; }
+  showPkLobby();
+}
+window.showPkView = showPkView;
+
+function showPkLobby() {
+  $('#pkLobby').hidden = false;
+  $('#pkSetup').hidden = true;
+  $('#pkRoom').hidden = true;
+  stopPkPoll();
+  _pkCode = '';
+  _pkRoom = null;
+  _pkItems = [];
+}
+
+async function loadPkBanks() {
+  const sel = $('#pkBankSelect');
+  if (!sel) return;
+  try {
+    const d = await api('/api/banks');
+    if (!d.banks || !d.banks.length) {
+      sel.innerHTML = '<option value="">老师还没有发布题库</option>';
+      sel.disabled = true;
+      return;
+    }
+    sel.disabled = false;
+    const sorted = d.banks.slice().sort((a, b) => naturalCompare(a.title, b.title));
+    sel.innerHTML = sorted.map(b => '<option value="' + b.id + '">' + esc(b.title) + '（' + b.count + ' 条）</option>').join('');
+  } catch (e) {
+    sel.innerHTML = '<option value="">加载失败</option>';
+    sel.disabled = true;
+  }
+}
+
+function openPkSetup(mode) {
+  _pkMode = mode;
+  if (!_pkCode) {
+    // 首次进 setup：清空旧的并加载题库
+    $('#pkSetup').hidden = false;
+    $('#pkSetupTitle').textContent = mode === 'solo' ? '准备单人 PK 🎯' : '准备分组 PK 🤝';
+    loadPkBanks();
+  }
+  if (mode === 'solo') {
+    $('#pkCountInput').value = 20;
+    $('#pkMinutesInput').value = 5;
+  } else {
+    $('#pkCountInput').value = 20;
+    $('#pkMinutesInput').value = 5;
+  }
+}
+$('#pkSetupCancel').onclick = () => { $('#pkSetup').hidden = true; _pkMode = ''; };
+$('#pkSetupConfirm').onclick = async () => {
+  const bankId = $('#pkBankSelect').value;
+  if (!bankId) { alert('请选择题库'); return; }
+  const count = Math.max(5, Math.min(60, parseInt($('#pkCountInput').value, 10) || 20));
+  const minutes = Math.max(1, Math.min(20, parseInt($('#pkMinutesInput').value, 10) || 5));
+  try {
+    const r = await api('/api/pk/create', { method: 'POST', body: { mode: _pkMode, bankId, count, minutes } });
+    _pkCode = r.room.code;
+    _pkRoom = r.room;
+    enterPkRoom(r.room);
+  } catch (e) {
+    alert(e.message || '创建房间失败');
+  }
+};
+
+$('#pkSoloStartBtn').onclick = () => openPkSetup('solo');
+$('#pkCreateBtn').onclick = () => openPkSetup('group');
+$('#pkJoinInput').addEventListener('input', e => {
+  // 房间号只保留字母数字 + 自动转大写
+  e.target.value = String(e.target.value || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+});
+$('#pkJoinBtn').onclick = async () => {
+  const code = String($('#pkJoinInput').value || '').trim().toUpperCase();
+  if (!code || code.length < 4) { alert('请输入正确的房间号'); return; }
+  try {
+    const r = await api('/api/pk/join', { method: 'POST', body: { code } });
+    _pkCode = r.room.code;
+    _pkRoom = r.room;
+    enterPkRoom(r.room);
+  } catch (e) {
+    alert(e.message || '加入房间失败');
+  }
+};
+
+$('#pkCopyCodeBtn').onclick = async () => {
+  if (!_pkCode) return;
+  try {
+    await navigator.clipboard.writeText(_pkCode);
+    toast('已复制房间号：' + _pkCode, 1500);
+  } catch (e) {
+    // 兼容旧浏览器
+    const t = document.createElement('textarea');
+    t.value = _pkCode; document.body.appendChild(t); t.select();
+    try { document.execCommand('copy'); toast('已复制房间号：' + _pkCode, 1500); } catch (e2) {}
+    t.remove();
+  }
+};
+
+$('#pkStartBtn').onclick = async () => {
+  if (!_pkCode) return;
+  try {
+    const r = await api('/api/pk/start', { method: 'POST', body: { code: _pkCode } });
+    _pkRoom = r.room;
+    renderPkRoom(r.room);
+  } catch (e) {
+    alert(e.message || '开始失败');
+  }
+};
+
+$('#pkLeaveBtn').onclick = async () => {
+  if (!_pkCode) return;
+  if (!confirm('确定要离开房间吗？房主离开房间会被销毁。')) return;
+  await leavePkRoom();
+  showPkLobby();
+};
+
+$('#pkRaceExitBtn').onclick = async () => {
+  if (!confirm('退出后本局未完成的题目不会计分，确定退出吗？')) return;
+  await leavePkRoom();
+  exitImmersive();
+  showPkLobby();
+};
+
+$('#pkResultBackBtn').onclick = () => showPkLobby();
+$('#pkResultAgainBtn').onclick = () => showPkLobby();
+
+function enterPkRoom(room) {
+  $('#pkLobby').hidden = true;
+  $('#pkRoom').hidden = false;
+  $('#pkRoomCode').textContent = room.code || '------';
+  renderPkRoom(room);
+  // 单人模式：开赛 → 直接进入 racing
+  if (room.status === 'racing' && !session) {
+    startPkRace();
+  } else if (room.status === 'waiting') {
+    startPkPoll();
+  } else if (room.status === 'racing' && session) {
+    startPkPoll();
+  }
+}
+
+function renderPkRoom(room) {
+  _pkRoom = room;
+  $('#pkRoomMeta').textContent = '题库：' + (room.bankTitle || '—') + ' · 共 ' + room.count + ' 题 · 时长 ' + room.minutes + ' 分钟';
+  // 等待室
+  const isWaiting = room.status === 'waiting';
+  const isRacing = room.status === 'racing';
+  const isEnded = room.status === 'ended';
+  $('#pkRoomWaiting').hidden = !isWaiting;
+  $('#pkRoomRacing').hidden = !isRacing;
+  $('#pkRoomResult').hidden = !isEnded;
+  if (isWaiting) {
+    renderPkPlayerList(room);
+    const isHost = room.hostId === currentUser.id;
+    const startBtn = $('#pkStartBtn');
+    startBtn.disabled = !isHost;
+    startBtn.textContent = isHost
+      ? '🚀 开始比赛'
+      : (room.players.length < 2 ? '⏳ 等待房主开始（房间内少于 2 人可由房主单人开局）' : '⏳ 等待房主开始');
+    // 房主可单独开局：少于 2 人时也允许开始
+  }
+  if (isRacing) {
+    renderPkRaceBoard(room);
+    // 服务器可能已结束（轮询时检测到时间耗尽）
+  }
+  if (isEnded) {
+    renderPkResult(room);
+  }
+}
+
+function renderPkPlayerList(room) {
+  const list = $('#pkPlayerList');
+  const max = room.maxPlayers || 6;
+  const html = [];
+  room.players.forEach(p => {
+    const d = DRAGON_KINDS.find(k => k.id === p.dragonId) || DRAGON_KINDS[0];
+    html.push(
+      '<div class="pk-player-card is-host">' +
+        '<div class="pk-player-avatar">' + dragonArt(d, p.stage || 0) + '</div>' +
+        '<div class="pk-player-name">' + esc(p.name) + '</div>' +
+        '<div class="pk-player-pet">' + esc(p.petName || d.name) + '</div>' +
+        (p.isHost ? '<div class="pk-player-host">👑 房主</div>' : '<div class="pk-player-host" style="background:rgba(124,58,237,.3);color:var(--text-on-dark-2)">队员</div>') +
+      '</div>'
+    );
+  });
+  for (let i = room.players.length; i < max; i++) {
+    html.push(
+      '<div class="pk-player-card empty">' +
+        '<div class="pk-player-avatar" style="opacity:.4">➕</div>' +
+        '<div class="pk-player-name" style="color:var(--text-on-dark-3)">空位</div>' +
+        '<div class="pk-player-pet">等待同学加入…</div>' +
+      '</div>'
+    );
+  }
+  list.innerHTML = html.join('');
+}
+
+function renderPkRaceBoard(room) {
+  const board = $('#pkRaceBoard');
+  if (!board) return;
+  // 倒计时
+  const clock = $('#pkRaceClock');
+  if (clock) {
+    const rem = Math.max(0, room.remaining || 0);
+    const m = String(Math.floor(rem / 60)).padStart(2, '0');
+    const s = String(rem % 60).padStart(2, '0');
+    clock.textContent = m + ':' + s;
+    clock.classList.toggle('urgent', rem <= 30 && rem > 0);
+  }
+  const sorted = room.players.slice().sort((a, b) => (b.score || 0) - (a.score || 0));
+  board.innerHTML = sorted.map((p, i) => {
+    const d = DRAGON_KINDS.find(k => k.id === p.dragonId) || DRAGON_KINDS[0];
+    const isMe = p.uid === currentUser.id;
+    const rank = i + 1;
+    return '<div class="pk-race-row ' +
+      (isMe ? 'me' : '') + ' ' +
+      (rank === 1 ? 'top1' : rank === 2 ? 'top2' : rank === 3 ? 'top3' : '') + ' ' +
+      (p.finished ? 'finished' : '') +
+      '">' +
+      '<div class="pk-race-rank">' + (rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank) + '</div>' +
+      '<div>' +
+        '<div class="pk-race-name">' + esc(p.name) + (isMe ? '（我）' : '') + '</div>' +
+        '<div class="pk-race-sub">' +
+          (p.finished ? '✅ 已完成 · ' : '⌛ 进度 ') +
+          (p.answered || 0) + ' / ' + room.count + ' · 错 ' + (p.wrong || 0) +
+        '</div>' +
+      '</div>' +
+      '<div class="pk-race-score">' + (p.score || 0) + '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function renderPkResult(room) {
+  const banner = $('#pkResultBanner');
+  const board = $('#pkResultBoard');
+  if (!banner || !board) return;
+  const sorted = room.players.slice().sort((a, b) => (b.score || 0) - (a.score || 0));
+  if (!sorted.length) {
+    banner.textContent = '房间已关闭';
+    banner.className = 'pk-result-banner';
+    board.innerHTML = '';
+    return;
+  }
+  const top = sorted[0];
+  const second = sorted[1];
+  const me = sorted.find(p => p.uid === currentUser.id);
+  const reason = room.endReason === 'timeup' ? '时间到，比赛结束！' : (room.endReason === 'host_left' ? '房主离开了房间，比赛结束。' : '比赛结束！');
+  if (me && me.uid === top.uid) {
+    banner.textContent = '🏆 ' + reason + ' 你赢了！';
+    banner.className = 'pk-result-banner win';
+  } else if (top.score === (second && second.score)) {
+    banner.textContent = '🤝 ' + reason + ' 平局！';
+    banner.className = 'pk-result-banner draw';
+  } else if (me) {
+    banner.textContent = '💪 ' + reason + ' ' + esc(top.name) + ' 第一，再战一局！';
+    banner.className = 'pk-result-banner';
+  } else {
+    banner.textContent = reason + ' ' + esc(top.name) + ' 第一！';
+    banner.className = 'pk-result-banner';
+  }
+  board.innerHTML = sorted.map((p, i) => {
+    const d = DRAGON_KINDS.find(k => k.id === p.dragonId) || DRAGON_KINDS[0];
+    const rank = i + 1;
+    return '<div class="pk-race-row ' +
+      (p.uid === currentUser.id ? 'me' : '') + ' ' +
+      (rank === 1 ? 'top1' : rank === 2 ? 'top2' : rank === 3 ? 'top3' : '') +
+      '">' +
+      '<div class="pk-race-rank">' + (rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank) + '</div>' +
+      '<div>' +
+        '<div class="pk-race-name">' + esc(p.name) + '</div>' +
+        '<div class="pk-race-sub">正确 ' + (p.correct || 0) + ' · 错误 ' + (p.wrong || 0) + ' · 完成 ' + (p.answered || 0) + '/' + room.count + '</div>' +
+      '</div>' +
+      '<div class="pk-race-score">' + (p.score || 0) + '</div>' +
+    '</div>';
+  }).join('');
+  // 礼花 + 成就：只有本人在场时
+  if (me) {
+    if (me.uid === top.uid) {
+      setTimeout(() => showAchievement('🏆 PK 第一！', '本局你拿下 ' + top.score + ' 分，遥遥领先～'), 400);
+      setTimeout(() => fireworks(), 200);
+    } else if (top.score === (second && second.score)) {
+      setTimeout(() => showAchievement('🤝 旗鼓相当', '和第一名同分，平局收场！'), 400);
+    }
+  }
+  // 停止轮询
+  stopPkPoll();
+}
+
+// ================= PK 比赛启动 =================
+async function startPkRace() {
+  if (!currentUser || currentUser.role !== 'student') return;
+  if (!_pkCode) return;
+  if (session) { showNext(); return; } // 切到比赛页时可能已经在跑
+  // 拉取房间的题目（每名玩家题目顺序一致）
+  let r;
+  try { r = await api('/api/pk/room/' + _pkCode); } catch (e) { alert('拉取房间失败：' + e.message); return; }
+  if (!r || !r.ok) { alert(r && r.error || '房间不存在'); showPkLobby(); return; }
+  _pkRoom = r.room;
+  if (r.room.status === 'ended') { renderPkRoom(r.room); return; }
+  if (r.room.status !== 'racing') { renderPkRoom(r.room); return; }
+  if (!r.items || !r.items.length) { alert('题目为空'); return; }
+  // 启动本地比赛
+  _pkItems = r.items;
+  _pkSessionSaved = false;
+  // 复用练习卡片：把它放到 PK 主区
+  const main = $('#pkRoomRacing .pk-race-main');
+  const card = $('#practiceCard');
+  if (main && card && card.parentNode !== main) main.appendChild(card);
+  // 切到 PK 房间视图，并显示比赛区
+  // 注意：不能用 showPracticeView()，因为它会隐藏 #view-pk，
+  // 导致刚刚移过去的 #practiceCard 和侧边排行榜都不可见
+  $$('.view').forEach(v => v.hidden = v.id !== 'view-pk');
+  const nav = $('#studentNav');
+  if (nav) Array.from(nav.querySelectorAll('button')).forEach(b => b.classList.toggle('active', b.dataset.view === 'pk'));
+  const tabbar = $('#mobileTabbar');
+  if (tabbar) Array.from(tabbar.querySelectorAll('button')).forEach(b => b.classList.toggle('active', b.dataset.view === 'pk'));
+  $('#pkLobby').hidden = true;
+  $('#pkRoom').hidden = false;
+  $('#pkRoomWaiting').hidden = true;
+  $('#pkRoomRacing').hidden = false;
+  $('#pkRoomResult').hidden = true;
+  // 进入沉浸式（隐藏顶部导航，专注比赛卡片）
+  document.body.classList.add('practice-mode');
+  enterImmersive();
+  // 启动 PK 比赛会话
+  startPracticeFromPk(_pkItems, r.room);
+  // 启动 PK 进度上报
+  startPkReport();
+  // 启动房间轮询（用于侧边栏实时排名）
+  startPkPoll();
+  renderPkRaceBoard(r.room);
+}
+
+function startPracticeFromPk(items, room) {
+  // items 顺序由服务端基于房间号洗牌固定，本地不再洗
+  _skippedCount = 0;
+  _combo = 0; _maxCombo = 0;
+  const badge = $('#comboBadge'); if (badge) badge.classList.remove('show');
+  session = {
+    queue: items.map(it => Object.assign({}, it, { missCount: 0, strike: 0 })),
+    score: 0, correct: 0, wrong: 0, total: items.length,
+    locked: false, flashTimer: null,
+    pk: { code: room.code, count: room.count, mode: room.mode }
+  };
+  checking = false;
+  $('#practiceReady').hidden = true;
+  $('#practiceSummary').hidden = true;
+  $('#practiceCard').hidden = false;
+  $('#exitFullBtn').hidden = false;
+  // 在 PK 比赛时，在卡片顶部插入「PK 比赛进行中」徽章
+  const card = $('#practiceCard');
+  let stage = card.querySelector('.pk-race-stage-wrap');
+  if (!stage) {
+    stage = document.createElement('div');
+    stage.className = 'pk-race-stage-wrap';
+    card.insertBefore(stage, card.firstChild);
+  }
+  stage.textContent = room.mode === 'solo' ? '🎯 单人 PK 进行中' : '⚔️ 房间 ' + (room.code || '?') + ' · PK 进行中';
+  showNext();
+  // 顶栏副标题：题库名 + 数量
+  const meta = $('#pkRoomMeta');
+  if (meta) meta.textContent = '题库：' + (room.bankTitle || '—') + ' · 共 ' + room.count + ' 题 · 时长 ' + room.minutes + ' 分钟';
+}
+
+// 复写 endSession：在 PK 模式下不展示 summary 卡片，而是切到 result 视图
+const _origEndSession = endSession;
+endSession = async function () {
+  if (!session) return;
+  if (session.pk) {
+    // 触发 PK 上报（finished: true）
+    if (!_pkSessionSaved) {
+      _pkSessionSaved = true;
+      try { await api('/api/pk/report', { method: 'POST', body: { code: _pkCode, score: session.score, correct: session.correct || 0, wrong: session.wrong, answered: (session.total - session.queue.length), finished: true, dragonId: (myDragon() || {}).id || 'trex', petName: (currentUser.pet && currentUser.pet.name) || '', stage: currentStageIndex(totalPoints), points: totalPoints } }); } catch (e) {}
+    }
+    // 退出沉浸式，隐藏练习卡片，显示 result 视图
+    exitImmersive();
+    $('#practiceCard').hidden = true;
+    $('#practiceSummary').hidden = true;
+    // 拉一次房间状态让所有人一起结算
+    pollPkRoom();
+    return;
+  }
+  return _origEndSession();
+};
+
+// 进度上报：每 1.5s 推一次 PK 进度（节流）
+function startPkReport() {
+  stopPkReport();
+  _pkReportTimer = setInterval(() => {
+    if (!session || !session.pk || !_pkCode) return;
+    const answered = session.total - session.queue.length;
+    api('/api/pk/report', {
+      method: 'POST',
+      body: {
+        code: _pkCode,
+        score: session.score,
+        correct: session.correct || 0,
+        wrong: session.wrong,
+        answered,
+        finished: false,
+        dragonId: (myDragon() || {}).id || 'trex',
+        petName: (currentUser.pet && currentUser.pet.name) || '',
+        stage: currentStageIndex(totalPoints),
+        points: totalPoints
+      }
+    }).catch(() => {});
+  }, 1500);
+}
+function stopPkReport() {
+  if (_pkReportTimer) { clearInterval(_pkReportTimer); _pkReportTimer = null; }
+}
+
+// 房间轮询：每 1.5s 拉一次状态
+let _pkPollTimer = null;
+function startPkPoll() {
+  stopPkPoll();
+  if (!_pkCode) return;
+  _pkPollTimer = setInterval(pollPkRoom, 1500);
+}
+function stopPkPoll() {
+  if (_pkPollTimer) { clearInterval(_pkPollTimer); _pkPollTimer = null; }
+}
+async function pollPkRoom() {
+  if (!_pkCode) return;
+  try {
+    const r = await api('/api/pk/room/' + _pkCode);
+    if (!r || !r.ok) {
+      // 房间已销毁（房主离开 / 服务重启）
+      if (_pkCode && !_pkForceEnded) {
+        _pkForceEnded = true;
+        toast('房间已关闭', 1500);
+        if (session && session.pk) { exitImmersive(); session = null; $('#practiceCard').hidden = true; }
+        setTimeout(() => showPkLobby(), 800);
+      }
+      return;
+    }
+    _pkRoom = r.room;
+    // waiting → racing：本地未开始 → 自动开始
+    if (r.room.status === 'racing' && (!session || !session.pk)) {
+      startPkRace();
+      return;
+    }
+    // 已结束：切到结果视图
+    if (r.room.status === 'ended') {
+      exitImmersive();
+      $('#practiceCard').hidden = true;
+      $('#practiceSummary').hidden = true;
+      // 停止上报
+      stopPkReport();
+      renderPkRoom(r.room);
+      return;
+    }
+    // 进行中：刷新侧边栏
+    if (r.room.status === 'racing') renderPkRaceBoard(r.room);
+    if (r.room.status === 'waiting') renderPkRoom(r.room);
+  } catch (e) {}
+}
+
+async function leavePkRoom() {
+  if (!_pkCode) return;
+  const code = _pkCode;
+  _pkCode = '';
+  _pkRoom = null;
+  _pkForceEnded = true;
+  stopPkPoll();
+  stopPkReport();
+  try { await api('/api/pk/leave', { method: 'POST', body: { code } }); } catch (e) {}
+  // 退出练习视图相关
+  if (session && session.pk) { session = null; checking = false; _combo = 0; _maxCombo = 0; }
+  exitImmersive();
+  $('#practiceCard').hidden = true;
+  $('#practiceSummary').hidden = true;
+  // 切回 lobby
+  setTimeout(() => { _pkForceEnded = false; }, 500);
+}
+
+// 切到 PK 视图时的统一入口
+function switchToPk() {
+  if (!currentUser || currentUser.role !== 'student') return;
+  showPkView();
+  loadPkBanks();
+}
+
 // ================= 学生 · 题库 =================
 let stuBankFilterGrade = '';
 let _cachedStuBanks = [];
@@ -2241,13 +2753,16 @@ function startPracticeFrom(items) {
   const badge = $('#comboBadge'); if (badge) badge.classList.remove('show');
   session = {
     queue: items.map(it => Object.assign({}, it, { missCount: 0 })),
-    score: 0, wrong: 0, total: items.length,
+    score: 0, correct: 0, wrong: 0, total: items.length,
     locked: false, flashTimer: null
   };
   checking = false;
   $('#practiceReady').hidden = true;
   $('#practiceSummary').hidden = true;
   $('#practiceCard').hidden = false;
+  // 清理 PK 比赛徽章（从 PK 切回普通练习时不显示）
+  const stage = $('#practiceCard .pk-race-stage-wrap');
+  if (stage) stage.remove();
   showNext();
 }
 
@@ -2265,6 +2780,13 @@ function shuffle(arr) {
 }
 
 function typeLabel(t) { return ({ word: '单词', phrase: '词组', sentence: '句子' }[t]) || '单词'; }
+
+// 按题型给分：单词 1 分，词组 2 分，句子 3 分
+function pointsByType(t) {
+  if (t === 'phrase') return 2;
+  if (t === 'sentence') return 3;
+  return 1;
+}
 
 function showNext() {
   if (!session.queue.length) { endSession(); return; }
@@ -2422,8 +2944,10 @@ async function checkAnswer() {
   checking = true;
   try {
     const r = await api('/api/result', { method: 'POST', body: { id: it.id, correct } });
+    // 服务端按题型给分：单词 1、词组 2、句子 3
+    var _gain = (r && typeof r.gain === 'number') ? r.gain : (correct ? pointsByType(it.type) : 0);
     if (r && typeof r.points === 'number') totalPoints = r.points;
-  } catch (e) { console.error(e); }
+  } catch (e) { console.error(e); var _gain = correct ? pointsByType(it.type) : 0; }
   renderCornerPet();
 
   if (correct) {
@@ -2435,11 +2959,12 @@ async function checkAnswer() {
       // 曾答错过的词：需连续答对（strike）次才能得分
       it.strike--;
       if (it.strike <= 0) {
-        session.score++;
+        session.score += _gain;
+        session.correct = (session.correct || 0) + 1;
         session.queue.shift();
         playCorrect();
-        fxCorrect();
-        $('#feedback').innerHTML = '<div class="fb-ok">连续答对！加 1 分</div>';
+        fxCorrect(_gain, it.type);
+        $('#feedback').innerHTML = '<div class="fb-ok">连续答对！加 <b>' + _gain + '</b> 分</div>';
         $('#practiceCard').classList.add('ok');
         $('#score').textContent = session.score;
         // 即时切到下一词（飘升/星星已挂到 body，不受切卡影响）
@@ -2453,11 +2978,12 @@ async function checkAnswer() {
         showNext();
       }
     } else {
-      session.score++;
+      session.score += _gain;
+      session.correct = (session.correct || 0) + 1;
       session.queue.shift();
       playCorrect();
-      fxCorrect();
-      $('#feedback').innerHTML = '<div class="fb-ok">回答正确！加 1 分</div>';
+      fxCorrect(_gain, it.type);
+      $('#feedback').innerHTML = '<div class="fb-ok">回答正确！加 <b>' + _gain + '</b> 分</div>';
       $('#practiceCard').classList.add('ok');
       $('#score').textContent = session.score;
       // 即时切到下一词（飘升/星星已挂到 body，不受切卡影响）
@@ -2573,17 +3099,18 @@ function showPracticeView() {
 
 // 正确时的游戏特效：分数飘升 + 星星 + 角落宠物弹跳
 // 用 fixed 定位挂到 body 上，这样切到下一词时这些动效不会被一起清掉
-function fxCorrect() {
+// gain: 本次得分；type: 题目类型（控制飘字颜色：单词绿/词组橙/句子金）
+function fxCorrect(gain, type) {
   renderCornerPet();
   const card = $('#practiceCard');
   if (!card) return;
   const rect = card.getBoundingClientRect();
-  // 飘升 +1 的起点：卡片正上方
+  // 飘升 +gain 的起点：卡片正上方
   const startX = rect.left + rect.width / 2;
   const startY = rect.top + 12;
   const sp = document.createElement('div');
-  sp.className = 'fx-score fx-score-global';
-  sp.textContent = '+1';
+  sp.className = 'fx-score fx-score-global' + (type ? ' fx-score-' + type : '');
+  sp.textContent = '+' + (gain != null ? gain : 1);
   sp.style.left = startX + 'px';
   sp.style.top = startY + 'px';
   document.body.appendChild(sp);

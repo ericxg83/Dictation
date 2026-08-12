@@ -97,6 +97,7 @@
   <nav id="studentNav" hidden>
     <button data-view="student-banks" class="active">我的题库</button>
     <button data-view="practice">今日练习</button>
+    <button data-view="pk">自由 PK</button>
     <button data-view="stats">学习统计</button>
   </nav>
 
@@ -270,7 +271,7 @@
           <div class="count-picker-tip" id="countPickerTip">默写时随机抽取 · 至少 10 个</div>
         </div>
         <button id="startBtn" class="primary big">开始练习</button>
-        <div class="hint">答对得 1 分，答错不扣分。答错时本词会卡住并响起提示音，正确答案闪现几秒后消失，然后重新默写本词，写对才进入下一词。输入过程中会自动检测，拼写正确自动通过。</div>
+        <div class="hint">单词答对得 1 分，词组得 2 分，句子得 3 分，答错不扣分。答错时本词会卡住并响起提示音，正确答案闪现几秒后消失，然后重新默写本词，写对才进入下一词。输入过程中会自动检测，拼写正确自动通过。</div>
         <div class="hint small">复习节奏：5 分钟 → 30 分钟 → 12 小时 → 1 天 → 2 天 → 4 天 → 7 天 → 15 天 → 30 天</div>
       </div>
       <div id="practiceCard" hidden>
@@ -316,6 +317,108 @@
         <div id="sumWrongList"></div>
         <button id="againBtn" class="primary">再练一轮</button>
         <button id="backBanksBtn" class="ghost-btn">返回题库</button>
+      </div>
+    </section>
+
+    <!-- 学生 · 自由 PK 大厅 -->
+    <section id="view-pk" class="view">
+      <h2>⚔️ 自由 PK</h2>
+      <p class="sub">单人挑战自己 / 邀请同学房间号一起来。单词 +1、词组 +2、句子 +3，答错不扣分，看谁在规定时间拿分最多～</p>
+
+      <!-- 顶部 PK 模式选择 -->
+      <div id="pkLobby">
+        <div class="pk-mode-grid">
+          <div class="pk-mode-card pk-mode-solo">
+            <div class="pk-mode-emoji">🎯</div>
+            <h3>单人 PK</h3>
+            <p>自己开一局，挑战最快通关 / 最高分</p>
+            <div class="pk-mode-meta">≥ 5 题 · 1–20 分钟</div>
+            <button id="pkSoloStartBtn" class="primary">开始单人 PK</button>
+          </div>
+          <div class="pk-mode-card pk-mode-group">
+            <div class="pk-mode-emoji">🤝</div>
+            <h3>分组 PK</h3>
+            <p>创建房间，把 6 位房间号发给同学一起加入</p>
+            <div class="pk-mode-meta">2–6 人同场竞技</div>
+            <button id="pkCreateBtn" class="primary">创建房间</button>
+            <div class="pk-join-row">
+              <input id="pkJoinInput" type="text" maxlength="6" placeholder="输入房间号">
+              <button id="pkJoinBtn" class="primary">加入</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="pkSetup" class="pk-setup" hidden>
+          <h3 id="pkSetupTitle">准备 PK</h3>
+          <div class="pk-setup-grid">
+            <label class="field">
+              <span>📚 选择题库</span>
+              <select id="pkBankSelect" class="select-inline"></select>
+            </label>
+            <label class="field">
+              <span>📝 默写数量（5–60）</span>
+              <input id="pkCountInput" type="number" min="5" max="60" value="20">
+            </label>
+            <label class="field">
+              <span>⏱ 时长（1–20 分钟）</span>
+              <input id="pkMinutesInput" type="number" min="1" max="20" value="5">
+            </label>
+          </div>
+          <div class="pk-setup-actions">
+            <button id="pkSetupCancel" class="ghost-btn">取消</button>
+            <button id="pkSetupConfirm" class="primary">开始 PK 🚀</button>
+          </div>
+          <p class="hint small">分值规则：单词答对 +1，词组 +2，句子 +3，答错不扣分；同组同学的题目顺序完全一致。</p>
+        </div>
+      </div>
+
+      <!-- 房间等待室 -->
+      <div id="pkRoom" hidden>
+        <div class="pk-room-head">
+          <div class="pk-room-code-wrap">
+            <span class="pk-room-label">房间号</span>
+            <span id="pkRoomCode" class="pk-room-code">------</span>
+            <button id="pkCopyCodeBtn" class="ghost-btn small-btn" title="复制">📋 复制</button>
+          </div>
+          <div class="pk-room-meta" id="pkRoomMeta">加载中…</div>
+        </div>
+
+        <div class="pk-room-stage">
+          <div id="pkRoomWaiting">
+            <h3>等待玩家加入…</h3>
+            <p class="sub">把房间号发给同学，让 TA 在「自由 PK」页输入并加入。凑齐人数后房主点开始即可开赛。</p>
+            <div id="pkPlayerList" class="pk-player-list"></div>
+            <div class="pk-room-actions">
+              <button id="pkLeaveBtn" class="ghost-btn danger-btn">离开房间</button>
+              <button id="pkStartBtn" class="primary big">🚀 开始比赛</button>
+            </div>
+          </div>
+
+          <div id="pkRoomRacing" hidden>
+            <div class="pk-race-grid">
+              <div class="pk-race-main">
+                <!-- 复用 #practiceCard -->
+              </div>
+              <div class="pk-race-side">
+                <h3>实时排行榜</h3>
+                <div id="pkRaceClock" class="pk-race-clock">--:--</div>
+                <div id="pkRaceBoard" class="pk-race-board"></div>
+                <p class="hint small">答对单词 +1、词组 +2、句子 +3，答错不扣分</p>
+                <button id="pkRaceExitBtn" class="ghost-btn danger-btn" style="margin-top:10px">退出比赛</button>
+              </div>
+            </div>
+          </div>
+
+          <div id="pkRoomResult" hidden>
+            <h3>🏁 比赛结束</h3>
+            <div id="pkResultBanner" class="pk-result-banner"></div>
+            <div id="pkResultBoard" class="pk-result-board"></div>
+            <div class="pk-room-actions">
+              <button id="pkResultAgainBtn" class="primary">再来一局</button>
+              <button id="pkResultBackBtn" class="ghost-btn">返回大厅</button>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -366,7 +469,7 @@
 
       <div class="stats-hero">
         <h3>你的累计得分</h3>
-        <p>答对一题得 1 分，答错不扣分 · 积分能解锁龙龙升级</p>
+        <p>单词答对得 1 分，词组得 2 分，句子得 3 分，答错不扣分 · 积分能解锁龙龙升级</p>
         <div class="stats-hero-num">
           <span id="statPointsHero">0</span>
           <small>分</small>
@@ -438,6 +541,7 @@
     <button data-view="rollcall"><span class="tab-ico">🎲</span><span class="tab-label">点名</span></button>
     <button data-view="student-banks"><span class="tab-ico">📚</span><span class="tab-label">题库</span></button>
     <button data-view="practice"><span class="tab-ico">✍️</span><span class="tab-label">练习</span></button>
+    <button data-view="pk"><span class="tab-ico">⚔️</span><span class="tab-label">PK</span></button>
     <button data-view="stats"><span class="tab-ico">📊</span><span class="tab-label">统计</span></button>
   </nav>
 </div>
