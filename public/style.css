@@ -748,6 +748,19 @@ button.del:hover { background: #FADBDB; transform: scale(1.05); }
 }
 .live-tools .ghost-btn { background: transparent; border-color: #2A4A7A; color: #B9CCE8; }
 .live-tools .ghost-btn:hover { border-color: #5B9BF0; color: #fff; background: rgba(255,255,255,.06); }
+.live-tools select.select-inline {
+  max-width: 180px; border: 1px solid #2A4A7A; border-radius: 8px;
+  padding: 6px 8px; background: #13294C; color: #fff; font-size: 14px; outline: none;
+}
+/* 学生端：老师指定默写时的题库锁定提示 */
+.live-lock-notice {
+  background: linear-gradient(135deg, rgba(91,155,240,.14), rgba(58,90,153,.14));
+  border: 1px solid #2A4A7A; border-radius: 14px; padding: 16px; margin: 8px 0;
+  text-align: center;
+}
+.live-lock-title { font-size: 16px; font-weight: 700; color: #fff; margin-bottom: 6px; }
+.live-lock-desc { font-size: 14px; line-height: 1.6; color: #B9CCE8; }
+.live-lock-desc b { color: #8AB8FF; }
 /* 顶部汇总统计 */
 .live-stats {
   display: flex; gap: 10px; align-items: stretch; justify-content: center;
@@ -2032,7 +2045,9 @@ button:active::after, .primary:active::after, .ghost-btn:active::after, .header-
     overflow-x: auto; flex-wrap: nowrap; justify-content: flex-start;
     -webkit-overflow-scrolling: touch; scroll-snap-type: x proximity;
     border-radius: 16px;
+    scrollbar-width: none; -ms-overflow-style: none;
   }
+  .letter-box::-webkit-scrollbar { display: none; }
   .l-cell { width: 28px; height: 40px; font-size: 22px; scroll-snap-align: start; flex: 0 0 auto; border-radius: 9px; }
   .l-cell::after { left: 4px; right: 4px; bottom: 5px; height: 3px; }
   .l-cell.filled::after { height: 3.5px; }

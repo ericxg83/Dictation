@@ -1501,14 +1501,25 @@ function stopLivePoll() {
   if (_liveTimer) { clearInterval(_liveTimer); _liveTimer = null; }
 }
 function enterLiveBoard() {
+  loadLiveBanksForPicker();
   loadLiveBoard();
   if (_liveTimer) clearInterval(_liveTimer);
   _liveTimer = setInterval(loadLiveBoard, 2000);
 }
+async function loadLiveBanksForPicker() {
+  const sel = $('#liveBank');
+  if (!sel) return;
+  try {
+    const d = await api('/api/banks');
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">选择题库…</option>' + d.banks.map(b => '<option value="' + b.id + '">' + esc(b.title) + '</option>').join('');
+    if (cur) sel.value = cur;
+  } catch (e) { /* 忽略：拉取失败时保留占位项 */ }
+}
 async function loadLiveBoard() {
   let d;
   try { d = await api('/api/live/board'); } catch (e) { return; }
-  renderLiveClock(d.session);
+  renderLiveClock(d.session, d.bankTitle);
   renderLiveStats(d.players, d.session);
   renderLiveGrid(d.players, d.session);
 }
@@ -1518,7 +1529,7 @@ function fmtClock(sec) {
   const s = String(sec % 60).padStart(2, '0');
   return m + ':' + s;
 }
-function renderLiveClock(sess) {
+function renderLiveClock(sess, bankTitle) {
   const num = $('#liveClockNum');
   const state = $('#liveClockState');
   if (!sess) { num.textContent = '00:00'; state.textContent = '未开始'; state.className = 'live-clock-state'; return; }
@@ -1528,7 +1539,7 @@ function renderLiveClock(sess) {
     num.textContent = '00:00';
     state.className = 'live-clock-state timeup';
   } else {
-    state.textContent = '默写中';
+    state.textContent = bankTitle ? '默写中 · ' + bankTitle : '默写中';
     state.className = 'live-clock-state running';
   }
 }
@@ -1613,7 +1624,9 @@ function renderLiveGrid(players, sess) {
 }
 $('#liveStartBtn').onclick = async () => {
   const minutes = Math.min(60, Math.max(1, parseInt($('#liveMinutes').value, 10) || 10));
-  await api('/api/live/start', { method: 'POST', body: { minutes } });
+  const bankId = $('#liveBank').value;
+  if (!bankId) { alert('请先选择题库'); return; }
+  await api('/api/live/start', { method: 'POST', body: { minutes, bankId } });
   loadLiveBoard();
 };
 $('#liveStopBtn').onclick = async () => {
@@ -1795,18 +1808,27 @@ function studentLiveClock() {
   const wrap = $('#liveBannerWrap');
   if (!banner || !wrap) return;
   if (!currentUser) return;
-  // 切到非练习页时，强制隐藏并清掉自动隐藏定时器
-  if (currentUser.role !== 'student' || $('#view-practice').hidden) {
+  // 非学生角色：清掉锁单状态并隐藏横幅
+  if (currentUser.role !== 'student') {
+    _liveBank = null;
     wrap.hidden = true;
-    if (_liveBannerHideTimer) { clearTimeout(_liveBannerHideTimer); _liveBannerHideTimer = null; }
     return;
   }
   api('/api/live').then(d => {
+    const onPracticeView = !$('#view-practice').hidden;
+    _liveBank = (d.active && d.bankId) ? { id: d.bankId, title: d.bankTitle || '' } : null;
+    refreshLiveBankLock();
+    // 不在练习页时只更新锁单状态，不显示横幅
+    if (!onPracticeView) {
+      wrap.hidden = true;
+      if (_liveBannerHideTimer) { clearTimeout(_liveBannerHideTimer); _liveBannerHideTimer = null; }
+      return;
+    }
     if (d.active) {
       // 老师正在开启的默写 → 显示倒计时
       if (_liveBannerHideTimer) { clearTimeout(_liveBannerHideTimer); _liveBannerHideTimer = null; }
       wrap.hidden = false;
-      $('#liveBannerText').textContent = '老师已开启默写';
+      $('#liveBannerText').textContent = d.bankTitle ? '老师指定默写《' + d.bankTitle + '》' : '老师已开启默写';
       $('#liveBannerClock').textContent = fmtClock(d.remaining);
       // 给倒计时一个强调色
       banner.classList.remove('ended');
@@ -1833,6 +1855,20 @@ function studentLiveClock() {
     wrap.hidden = true;
     banner.classList.remove('ended');
   });
+}
+let _liveBank = null; // 老师指定的默写题库 { id, title }，活动且存在指定题库时非空
+let _liveBankLockOn = false; // 上一次题库锁定的状态，用于触发列表重渲染
+// 学生题型选择锁定：老师指定默写时，免费选择题库被禁用
+function refreshLiveBankLock() {
+  if (!currentUser || currentUser.role !== 'student') return;
+  const lockOn = !!_liveBank;
+  if (lockOn === _liveBankLockOn) return; // 状态没变就跳过，避免每秒钟都重新拉题库
+  _liveBankLockOn = lockOn;
+  if (activeView() === 'student-banks') loadStudentBanks();
+}
+function activeView() {
+  const v = Array.from($$('.view')).find(x => !x.hidden);
+  return v ? v.id.replace(/^view-/, '') : '';
 }
 setInterval(studentLiveClock, 1000);
 setInterval(throttleLiveReport, 1000);
@@ -1863,6 +1899,15 @@ function renderStuBankList(banks) {
   });
   if (!filtered.length) {
     wrap.innerHTML = '<div class="empty">该年级还没有题库。试试其它年级吧～</div>';
+    return;
+  }
+  // 老师指定默写时：锁定自由选题
+  if (_liveBank) {
+    wrap.innerHTML = '' +
+      '<div class="live-lock-notice">' +
+        '<div class="live-lock-title">⏳ 老师正在开启默写</div>' +
+        '<div class="live-lock-desc">本次默写指定题库《' + esc(_liveBank.title) + '》，不能自由选择题库。请进入<b>「今日默写」</b>参加。</div>' +
+      '</div>';
     return;
   }
   // 按年级分组（全部模式）或 单一列表
@@ -1920,6 +1965,7 @@ async function loadStudentBanks() {
 
 let currentBank = null;
 async function startBankPractice(bank) {
+  if (_liveBank) { alert('老师正在指定默写《' + _liveBank.title + '》，本次不能自由选择题库，请从「今日默写」进入。'); return; }
   let d;
   try {
     d = await api('/api/bank/' + bank.id);
@@ -1938,6 +1984,26 @@ async function startBankPractice(bank) {
 
 // ================= 今日待复习 =================
 async function prepareToday() {
+  // 老师指定默写进行中：学生进入练习页直接加载老师指定的题库（主动查询一次，兜底轮询未及时同步的情况）
+  if (currentUser && currentUser.role === 'student' && !_liveBank) {
+    try {
+      const pre = await api('/api/live/practice');
+      if (pre && pre.active && pre.bank && Array.isArray(pre.entries) && pre.entries.length) _liveBank = pre.bank;
+    } catch (e) { /* 忽略 */ }
+  }
+  if (_liveBank) {
+    try {
+      const d = await api('/api/live/practice');
+      if (d && d.active && Array.isArray(d.entries)) {
+        $('#dueBanner').hidden = true;
+        const items = d.entries.map(e => ({ id: e.id, english: e.english, chinese: e.chinese, pos: e.pos, type: e.type }));
+        currentBank = d.bank ? { id: d.bank.id, title: d.bank.title } : { id: '', title: '默写' };
+        showPracticeView();
+        preparePractice(items, '今日默写：' + currentBank.title, '老师指定题库，共 <b>' + d.entries.length + '</b> 条');
+        return;
+      }
+    } catch (e) { /* 拉取失败时回落到正常的今日练习 */ }
+  }
   let d = { dueCount: 0, total: 0 };
   try { d = await api('/api/today'); } catch (e) { return; }
   if (typeof d.points === 'number') totalPoints = d.points;

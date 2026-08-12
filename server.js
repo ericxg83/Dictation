@@ -804,6 +804,27 @@ app.get('/api/bank/:id', requireAuth, async (req, res) => {
   res.json({ bank: { id: bank.id, title: bank.title }, entries });
 });
 
+// 学生：获取老师指定的默写题库（全班同一份，不按个人进度过滤）
+app.get('/api/live/practice', requireAuth, async (req, res) => {
+  const cls = await getClassInfo(req.user);
+  const bd = cls && liveBoards[cls.id];
+  const bankId = bd && !bd.session.ended && bd.bankId ? bd.bankId : null;
+  if (!bankId) return res.json({ active: false, bank: null, entries: [] });
+  const bank = (await q('SELECT * FROM banks WHERE id = $1 AND class_id = $2', [bankId, cls.id])).rows[0];
+  if (!bank) return res.json({ active: false, bank: null, entries: [] });
+  const p = await syncBankProgress(req.user.id, bank);
+  const byKey = new Map(p.entries.filter(e => e.bankId === bank.id).map(e => [e.key, e]));
+  const entries = bank.entries.map(be => {
+    const prog = byKey.get(keyOf(be.english) + '|' + (be.chinese || '').trim()) || {};
+    return {
+      id: prog.id || '', english: be.english, chinese: be.chinese, pos: be.pos || '', type: be.type,
+      level: prog.level || 0, correctCount: prog.correctCount || 0,
+      wrongCount: prog.wrongCount || 0, nextDue: prog.nextDue || Date.now()
+    };
+  });
+  res.json({ active: true, bank: { id: bank.id, title: bank.title }, entries });
+});
+
 // ================= 路由：学生 · 练习 =================
 app.get('/api/today', requireAuth, async (req, res) => {
   const p = await loadProgress(req.user.id);
@@ -893,13 +914,18 @@ app.post('/api/live/start', requireAuth, requireRole('teacher'), async (req, res
   const cls = await getClassInfo(req.user);
   if (!cls) return res.status(400).json({ error: '请先创建班级' });
   const minutes = Math.min(60, Math.max(1, parseInt((req.body || {}).minutes, 10) || 10));
+  const bankId = String((req.body || {}).bankId || '').trim();
+  if (!bankId) return res.status(400).json({ error: '请选择默写题库' });
+  const bank = (await q('SELECT id, title, class_id FROM banks WHERE id = $1 AND class_id = $2', [bankId, cls.id])).rows[0];
+  if (!bank) return res.status(400).json({ error: '题库不存在或不属于本班' });
   liveBoards[cls.id] = {
     id: genId('lv'),
     session: { startedAt: Date.now(), minutes, ended: false },
+    bankId, bankTitle: bank.title,
     players: {}
   };
   const remaining = Math.min(60, Math.max(1, minutes)) * 60;
-  res.json({ ok: true, remaining });
+  res.json({ ok: true, remaining, bankId, bankTitle: bank.title });
 });
 app.post('/api/live/stop', requireAuth, requireRole('teacher'), async (req, res) => {
   const cls = await getClassInfo(req.user);
@@ -916,7 +942,13 @@ app.get('/api/live', requireAuth, async (req, res) => {
   // 已超时但还没手动结束 → 视为已结束（避免学生端一直显示"时间到"）
   const timedOut = !bd.session.ended && remaining <= 0;
   if (timedOut) bd.session.ended = true;
-  res.json({ active: !bd.session.ended && remaining > 0, remaining, ended: bd.session.ended });
+  res.json({
+    active: !bd.session.ended && remaining > 0,
+    remaining,
+    ended: bd.session.ended,
+    bankId: bd.bankId || null,
+    bankTitle: bd.bankTitle || ''
+  });
 });
 // 老师大屏：全班实时状态
 app.get('/api/live/board', requireAuth, requireRole('teacher'), async (req, res) => {
@@ -935,6 +967,8 @@ app.get('/api/live/board', requireAuth, requireRole('teacher'), async (req, res)
       startedAt: bd.session.startedAt,
       minutes: bd.session.minutes
     },
+    bankId: bd.bankId || null,
+    bankTitle: bd.bankTitle || '',
     players
   });
 });
