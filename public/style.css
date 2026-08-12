@@ -1304,6 +1304,10 @@ button.del:hover { background: #FADBDB; transform: scale(1.05); }
 .status { font-size: 13px; font-weight: 600; }
 .status.ok { color: var(--success); }
 .status.err { color: var(--danger); }
+.mode-tag { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; vertical-align: middle; margin-left: 6px; line-height: 1.4; }
+.mode-tag.mode-llm { background: linear-gradient(135deg, #10B981, #06B6D4); color: #fff; box-shadow: 0 1px 4px rgba(16, 185, 129, .3); }
+.mode-tag.mode-rule { background: #F3F4F6; color: #6B7280; border: 1px solid #E5E7EB; }
+.mode-warn { color: #D97706; font-weight: 600; font-size: 12px; margin-left: 6px; }
 
 /* ===== 草稿区 ===== */
 .draft-head {

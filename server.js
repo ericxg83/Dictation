@@ -628,26 +628,139 @@ app.post('/api/pet', requireAuth, requireRole('student'), async (req, res) => {
   res.json({ ok: true, pet: req.user.pet, lostPoints, points: fresh.stats.points || 0 });
 });
 
+// ================= LLM 提取（DeepSeek / OpenAI 兼容协议） =================
+// 老师上传 PDF/Word 时，规则解析经常出现：跨行中文截断、派生词丢漏、词性错位、词组/句子被错判成单词。
+// 这里用 LLM 重新做一次结构化提取，按用户给定的 prompt 严格走规则，并在不可用时自动回退到原规则解析。
+const LLM_API_KEY = process.env.LLM_API_KEY;
+const LLM_BASE_URL = (process.env.LLM_BASE_URL || 'https://api.deepseek.com/v1').replace(/\/+$/, '');
+const LLM_MODEL = process.env.LLM_MODEL || 'deepseek-chat';
+const LLM_TIMEOUT_MS = Number(process.env.LLM_TIMEOUT_MS) || 90000;
+const LLM_MAX_CHARS = Number(process.env.LLM_MAX_CHARS) || 30000;
+function llmEnabled() { return !!LLM_API_KEY; }
+
+// 文本过长时保留前 60% + 后 40%，避免把位于中段的单词表/短语表截断
+function clipForLlm(text, maxChars) {
+  const cap = Math.max(2000, Number(maxChars) || LLM_MAX_CHARS);
+  if (!text || text.length <= cap) return { text: text || '', truncated: false };
+  const head = Math.floor(cap * 0.6);
+  const tail = cap - head;
+  return {
+    text: text.slice(0, head) + '\n\n[…中间内容过长已省略…]\n\n' + text.slice(-tail),
+    truncated: true
+  };
+}
+
+function buildLlmPrompt(rawText) {
+  return `你是一个专业的英语教学资料提取与结构化专家。\n我已用工具把 PDF/Word 教材里的文字提取出来（见下方【教材内容】）。\n请严格按下面的规则，把"●单词梳理"与"●短语梳理"中所有词条抽取出来，按教材原文顺序整理成一个 JSON 数组。\n\n【教材内容】（已清洗；仍可能含换行、页眉页脚、空行）\n==========\n${rawText}\n==========\n\n【提取与拆分规则】\n1. 完整性（零遗漏）：\n   - 必须提取"●单词梳理"中的所有主词。\n   - 必须提取所有带"→"的派生词/拓展词，并拆为【独立条目】（如 digital → digit / digitalise / digitalization 各算一条）。\n   - 必须提取"●短语梳理"中的全部短语。\n\n2. 防错位与防截断：\n   - 严格对应每个英文词/短语自己的中文释义，绝不能上下行错位。\n   - 跨行中文释义必须完整拼接（如"最新的人工智能技术"、"令人同情的;感人的"），绝不能出现"令"、"最新的人工智能技"等残缺词。\n\n3. 词性（pos）：\n   - 单词/派生词必须真实标注：adj. / n. / v. / adv. / prep. / pron. / abbr. 等；多词性用 "/"（如 n./v.）。\n   - 派生词要标自己的词性，不能复用主词的词性。\n   - 词组（phrase）和句子（sentence）的 pos 留空字符串 ""，绝对不能统一填 "n."。\n\n4. 类型（type）：\n   - "word"：单个英文单词（含派生词），如 digital, digitalise。\n   - "phrase"：不含完整主谓的偏正/名词短语，如 user-friendly, classic black, the latest AI technology。\n   - "sentence"：含动词短语或完整句型，如 tap on the keyboard, keep an eye on your health, enjoy some private time。\n\n【输出】\n只输出一个 JSON 数组，不要任何额外说明、Markdown 代码块、注释。\n[\n  { "english": "...", "pos": "...", "chinese": "...", "type": "word|phrase|sentence" },\n  ...\n]\n按教材原文顺序逐条排列；若某行只有中文没有英文则跳过。`;
+}
+
+async function callLlm(rawText) {
+  if (!llmEnabled()) throw new Error('LLM 未配置（缺少 LLM_API_KEY）');
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), LLM_TIMEOUT_MS);
+  try {
+    const res = await fetch(LLM_BASE_URL + '/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + LLM_API_KEY
+      },
+      body: JSON.stringify({
+        model: LLM_MODEL,
+        temperature: 0.1,
+        messages: [
+          { role: 'system', content: '你是专业的英语教学资料提取与结构化专家。严格按用户要求输出 JSON 数组，不要任何额外说明。' },
+          { role: 'user', content: buildLlmPrompt(rawText) }
+        ]
+      }),
+      signal: ctrl.signal
+    });
+    if (!res.ok) {
+      const body = await res.text();
+      throw new Error('LLM HTTP ' + res.status + '：' + body.slice(0, 200));
+    }
+    const data = await res.json();
+    const content = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
+    if (!content) throw new Error('LLM 返回内容为空');
+    return String(content);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function parseLlmResponse(content) {
+  let s = String(content || '').trim();
+  // 去除可能被包住的 Markdown 代码块
+  s = s.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/g, '').trim();
+  let arr = null;
+  // 优先尝试整体解析
+  try {
+    const obj = JSON.parse(s);
+    if (Array.isArray(obj)) arr = obj;
+    else if (Array.isArray(obj.entries)) arr = obj.entries;
+    else if (Array.isArray(obj.data)) arr = obj.data;
+    else if (Array.isArray(obj.items)) arr = obj.items;
+    else if (obj && typeof obj === 'object') {
+      // 找对象里第一个数组字段
+      for (const k of Object.keys(obj)) {
+        if (Array.isArray(obj[k])) { arr = obj[k]; break; }
+      }
+    }
+  } catch (e) {}
+  // 兜底：从字符串里抠出第一个 [...] 数组
+  if (!arr) {
+    const m = s.match(/\[[\s\S]*\]/);
+    if (m) {
+      try { arr = JSON.parse(m[0]); } catch (e2) {}
+    }
+  }
+  if (!Array.isArray(arr)) {
+    throw new Error('LLM 输出无法解析为 JSON 数组：' + s.slice(0, 160));
+  }
+  const out = [];
+  for (const it of arr) {
+    if (!it || typeof it !== 'object') continue;
+    const en = String(it.english || '').trim();
+    const zh = String(it.chinese || '').trim();
+    if (!en || !zh) continue;
+    let pos = String(it.pos || '').trim();
+    if (pos === '-' || pos === '—') pos = '';
+    let type = String(it.type || '').trim().toLowerCase();
+    if (['word', 'phrase', 'sentence'].indexOf(type) === -1) type = detectType(en);
+    out.push({ english: en, chinese: zh, pos, type });
+  }
+  return out;
+}
+
+async function extractByLlm(rawText) {
+  const clipped = clipForLlm(rawText);
+  const content = await callLlm(clipped.text);
+  const entries = parseLlmResponse(content);
+  return { entries, truncated: clipped.truncated };
+}
+
 // ================= 路由：文档解析 =================
 app.post('/api/parse', requireAuth, upload.single('file'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: '没有收到文件' });
   const file = req.file;
   const ext = path.extname(file.originalname || '').toLowerCase();
-  let candidates = [];
+  let rawText = '';
+  let docxHtml = ''; // 仅 docx 走规则回退时需要
   try {
     if (ext === '.pdf') {
       const buf = fs.readFileSync(file.path);
-      const text = await extractPdfText(buf);
-      candidates = parseLines(text);
+      rawText = await extractPdfText(buf);
     } else if (ext === '.docx') {
-      const result = await mammoth.convertToHtml({ path: file.path });
-      candidates = parseDocxHtml(result.value);
+      const raw = await mammoth.extractRawText({ path: file.path });
+      rawText = raw.value || '';
+      const html = await mammoth.convertToHtml({ path: file.path });
+      docxHtml = html.value || '';
     } else if (ext === '.doc') {
       const extractor = new WordExtractor();
       const doc = await extractor.extract(file.path);
-      candidates = parseLines(doc.getBody());
+      rawText = doc.getBody();
     } else if (ext === '.txt') {
-      candidates = parseLines(fs.readFileSync(file.path, 'utf8'));
+      rawText = fs.readFileSync(file.path, 'utf8');
     } else {
       try { fs.unlinkSync(file.path); } catch (e) {}
       return res.status(400).json({ error: '仅支持 PDF / Word(doc、docx) / 文本(txt) 文件' });
@@ -658,7 +771,37 @@ app.post('/api/parse', requireAuth, upload.single('file'), async (req, res) => {
     return res.status(500).json({ error: '解析失败：' + err.message });
   }
   try { fs.unlinkSync(file.path); } catch (e) {}
-  res.json({ entries: dedupe(candidates) });
+
+  // 优先走 LLM 提取；不可用 / 失败 / 0 条时回退到原规则解析
+  let candidates = [];
+  let mode = 'rule';
+  let truncated = false;
+  let llmError = '';
+  if (llmEnabled() && rawText && rawText.trim()) {
+    try {
+      const r = await extractByLlm(rawText);
+      if (r.entries && r.entries.length) {
+        candidates = r.entries;
+        mode = 'llm';
+        truncated = !!r.truncated;
+      } else {
+        llmError = 'LLM 返回 0 条';
+      }
+    } catch (e) {
+      llmError = e.message || String(e);
+      console.error('LLM 提取失败，回退到规则提取：', llmError);
+    }
+  }
+  if (!candidates.length) {
+    if (ext === '.docx' && docxHtml) {
+      candidates = parseDocxHtml(docxHtml);
+    } else if (rawText) {
+      candidates = parseLines(rawText);
+    }
+    mode = 'rule';
+  }
+  const result = dedupe(candidates);
+  res.json({ entries: result, mode, truncated, llmEnabled: llmEnabled(), llmError: llmError || undefined });
 });
 
 // ================= 路由：老师 · 题库管理 =================

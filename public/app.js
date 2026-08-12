@@ -1170,11 +1170,20 @@ $('#fileInput').addEventListener('change', async ev => {
   fd.append('file', file);
   try {
     const d = await api('/api/parse', { method: 'POST', body: fd });
-    if (!d.entries.length) { setStatus('未提取到条目。提示：扫描版 PDF 需先 OCR 转成文字，或改用 Word 文档。', true); return; }
+    if (!d.entries.length) {
+      const tip = d.llmError ? '（AI 解析失败：' + d.llmError + '）' : '';
+      setStatus('未提取到条目' + tip + '。提示：扫描版 PDF 需先 OCR 转成文字，或改用 Word 文档。', true);
+      return;
+    }
     if (draft.length && !confirm('解析到 ' + d.entries.length + ' 条，是否替换当前草稿？')) { setStatus('已取消，草稿未变。'); return; }
     draft = d.entries;
     renderDraft();
-    setStatus('成功解析 ' + d.entries.length + ' 条。请在下方检查修正后填写标题并发布。');
+    // 解析方式提示：AI / 规则 / 截断警告
+    const modeTag = d.mode === 'llm'
+      ? '<span class="mode-tag mode-llm">AI 智能提取</span>'
+      : (d.llmEnabled ? '<span class="mode-tag mode-rule">规则提取（AI 已启用但本次回退）</span>' : '<span class="mode-tag mode-rule">规则提取（未配置 AI Key）</span>');
+    const truncTip = d.truncated ? ' <span class="mode-warn">⚠ 文档过长，中间内容被省略，请分段上传</span>' : '';
+    setStatus('成功解析 ' + d.entries.length + ' 条。' + modeTag + truncTip);
     if (window.innerWidth <= 720) toast('已解析 ' + d.entries.length + ' 条，请检查后发布');
   } catch (err) {
     setStatus('解析失败：' + err.message, true);
