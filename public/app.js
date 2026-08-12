@@ -1508,7 +1508,6 @@ function enterLiveBoard() {
 async function loadLiveBoard() {
   let d;
   try { d = await api('/api/live/board'); } catch (e) { return; }
-  console.log('[loadLiveBoard]', { players: d.players.length, sessionActive: d.session && !d.session.ended });
   renderLiveClock(d.session);
   renderLiveStats(d.players, d.session);
   renderLiveGrid(d.players, d.session);
@@ -1576,7 +1575,6 @@ function renderLiveGrid(players, sess) {
   grid.innerHTML = '';
   const all = players;
   all.forEach((p, i) => {
-    console.log('[renderLiveGrid] player:', p.username, 'typed:', (p.typed || '').substring(0, 20), 'word:', p.word);
     const d = DRAGON_KINDS.find(k => k.id === p.dragonId) || DRAGON_KINDS[0];
     const total = p.total || 0;
     const answered = Math.min(p.answered || 0, total);
@@ -1750,18 +1748,21 @@ $('#rollcallNames').addEventListener('input', () => {
 
 // ================= 学生 · 大屏自动上报 =================
 let _liveReportTick = 0;
-function liveStatus() {
+let _liveLastTyped = null; // 节流期间缓存最近一次真实输入，避免被 checkAnswer 清空后补发空串
+function liveStatus(typedOverride) {
   if (!currentUser || currentUser.role !== 'student') return;
   const word = session && session.current ? session.current.chinese : '';
   const answer = session && session.current ? session.current.english : '';
-  const typed = session && !session.locked ? String($('#answerInput').value) : '';
+  // typed 优先用缓存/调用方传进来的最新输入值（避免 checkAnswer 清空输入框后读到的空串）
+  const typed = session && !session.locked
+    ? String(typedOverride != null ? typedOverride : $('#answerInput').value)
+    : '';
   const typedLen = typed.replace(/\s+/g, '').length;
   const total = session ? session.total : 0;
   const answered = session ? total - session.queue.length : 0;
   const done = !!(session && !session.queue.length && $('#practiceSummary') && !$('#practiceSummary').hidden);
   const locked = !!(session && session.locked);
   const d = myDragon() || DRAGON_KINDS[0];
-  console.log('[liveStatus]', { word, typed: typed.substring(0, 20), typedLen, locked, hasSession: !!session });
   api('/api/live/report', {
     method: 'POST',
     body: {
@@ -1775,11 +1776,15 @@ function liveStatus() {
     }
   }).catch(() => {});
 }
-function throttleLiveReport() {
+function throttleLiveReport(typedOverride) {
+  // 记下最近一次真实输入值；800ms 节流期间的新输入不会丢，稍后补发
+  if (typedOverride != null) _liveLastTyped = typedOverride;
   const now = Date.now();
   if (now - _liveReportTick < 800) return;
   _liveReportTick = now;
-  liveStatus();
+  const v = _liveLastTyped != null ? _liveLastTyped : $('#answerInput').value;
+  _liveLastTyped = null;
+  liveStatus(v);
 }
 
 // ================= 学生 · 倒计时横幅 =================
@@ -2163,6 +2168,7 @@ function showNext() {
   $('#cardPos').textContent = it.pos || '';
   $('#cardPos').hidden = !it.pos;
   const ph = $('#promptHint'); if (ph) ph.textContent = (it.type === 'sentence' ? '根据中文写出英文句子' : (it.type === 'word' ? '根据中文写出单词' : '根据中文写出词组'));
+  _liveLastTyped = null; // 已切词，旧词缓存作废，避免把上一词的输入贴合到新词上
   throttleLiveReport();
   buildLetterBox();
   $('#answerInput').value = '';
@@ -2749,7 +2755,7 @@ $('#answerInput').addEventListener('input', () => {
   renderLetterCells(newVal);
   if (!isBackspace) autoSpace();
   autoCheckTyping();
-  throttleLiveReport();
+  throttleLiveReport(newVal);
   scrollLetterBoxToCaret();
 });
 // 重置时清掉旧长度，避免上一轮的字符数干扰下一轮
