@@ -103,10 +103,22 @@ async function dbAllClasses() { return (await q('SELECT id, name, code, teacher_
 async function dbInsertClass(cls) { await q('INSERT INTO classes (id, name, code, teacher_id, created_at) VALUES ($1,$2,$3,$4,$5)', [cls.id, cls.name, cls.code, cls.teacherId || null, cls.createdAt]); }
 
 // ---- 题库 ----
-async function dbAllBanks() { return (await q('SELECT id, class_id AS "classId", title, entries, updated_at AS "updatedAt" FROM banks')).rows; }
-async function dbInsertBank(b) { await q('INSERT INTO banks (id, class_id, title, entries, updated_at) VALUES ($1,$2,$3,$4,$5)', [b.id, b.classId, b.title, JSON.stringify(b.entries || []), b.updatedAt]); }
-async function dbUpdateBank(b) { await q('UPDATE banks SET class_id=$2, title=$3, entries=$4, updated_at=$5 WHERE id=$1', [b.id, b.class_id || b.classId, b.title, JSON.stringify(b.entries || []), b.updatedAt]); }
+async function dbAllBanks() { return (await q('SELECT id, class_id AS "classId", title, entries, grade, updated_at AS "updatedAt" FROM banks')).rows; }
+async function dbInsertBank(b) { await q('INSERT INTO banks (id, class_id, title, entries, grade, updated_at) VALUES ($1,$2,$3,$4,$5,$6)', [b.id, b.classId, b.title, JSON.stringify(b.entries || []), b.grade || null, b.updatedAt]); }
+async function dbUpdateBank(b) { await q('UPDATE banks SET class_id=$2, title=$3, entries=$4, grade=$5, updated_at=$6 WHERE id=$1', [b.id, b.class_id || b.classId, b.title, JSON.stringify(b.entries || []), b.grade || null, b.updatedAt]); }
 async function dbDeleteBank(id) { await q('DELETE FROM banks WHERE id = $1', [id]); }
+
+// 启动时确保 banks 表有 grade 列（双保险：migrate-grade.js 之外，server 也兜底）
+q("ALTER TABLE banks ADD COLUMN IF NOT EXISTS grade TEXT").catch(e => console.warn('banks.grade 兜底迁移失败：', e.message));
+q("CREATE INDEX IF NOT EXISTS idx_banks_grade ON banks (class_id, grade)").catch(e => {});
+
+// 年级分类：6/7/8/9 年级，null/空 表示未分类（兼容旧题库）
+const GRADES = ['6', '7', '8', '9'];
+function normalizeGrade(g) {
+  if (g == null || g === '') return null;
+  const s = String(g).trim();
+  return GRADES.indexOf(s) !== -1 ? s : null;
+}
 
 // ---- 进度 ----
 async function dbFindProgress(userId) { return (await q('SELECT user_id AS "userId", entries, stats, created_at AS "createdAt" FROM progress WHERE user_id = $1', [userId])).rows[0] || null; }
@@ -634,31 +646,34 @@ function cleanBankEntries(entries) {
 }
 
 app.post('/api/bank', requireAuth, requireRole('teacher'), async (req, res) => {
-  const { title, entries } = req.body || {};
+  const { title, entries, grade } = req.body || {};
   if (!Array.isArray(entries) || !entries.length) return res.status(400).json({ error: '题库内容为空，请先上传或添加条目' });
   const cleaned = cleanBankEntries(entries);
   if (!cleaned.length) return res.status(400).json({ error: '题库内容无效' });
   const t = String(title || '').trim() || '未命名题库';
+  const g = normalizeGrade(grade);
   const banks = await dbAllBanks();
   let bank = banks.find(b => b.classId === req.user.class_id && b.title === t);
   if (!bank) {
-    bank = { id: genId('b'), classId: req.user.class_id, title: t, entries: [], updatedAt: Date.now() };
+    bank = { id: genId('b'), classId: req.user.class_id, title: t, grade: g, entries: [], updatedAt: Date.now() };
     await dbInsertBank(bank);
+  } else {
+    bank.grade = g;
   }
   bank.entries = cleaned;
   bank.updatedAt = Date.now();
   await dbUpdateBank(bank);
-  res.json({ ok: true, bank: { id: bank.id, title: bank.title, count: bank.entries.length, updatedAt: bank.updatedAt } });
+  res.json({ ok: true, bank: { id: bank.id, title: bank.title, grade: bank.grade, count: bank.entries.length, updatedAt: bank.updatedAt } });
 });
 
 // 老师：读取某个题库的完整条目（用于编辑）
 app.get('/api/bank/:id/edit', requireAuth, requireRole('teacher'), async (req, res) => {
   const b = (await q('SELECT * FROM banks WHERE id = $1 AND class_id = $2', [req.params.id, req.user.class_id])).rows[0];
   if (!b) return res.status(404).json({ error: '题库不存在或无权编辑' });
-  res.json({ bank: { id: b.id, title: b.title }, entries: b.entries || [] });
+  res.json({ bank: { id: b.id, title: b.title, grade: b.grade }, entries: b.entries || [] });
 });
 
-// 老师：重命名 / 更新题库内容
+// 老师：重命名 / 更新题库内容 / 调整年级
 app.put('/api/bank/:id', requireAuth, requireRole('teacher'), async (req, res) => {
   const b = (await q('SELECT * FROM banks WHERE id = $1 AND class_id = $2', [req.params.id, req.user.class_id])).rows[0];
   if (!b) return res.status(404).json({ error: '题库不存在或无权编辑' });
@@ -670,20 +685,22 @@ app.put('/api/bank/:id', requireAuth, requireRole('teacher'), async (req, res) =
     if (!cleaned.length) return res.status(400).json({ error: '题库内容无效' });
     entries = cleaned;
   }
+  const g = body.grade !== undefined ? normalizeGrade(body.grade) : (b.grade || null);
   // 重命名后若与班级内其它题库重名则拒绝
   const dup = (await q('SELECT id FROM banks WHERE class_id = $1 AND title = $2 AND id <> $3', [req.user.class_id, t, b.id])).rows[0];
   if (dup) return res.status(400).json({ error: '班级内已有同名题库，请换一个标题' });
   b.title = t;
   b.entries = entries;
+  b.grade = g;
   b.updatedAt = Date.now();
   await dbUpdateBank(b);
-  res.json({ ok: true, bank: { id: b.id, title: b.title, count: b.entries.length, updatedAt: b.updatedAt } });
+  res.json({ ok: true, bank: { id: b.id, title: b.title, grade: b.grade, count: b.entries.length, updatedAt: b.updatedAt } });
 });
 
 app.get('/api/bank', requireAuth, requireRole('teacher'), async (req, res) => {
   const banks = (await dbAllBanks())
     .filter(b => b.classId === req.user.class_id)
-    .map(b => ({ id: b.id, title: b.title, count: b.entries.length, updatedAt: b.updatedAt }));
+    .map(b => ({ id: b.id, title: b.title, grade: b.grade || null, count: b.entries.length, updatedAt: b.updatedAt }));
   res.json({ banks });
 });
 
@@ -732,7 +749,7 @@ app.get('/api/banks', requireAuth, async (req, res) => {
   if (!cls) return res.json({ classInfo: null, banks: [] });
   const banks = (await dbAllBanks())
     .filter(b => b.classId === cls.id)
-    .map(b => ({ id: b.id, title: b.title, count: b.entries.length, updatedAt: b.updatedAt }));
+    .map(b => ({ id: b.id, title: b.title, grade: b.grade || null, count: b.entries.length, updatedAt: b.updatedAt }));
   res.json({ classInfo: { id: cls.id, name: cls.name }, banks });
 });
 

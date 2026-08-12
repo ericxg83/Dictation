@@ -1134,6 +1134,9 @@ table { border-collapse: collapse; width: 100%; }
 .bank-btns { display: flex; gap: 8px; align-items: center; }
 .bank-main { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1; }
 .bank-main b { font-size: 17px; color: var(--text-on-dark); font-weight: 800; letter-spacing: -.2px; }
+.bank-title-row {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+}
 .bank-meta {
   font-size: 13px; color: var(--text-on-dark-2); display: flex; align-items: center; gap: 10px;
   font-weight: 600; flex-wrap: wrap;
@@ -1155,6 +1158,81 @@ table { border-collapse: collapse; width: 100%; }
   backdrop-filter: blur(8px);
 }
 .bank-card.is-student::before { width: 8px; }
+
+/* ===== 年级分类相关 ===== */
+/* 年级筛选条（顶部横滑 chip） */
+.grade-filter {
+  display: flex; gap: 8px; margin: 4px 0 16px;
+  overflow-x: auto; padding: 4px 0 6px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.grade-filter::-webkit-scrollbar { display: none; }
+/* 草稿里的年级选择器 */
+.grade-picker {
+  display: flex; align-items: center; gap: 10px; margin: 8px 0 4px;
+  flex-wrap: wrap;
+}
+.grade-picker-label {
+  font-size: 12px; font-weight: 700; color: var(--brand-3);
+  background: rgba(99, 102, 241, .2); padding: 4px 10px; border-radius: 20px;
+  border: 1px solid rgba(167, 139, 250, .3);
+  white-space: nowrap;
+}
+.grade-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.grade-chip {
+  background: rgba(124, 58, 237, .14);
+  border: 1.5px solid rgba(167, 139, 250, .32);
+  color: var(--text-on-dark-2);
+  padding: 7px 14px;
+  border-radius: 99px;
+  font-size: 13px; font-weight: 700;
+  cursor: pointer; transition: transform .15s, background .2s, border-color .2s, color .2s, box-shadow .2s;
+  white-space: nowrap;
+  font-family: var(--font);
+  user-select: none;
+}
+.grade-chip:hover { background: rgba(124, 58, 237, .28); border-color: rgba(167, 139, 250, .55); color: #fff; transform: translateY(-1px); }
+.grade-chip:active { transform: scale(.95); }
+.grade-chip.sel {
+  background: var(--gradient-brand);
+  border-color: transparent;
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(124, 58, 237, .5);
+}
+/* 年级 badge（卡片右上角彩色徽章） */
+.grade-badge {
+  display: inline-block;
+  font-size: 11px; font-weight: 800;
+  padding: 3px 10px; border-radius: 99px;
+  color: #fff;
+  letter-spacing: .5px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, .35);
+  white-space: nowrap;
+}
+/* 分组标题（六年级 / 七年级 ...） */
+.grade-section-head {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 14px; font-weight: 800; color: var(--text-on-dark);
+  padding: 6px 4px 4px;
+  margin-top: 6px;
+  letter-spacing: .5px;
+}
+.grade-section-head:first-child { margin-top: 0; }
+.grade-section-dot {
+  display: inline-block;
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  box-shadow: 0 0 8px rgba(139, 92, 246, .35);
+}
+.grade-section-count {
+  font-size: 12px; font-weight: 700;
+  color: var(--text-on-dark-3);
+  margin-left: auto;
+  background: rgba(11, 8, 32, .5);
+  padding: 2px 10px; border-radius: 99px;
+  border: 1px solid var(--line-2);
+}
 .empty {
   background: linear-gradient(135deg, rgba(34, 24, 80, .6), rgba(26, 18, 64, .6));
   backdrop-filter: blur(8px);
@@ -1188,6 +1266,113 @@ table { border-collapse: collapse; width: 100%; }
   text-shadow: 0 4px 16px rgba(0,0,0,.2); position: relative; z-index: 1;
 }
 .stats-hero-num small { font-size: 18px; opacity: .85; font-weight: 700; }
+
+/* ===== 数据卡片：复习计划 / 练习记录（柱状图 + 比例环） ===== */
+.data-card-wrap {
+  background: linear-gradient(135deg, rgba(34, 24, 80, .75), rgba(26, 18, 64, .75));
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 16px 18px;
+  box-shadow: var(--shadow-md);
+  margin-bottom: 18px;
+  overflow: hidden;
+}
+.data-table {
+  width: 100%; border-collapse: collapse;
+  font-size: 14px;
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+  overflow: visible;
+}
+.data-table thead th {
+  background: rgba(26, 18, 64, .6);
+  text-align: left; padding: 10px 8px; font-size: 12px;
+  color: var(--text-on-dark-3); font-weight: 700;
+  border-bottom: 1px solid var(--line);
+  letter-spacing: .5px;
+  text-transform: uppercase;
+}
+.data-table tbody td {
+  padding: 12px 8px;
+  border-top: 1px solid var(--line-2);
+  vertical-align: middle;
+  color: var(--text-on-dark);
+}
+.data-row { transition: background .2s; }
+.data-row:hover { background: rgba(99, 102, 241, .1); }
+.data-row.is-today { background: rgba(139, 92, 246, .15); }
+.data-row.is-today .data-day-d { color: #FBBF24; font-weight: 900; }
+.data-date {
+  display: flex; align-items: center; gap: 6px; min-width: 78px;
+  font-variant-numeric: tabular-nums; font-weight: 600;
+}
+.data-day-d { color: var(--text-on-dark); font-size: 14px; }
+.data-today-tag {
+  font-size: 10px; font-weight: 800;
+  background: var(--gradient-warm); color: #fff;
+  padding: 2px 7px; border-radius: 99px;
+  letter-spacing: .3px;
+  box-shadow: 0 2px 5px rgba(245, 158, 11, .35);
+}
+.data-bar-cell {
+  display: flex; align-items: center; gap: 10px; min-width: 0;
+}
+.data-bar {
+  flex: 1; min-width: 80px; max-width: 360px;
+  height: 10px;
+  background: rgba(45, 36, 97, .5);
+  border-radius: 99px; overflow: hidden;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, .3);
+}
+.data-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #6366F1, #A855F7, #EC4899);
+  background-size: 200% 100%;
+  border-radius: 99px;
+  box-shadow: 0 0 8px rgba(168, 85, 247, .5);
+  transition: width 1s cubic-bezier(.4, 0, .2, 1);
+  animation: barShine 3s linear infinite;
+}
+.data-bar-num {
+  font-size: 13px; font-weight: 800; color: var(--text-on-dark);
+  min-width: 38px; text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.empty-cell { text-align: center; color: var(--text-on-dark-3); padding: 30px 8px !important; font-size: 13px; }
+
+/* 练习记录：双色条（答对/答错）+ 正确率 pill */
+.hist-row {
+  display: flex; flex-direction: column; gap: 3px;
+  width: 100%; max-width: 360px;
+}
+.hist-line {
+  height: 7px;
+  border-radius: 99px;
+  background: transparent;
+  transition: width .8s cubic-bezier(.4, 0, .2, 1);
+  min-width: 2px;
+}
+.hist-ok { background: linear-gradient(90deg, #10B981, #06B6D4); box-shadow: 0 0 6px rgba(16, 185, 129, .35); }
+.hist-bad { background: linear-gradient(90deg, #F43F5E, #FB7185); box-shadow: 0 0 6px rgba(244, 63, 94, .35); }
+.hist-legend {
+  display: flex; gap: 10px; margin-top: 4px;
+  font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums;
+}
+.hist-ok-text { color: #10B981; }
+.hist-bad-text { color: #FB7185; }
+.data-acc { text-align: right; min-width: 64px; }
+.acc-pill {
+  display: inline-block;
+  padding: 4px 12px; border-radius: 99px;
+  font-size: 12px; font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .3px;
+}
+.acc-good { background: rgba(16, 185, 129, .2); color: #34D399; border: 1px solid rgba(16, 185, 129, .4); }
+.acc-mid  { background: rgba(245, 158, 11, .2); color: #FBBF24; border: 1px solid rgba(245, 158, 11, .4); }
+.acc-bad  { background: rgba(244, 63, 94, .2); color: #FB7185; border: 1px solid rgba(244, 63, 94, .4); }
 
 /* 进度环（4 个数据：总/待复习/掌握/练习） */
 .ring-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 14px; margin-bottom: 22px; }
@@ -1636,6 +1821,42 @@ button:active::after, .primary:active::after, .ghost-btn:active::after, .header-
   .combo-flash { font-size: 48px; }
   .achievement-toast { left: 12px; right: 12px; transform: translateY(-120%); max-width: none; }
   .achievement-toast.show { transform: translateY(0); }
+
+  /* ===== 统计页 · 数据卡片（移动端：表格 → 卡片式展示，更直观） ===== */
+  .data-card-wrap { padding: 12px; }
+  .data-table thead { display: none; }
+  .data-table, .data-table tbody, .data-table tr, .data-table td { display: block; width: 100%; }
+  .data-row {
+    background: linear-gradient(135deg, rgba(34, 24, 80, .55), rgba(26, 18, 64, .55));
+    border: 1px solid var(--line-2);
+    border-radius: 14px;
+    padding: 12px 14px;
+    margin-bottom: 10px;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 8px 12px;
+    align-items: center;
+  }
+  .data-row:hover { background: linear-gradient(135deg, rgba(99, 102, 241, .25), rgba(26, 18, 64, .55)); }
+  .data-row.is-today { border-color: rgba(245, 158, 11, .45); box-shadow: 0 0 0 1px rgba(245, 158, 11, .3); }
+  .data-row .data-date { grid-column: 1; min-width: 0; }
+  .data-row .data-bar-cell { grid-column: 2; min-width: 0; }
+  .data-row .data-acc { grid-column: 3; min-width: 0; }
+  .data-day-d { font-size: 15px; }
+  .data-bar { height: 12px; max-width: none; }
+  .data-bar-num { font-size: 14px; min-width: 32px; }
+  .hist-row { max-width: none; }
+  .hist-legend { font-size: 13px; }
+  .acc-pill { padding: 5px 12px; font-size: 13px; }
+
+  /* ===== 年级筛选 / 徽章在手机端的优化 ===== */
+  .grade-chip { padding: 8px 14px; font-size: 13px; min-height: 36px; }
+  .grade-picker { flex-direction: column; align-items: stretch; gap: 8px; }
+  .grade-picker-label { align-self: flex-start; }
+  .grade-section-head { font-size: 15px; padding: 8px 4px 4px; }
+  .grade-section-count { font-size: 11px; padding: 2px 8px; }
+  /* 卡片里的 badge 在手机端保持小巧 */
+  .grade-badge { font-size: 10px; padding: 2px 8px; }
 
   /* 弹窗在小屏贴底，更接近原生 App */
   .modal-mask { align-items: flex-end; padding: 0; }

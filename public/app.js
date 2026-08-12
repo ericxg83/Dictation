@@ -1184,6 +1184,24 @@ function setStatus(t, err) {
   el.className = 'status' + (err ? ' err' : ' ok');
 }
 
+// 年级分类：6/7/8/9 年级，null/空 表示未分类
+const GRADES = ['6', '7', '8', '9'];
+const GRADE_LABELS = { '6': '六年级', '7': '七年级', '8': '八年级', '9': '九年级' };
+const GRADE_COLORS = {
+  '6': 'linear-gradient(135deg, #10B981, #06B6D4)',   // 绿
+  '7': 'linear-gradient(135deg, #6366F1, #8B5CF6)',   // 紫
+  '8': 'linear-gradient(135deg, #F59E0B, #F472B6)',   // 橙粉
+  '9': 'linear-gradient(135deg, #EC4899, #A855F7)'    // 玫红紫
+};
+function gradeLabel(g) { return g && GRADE_LABELS[g] ? GRADE_LABELS[g] : '未分类'; }
+function gradeColor(g) { return g && GRADE_COLORS[g] ? GRADE_COLORS[g] : 'linear-gradient(135deg, #6B7280, #9CA3AF)'; }
+function gradeMatch(bankGrade, filter) {
+  // filter: '' = 全部；'6'..'9' = 对应年级；'none' = 未分类
+  if (!filter || filter === '') return true;
+  if (filter === 'none') return !bankGrade;
+  return bankGrade === filter;
+}
+
 function renderDraft() {
   $('#draftBox').hidden = !draft.length;
   if (!draft.length) return;
@@ -1209,7 +1227,31 @@ function renderDraft() {
     tr.querySelector('.del').onclick = () => { draft.splice(i, 1); renderDraft(); };
     tb.appendChild(tr);
   });
+  // 同步当前选中的年级 chip
+  syncGradeChips('#gradeChips', editingGrade);
 }
+
+// 当前选中的年级（用于新建 / 编辑题库时写入）
+let editingGrade = null;   // null = 未分类
+function syncGradeChips(containerSel, value) {
+  const chips = $$(containerSel + ' .grade-chip');
+  chips.forEach(c => {
+    const g = c.dataset.grade;
+    // 'none' 代表 null；正常 data-grade 为 '' / '6'/'7'/'8'/'9'
+    let isSel;
+    if (g === 'none') isSel = !value;
+    else isSel = (g === (value || ''));
+    c.classList.toggle('sel', isSel);
+  });
+}
+// 老师 · 草稿区年级 chip 点击
+$$('#gradeChips .grade-chip').forEach(b => {
+  b.onclick = () => {
+    const g = b.dataset.grade;
+    editingGrade = (g === '' || g === 'none') ? null : g;
+    syncGradeChips('#gradeChips', editingGrade);
+  };
+});
 
 $('#addRowBtn').onclick = () => { draft.push({ english: '', chinese: '', pos: '', type: 'word' }); renderDraft(); };
 
@@ -1223,12 +1265,13 @@ $('#saveBtn').onclick = async () => {
   if (!rows.length) { alert('题库为空，请先添加内容。'); return; }
   try {
     const title = $('#bankTitle').value.trim();
+    const body = { title, entries: rows, grade: editingGrade };
     if (editingBankId) {
-      await api('/api/bank/' + editingBankId, { method: 'PUT', body: { title, entries: rows } });
+      await api('/api/bank/' + editingBankId, { method: 'PUT', body });
       resetDraft();
       setStatus('已保存修改，学生端将看到更新后的题库。');
     } else {
-      await api('/api/bank', { method: 'POST', body: { title, entries: rows } });
+      await api('/api/bank', { method: 'POST', body });
       resetDraft();
       setStatus('已发布，学生可在「我的题库」中查看。');
     }
@@ -1240,48 +1283,95 @@ $('#discardBtn').onclick = () => { resetDraft(); setStatus('已放弃草稿。')
 
 let editingBankId = null; // 正在编辑的题库 id（null = 新建草稿）
 
-// ================= 老师 · 题库列表（已发布） =================
-async function loadBanks() {
-  const d = await api('/api/bank');
+// 老师 · 已发布题库筛选状态
+let bankFilterGrade = '';   // '' = 全部；'6'/'7'/'8'/'9'/'none'
+$$('#bankGradeFilter .grade-chip').forEach(b => {
+  b.onclick = () => {
+    bankFilterGrade = b.dataset.grade;
+    syncGradeChips('#bankGradeFilter', bankFilterGrade === 'none' ? 'none' : bankFilterGrade);
+    renderBankList(_cachedTeacherBanks || []);
+  };
+});
+let _cachedTeacherBanks = [];
+
+function renderBankList(banks) {
+  _cachedTeacherBanks = banks;
   const wrap = $('#bankList');
-  if (!d.banks.length) {
+  if (!banks.length) {
     wrap.innerHTML = '<div class="empty">还没有发布题库。上传文件并发布第一个题库吧。</div>';
     return;
   }
-  wrap.innerHTML = '';
-  d.banks.forEach(b => {
-    const card = document.createElement('div');
-    card.className = 'bank-card';
-    const time = new Date(b.updatedAt).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
-    const btns = document.createElement('div');
-    btns.className = 'bank-btns';
-    const editBtn = document.createElement('button');
-    editBtn.className = 'ghost-btn';
-    editBtn.textContent = '✏️ 编辑';
-    editBtn.onclick = () => editBank(b);
-    const delBtn = document.createElement('button');
-    delBtn.className = 'ghost-btn danger-btn';
-    delBtn.textContent = '🗑 删除';
-    delBtn.onclick = async () => {
-      if (!confirm('确定删除题库「' + b.title + '」？学生进度不受影响，但题库将不可再练习。')) return;
-      await api('/api/bank/' + b.id, { method: 'DELETE' });
-      if (editingBankId === b.id) resetDraft();
-      loadBanks();
-    };
-    btns.appendChild(editBtn);
-    btns.appendChild(delBtn);
-    const main = document.createElement('div');
-    main.className = 'bank-main';
-    main.innerHTML =
-      '<b>' + esc(b.title) + '</b>' +
-      '<div class="bank-meta">' +
-        '<span class="bank-meta-item bank-meta-count">📚 ' + b.count + ' 条</span>' +
-        '<span class="bank-meta-item">🕒 ' + esc(time) + '</span>' +
-      '</div>';
-    card.appendChild(main);
-    card.appendChild(btns);
-    wrap.appendChild(card);
+  // 筛选
+  const filterVal = bankFilterGrade;
+  const filtered = banks.filter(b => {
+    if (!filterVal) return true;
+    if (filterVal === 'none') return !b.grade;
+    return b.grade === filterVal;
   });
+  if (!filtered.length) {
+    wrap.innerHTML = '<div class="empty">该分类下还没有题库。试试其它分类或发布新题库吧。</div>';
+    return;
+  }
+  // 按年级分组：每个年级一段，section header 醒目
+  const groups = { '6': [], '7': [], '8': [], '9': [], none: [] };
+  filtered.forEach(b => { (b.grade && groups[b.grade] ? groups[b.grade] : groups.none).push(b); });
+  const order = ['6', '7', '8', '9', 'none'];
+  wrap.innerHTML = '';
+  // 仅显示有内容的分组
+  order.forEach(g => {
+    const list = groups[g];
+    if (!list.length) return;
+    if (!filterVal) {
+      // 全部模式：渲染分组标题
+      const head = document.createElement('div');
+      head.className = 'grade-section-head';
+      head.innerHTML = '<span class="grade-section-dot" style="background:' + gradeColor(g) + '"></span>' + gradeLabel(g) + ' <span class="grade-section-count">' + list.length + ' 个题库</span>';
+      wrap.appendChild(head);
+    }
+    list.forEach(b => {
+      const card = document.createElement('div');
+      card.className = 'bank-card';
+      const time = new Date(b.updatedAt).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+      const btns = document.createElement('div');
+      btns.className = 'bank-btns';
+      const editBtn = document.createElement('button');
+      editBtn.className = 'ghost-btn';
+      editBtn.textContent = '✏️ 编辑';
+      editBtn.onclick = () => editBank(b);
+      const delBtn = document.createElement('button');
+      delBtn.className = 'ghost-btn danger-btn';
+      delBtn.textContent = '🗑 删除';
+      delBtn.onclick = async () => {
+        if (!confirm('确定删除题库「' + b.title + '」？学生进度不受影响，但题库将不可再练习。')) return;
+        await api('/api/bank/' + b.id, { method: 'DELETE' });
+        if (editingBankId === b.id) resetDraft();
+        loadBanks();
+      };
+      btns.appendChild(editBtn);
+      btns.appendChild(delBtn);
+      const main = document.createElement('div');
+      main.className = 'bank-main';
+      main.innerHTML =
+        '<div class="bank-title-row">' +
+          '<b>' + esc(b.title) + '</b>' +
+          '<span class="grade-badge" style="background:' + gradeColor(b.grade) + '">' + esc(gradeLabel(b.grade)) + '</span>' +
+        '</div>' +
+        '<div class="bank-meta">' +
+          '<span class="bank-meta-item bank-meta-count">📚 ' + b.count + ' 条</span>' +
+          '<span class="bank-meta-item">🕒 ' + esc(time) + '</span>' +
+        '</div>';
+      card.appendChild(main);
+      card.appendChild(btns);
+      wrap.appendChild(card);
+    });
+  });
+}
+
+// ================= 老师 · 题库列表（已发布） =================
+async function loadBanks() {
+  const d = await api('/api/bank');
+  $('#bankGradeFilter').hidden = !d.banks.length;
+  renderBankList(d.banks);
 }
 
 // 加载已发布题库进入编辑区
@@ -1289,6 +1379,7 @@ async function editBank(bank) {
   const d = await api('/api/bank/' + bank.id + '/edit');
   draft = d.entries.map(e => ({ english: e.english, chinese: e.chinese, pos: e.pos || '', type: e.type || 'word' }));
   editingBankId = d.bank.id;
+  editingGrade = d.bank.grade || null;
   $('#bankTitle').value = d.bank.title;
   $('#saveBtn').textContent = '保存修改';
   $('#draftHeadLabel').textContent = '编辑题库：' + d.bank.title;
@@ -1299,11 +1390,13 @@ async function editBank(bank) {
 
 function resetDraft() {
   editingBankId = null;
+  editingGrade = null;
   draft = [];
   $('#bankTitle').value = '';
   $('#saveBtn').textContent = '发布 / 更新题库';
   $('#draftHeadLabel').textContent = '新建题库';
   renderDraft();
+  syncGradeChips('#gradeChips', null);
 }
 
 // ================= 老师 · 班级学生 =================
@@ -1562,24 +1655,67 @@ setInterval(studentLiveClock, 1000);
 setInterval(throttleLiveReport, 1000);
 
 // ================= 学生 · 题库 =================
-async function loadStudentBanks() {
-  const d = await api('/api/banks');
-  $('#myClassInfo').textContent = d.classInfo ? '所在班级：' + d.classInfo.name : '你还没有加入班级，请找老师获取班级码后重新注册。';
+let stuBankFilterGrade = '';
+let _cachedStuBanks = [];
+$$('#stuGradeFilter .grade-chip').forEach(b => {
+  b.onclick = () => {
+    stuBankFilterGrade = b.dataset.grade;
+    syncGradeChips('#stuGradeFilter', stuBankFilterGrade === 'none' ? 'none' : stuBankFilterGrade);
+    renderStuBankList(_cachedStuBanks);
+  };
+});
+
+function renderStuBankList(banks) {
+  _cachedStuBanks = banks;
   const wrap = $('#stuBankList');
-  if (!d.banks.length) {
+  if (!banks.length) {
     wrap.innerHTML = '<div class="empty">老师还没有发布题库，稍后再来看看～</div>';
     return;
   }
+  const filterVal = stuBankFilterGrade;
+  const filtered = banks.filter(b => {
+    if (!filterVal) return true;
+    if (filterVal === 'none') return !b.grade;
+    return b.grade === filterVal;
+  });
+  if (!filtered.length) {
+    wrap.innerHTML = '<div class="empty">该年级还没有题库。试试其它年级吧～</div>';
+    return;
+  }
+  // 按年级分组（全部模式）或 单一列表
   wrap.innerHTML = '';
-  d.banks.forEach((b, idx) => {
+  if (filterVal) {
+    renderStuBankCards(filtered, wrap, 0);
+  } else {
+    const groups = { '6': [], '7': [], '8': [], '9': [], none: [] };
+    filtered.forEach(b => { (b.grade && groups[b.grade] ? groups[b.grade] : groups.none).push(b); });
+    const order = ['6', '7', '8', '9', 'none'];
+    let offset = 0;
+    order.forEach(g => {
+      const list = groups[g];
+      if (!list.length) return;
+      const head = document.createElement('div');
+      head.className = 'grade-section-head';
+      head.innerHTML = '<span class="grade-section-dot" style="background:' + gradeColor(g) + '"></span>' + gradeLabel(g) + ' <span class="grade-section-count">' + list.length + ' 个题库</span>';
+      wrap.appendChild(head);
+      offset = renderStuBankCards(list, wrap, offset);
+    });
+  }
+}
+
+function renderStuBankCards(banks, wrap, startIdx) {
+  banks.forEach((b, i) => {
+    const idx = startIdx + i;
     const card = document.createElement('div');
     card.className = 'bank-card is-student';
-    // 表情包轮播（让卡片更活泼）
     const emojis = ['📚', '✏️', '🎯', '🌟', '🚀', '🎓', '💪', '🔥', '🧠', '⚡'];
     const emoji = emojis[idx % emojis.length];
     card.innerHTML =
       '<div class="bank-main">' +
-        '<b>' + emoji + ' ' + esc(b.title) + '</b>' +
+        '<div class="bank-title-row">' +
+          '<b>' + emoji + ' ' + esc(b.title) + '</b>' +
+          '<span class="grade-badge" style="background:' + gradeColor(b.grade) + '">' + esc(gradeLabel(b.grade)) + '</span>' +
+        '</div>' +
         '<div class="bank-meta">' +
           '<span class="bank-meta-item bank-meta-count">📚 ' + b.count + ' 条单词</span>' +
           '<span class="bank-meta-item">⚡ 点击开始挑战</span>' +
@@ -1589,6 +1725,14 @@ async function loadStudentBanks() {
     card.querySelector('[data-pick]').onclick = () => startBankPractice(b);
     wrap.appendChild(card);
   });
+  return startIdx + banks.length;
+}
+
+async function loadStudentBanks() {
+  const d = await api('/api/banks');
+  $('#myClassInfo').textContent = d.classInfo ? '所在班级：' + d.classInfo.name : '你还没有加入班级，请找老师获取班级码后重新注册。';
+  $('#stuGradeFilter').hidden = !d.banks.length;
+  renderStuBankList(d.banks);
 }
 
 let currentBank = null;
@@ -2519,8 +2663,54 @@ async function loadStats() {
   animateRing($('#ringMastered'), $('#statMastered'), d.mastered);
   animateRing($('#ringDue'), $('#statDue'), d.due);
   animateRing($('#ringSessions'), $('#statSessions'), d.sessions);
-  $('#scheduleBody').innerHTML = d.schedule.map(s => '<tr><td>' + s.date + '</td><td>' + s.count + ' 项</td></tr>').join('');
-  $('#historyBody').innerHTML = d.history.length
-    ? d.history.map(h => '<tr><td>' + h.date + '</td><td>' + h.correct + '</td><td>' + h.wrong + '</td></tr>').join('')
-    : '<tr><td colspan="3">还没有练习记录</td></tr>';
+  // 复习计划：渲染为带柱状图的卡片
+  renderScheduleCards(d.schedule || []);
+  // 练习记录：渲染为带条形图 + 正确率环的卡片
+  renderHistoryCards(d.history || []);
+}
+
+// 复习计划：横向柱状卡片，柱长按 max(计划数) 归一化
+function renderScheduleCards(schedule) {
+  const wrap = $('#scheduleBody');
+  if (!wrap) return;
+  if (!schedule.length) { wrap.innerHTML = '<tr><td colspan="2" class="empty-cell">还没有复习计划</td></tr>'; return; }
+  const max = Math.max(1, ...schedule.map(s => s.count || 0));
+  // 移动端用 div 卡片，桌面端用 tr；统一先渲染为桌面 tr 模板，再让 CSS 在 ≤720px 切换为卡片
+  wrap.innerHTML = schedule.map((s, i) => {
+    const today = new Date().toISOString().slice(0, 10) === s.date;
+    const pct = Math.round((s.count / max) * 100);
+    return '<tr class="data-row' + (today ? ' is-today' : '') + '">' +
+      '<td class="data-date"><span class="data-day-d">' + s.date.slice(5).replace('-', '/') + '</span>' + (today ? '<span class="data-today-tag">今天</span>' : '') + '</td>' +
+      '<td class="data-bar-cell"><div class="data-bar"><div class="data-bar-fill" style="width:' + pct + '%"></div></div><span class="data-bar-num">' + s.count + '</span></td>' +
+      '</tr>';
+  }).join('');
+}
+
+// 练习记录：每天一个 row，绿色=答对（条向右），红色=答错
+function renderHistoryCards(history) {
+  const wrap = $('#historyBody');
+  if (!wrap) return;
+  if (!history.length) { wrap.innerHTML = '<tr><td colspan="3" class="empty-cell">还没有练习记录</td></tr>'; return; }
+  // 总数最大的那天决定归一化分母
+  const max = Math.max(1, ...history.map(h => (h.correct || 0) + (h.wrong || 0)));
+  wrap.innerHTML = history.map(h => {
+    const c = h.correct || 0, w = h.wrong || 0, total = c + w;
+    const cPct = Math.round(c / max * 100);
+    const wPct = Math.round(w / max * 100);
+    const acc = total ? Math.round(c / total * 100) : 0;
+    return '<tr class="data-row">' +
+      '<td class="data-date"><span class="data-day-d">' + h.date.slice(5).replace('-', '/') + '</span></td>' +
+      '<td class="data-bar-cell">' +
+        '<div class="hist-row">' +
+          '<div class="hist-line hist-ok" style="width:' + cPct + '%"></div>' +
+          '<div class="hist-line hist-bad" style="width:' + wPct + '%"></div>' +
+        '</div>' +
+        '<div class="hist-legend">' +
+          '<span class="hist-ok-text">✓ ' + c + '</span>' +
+          '<span class="hist-bad-text">✗ ' + w + '</span>' +
+        '</div>' +
+      '</td>' +
+      '<td class="data-acc"><span class="acc-pill acc-' + (acc >= 80 ? 'good' : acc >= 60 ? 'mid' : 'bad') + '">' + acc + '%</span></td>' +
+      '</tr>';
+  }).join('');
 }
