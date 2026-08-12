@@ -92,6 +92,7 @@
     <button data-view="teacher-banks" class="active">题库发布</button>
     <button data-view="teacher-students">班级学生</button>
     <button data-view="live">大屏显示</button>
+    <button data-view="rollcall">随机点名</button>
   </nav>
   <nav id="studentNav" hidden>
     <button data-view="student-banks" class="active">我的题库</button>
@@ -179,6 +180,7 @@
           <button id="liveStopBtn" class="ghost-btn danger-btn">结束</button>
           <button id="liveFullBtn" class="ghost-btn">全屏</button>
         </div>
+        <div id="liveStats" class="live-stats"></div>
         <div id="liveClock" class="live-clock">
           <span class="live-clock-num" id="liveClockNum">00:00</span>
           <span class="live-clock-state" id="liveClockState">未开始</span>
@@ -186,6 +188,40 @@
       </div>
       <div id="liveGrid" class="live-grid"></div>
       <div class="hint small">老师在课堂上开启「开始默写」，学生端会显示倒计时横幅并自动上报进度。此页每 2 秒自动刷新，适合投屏大屏。</div>
+    </section>
+
+    <!-- 老师 · 随机点名 -->
+    <section id="view-rollcall" class="view">
+      <h2>随机点名</h2>
+      <p class="sub">录入今天的上课名单，点「开始点名」让姓名高速跳动，喊出「停」的瞬间按「停止」定格中选同学。</p>
+      <div class="rollcall-stage" id="rollcallStage">
+        <div class="rollcall-display" id="rollcallDisplay">
+          <span class="rollcall-count" id="rollcallCount">0 名</span>
+          <span class="rollcall-running-name" id="rollcallName">点名啦～</span>
+          <span class="rollcall-picked-badge" id="rollcallBadge" hidden>🎉 中选</span>
+        </div>
+        <div class="rollcall-tools">
+          <button id="rollcallStartBtn" class="primary big">开始点名</button>
+          <button id="rollcallStopBtn" class="ghost-btn danger-btn" disabled>立即停止</button>
+          <button id="rollcallAgainBtn" class="ghost-btn" hidden>再来一次</button>
+          <button id="rollcallFullBtn" class="ghost-btn">全屏</button>
+        </div>
+        <div class="rollcall-tip" id="rollcallTip">名单里还没有学生，请先在下方录入～</div>
+      </div>
+
+      <h3>学生名单</h3>
+      <div class="rollcall-edit">
+        <label class="field">
+          <span>花名册（一行一个姓名，用逗号 / 顿号分隔也可以）</span>
+          <textarea id="rollcallNames" rows="8" placeholder="例如：&#10;王小明&#10;李小红&#10;张伟"></textarea>
+        </label>
+        <div class="rollcall-edit-tools">
+          <button id="rollcallImportBtn" class="ghost-btn">从班级导入</button>
+          <button id="rollcallSaveBtn" class="primary">保存名单</button>
+          <button id="rollcallClearBtn" class="ghost-btn">清空</button>
+        </div>
+      </div>
+      <div class="hint small">名单自动保存在当前浏览器本地，无需每次重输；换电脑后可用「从班级导入」一次性补回。</div>
     </section>
 
     <!-- 学生 · 我的题库 -->
@@ -397,6 +433,7 @@
     <button data-view="teacher-banks"><span class="tab-ico">📚</span><span class="tab-label">题库</span></button>
     <button data-view="teacher-students"><span class="tab-ico">👥</span><span class="tab-label">学生</span></button>
     <button data-view="live"><span class="tab-ico">📺</span><span class="tab-label">大屏</span></button>
+    <button data-view="rollcall"><span class="tab-ico">🎲</span><span class="tab-label">点名</span></button>
     <button data-view="student-banks"><span class="tab-ico">📚</span><span class="tab-label">题库</span></button>
     <button data-view="practice"><span class="tab-ico">✍️</span><span class="tab-label">练习</span></button>
     <button data-view="stats"><span class="tab-ico">📊</span><span class="tab-label">统计</span></button>

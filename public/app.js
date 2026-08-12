@@ -1029,6 +1029,10 @@ function switchView(name) {
   }
   if (name === 'teacher-banks') loadBanks();
   if (name === 'teacher-students') loadStudents();
+  if (name === 'rollcall') showRollcall();
+  if (name !== 'rollcall' && _rollTimer) {
+    clearInterval(_rollTimer); _rollTimer = null; _rolling = false;
+  }
   if (name === 'live') { enterLiveBoard(); return; }
   if (name === 'student-banks') loadStudentBanks();
   if (name === 'practice') { currentBank = null; prepareToday(); }
@@ -1505,6 +1509,7 @@ async function loadLiveBoard() {
   let d;
   try { d = await api('/api/live/board'); } catch (e) { return; }
   renderLiveClock(d.session);
+  renderLiveStats(d.players, d.session);
   renderLiveGrid(d.players, d.session);
 }
 function fmtClock(sec) {
@@ -1520,41 +1525,89 @@ function renderLiveClock(sess) {
   num.textContent = fmtClock(sess.remaining);
   if (sess.ended || sess.remaining <= 0) {
     state.textContent = '已结束';
-    num.textContent = sess.remaining <= 0 ? '00:00' : '00:00';
+    num.textContent = '00:00';
     state.className = 'live-clock-state timeup';
   } else {
     state.textContent = '默写中';
     state.className = 'live-clock-state running';
   }
 }
+// 顶部汇总：在线人数 / 完成数 / 最高分 / 平均分
+function renderLiveStats(players, sess) {
+  const el = $('#liveStats');
+  if (!sess || !players.length) { el.innerHTML = ''; return; }
+  const done = players.filter(p => p.done).length;
+  const total = players.reduce((s, p) => s + (p.total || 0), 0);
+  const scores = players.map(p => p.score || 0);
+  const max = scores.length ? Math.max.apply(null, scores) : 0;
+  const avg = scores.length ? Math.round(scores.reduce((s, n) => s + n, 0) / scores.length) : 0;
+  el.innerHTML =
+    '<div class="lv-stat-item"><b>' + players.length + '</b><span>在线</span></div>' +
+    '<div class="lv-stat-item"><b>' + done + ' / ' + players.length + '</b><span>完成</span></div>' +
+    '<div class="lv-stat-item"><b>' + max + '</b><span>最高分</span></div>' +
+    '<div class="lv-stat-item"><b>' + avg + '</b><span>平均分</span></div>' +
+    '<div class="lv-stat-item total"><b>' + total + '</b><span>题数</span></div>';
+}
+// 直播感：把学生正在敲的字母逐个显示，对/错用颜色区分，末尾闪光标
+function liveTypedHtml(p) {
+  if (p.done) return '<div class="lv-live away"><span class="lv-badge">✓</span><span>全部完成</span></div>';
+  if (p.locked) return '<div class="lv-live bad"><span class="lv-badge">✗</span><span>答错了 · 正在看答案…</span></div>';
+  const typed = String(p.typed || '').replace(/\s+/g, '');
+  const answer = String(p.answer || '').split(/[\/；;]/)[0].replace(/[^A-Za-z' ]/g, '').replace(/\s+/g, '').toLowerCase();
+  if (!typed && !p.word) return '<div class="lv-live"><span class="lv-wait-dot"></span><span>已上线 · 等待开始…</span></div>';
+  let html = '';
+  const limit = 60;
+  const chars = typed.split('');
+  chars.slice(0, limit).forEach((ch, i) => {
+    const ok = answer && answer[i] != null && ch.toLowerCase() === answer[i];
+    html += '<span class="lv-ch' + (ok ? ' ok' : ' bad') + '">' + esc(ch) + '</span>';
+  });
+  if (chars.length > limit) html += '<span class="lv-ch">…</span>';
+  html += '<span class="lv-cur"></span>';
+  return '<div class="lv-live"><span class="lv-typed-box">' + html + '</span></div>';
+}
 function renderLiveGrid(players, sess) {
   const grid = $('#liveGrid');
   if (!players.length) {
-    grid.innerHTML = '<div class="empty">还没有学生上线。让同学们打开练习页（老师开启开始默写后，学生端会显示倒计时横幅）。</div>';
+    grid.innerHTML = '<div class="empty"><b>还没有学生上线</b><span>同学们打开「今日练习」开始默写后，实时输入会像直播一样显示在这里</span></div>';
     return;
   }
   grid.innerHTML = '';
-  const active = players.filter(p => !p.done);
-  const done = players.filter(p => p.done);
-  [...active, ...done].forEach(p => {
-    const card = document.createElement('div');
+  const all = players;
+  all.forEach((p, i) => {
     const d = DRAGON_KINDS.find(k => k.id === p.dragonId) || DRAGON_KINDS[0];
-    const pct = p.answered > 0 ? Math.min(100, Math.round(p.answered / (p.answered + p.wrong) * 100)) : 0;
-    const typed = p.typedLen ? new Array(Math.min(p.typedLen, 30)).fill('▮').join('') : '';
+    const total = p.total || 0;
+    const answered = Math.min(p.answered || 0, total);
+    const pct = total > 0 ? Math.min(100, Math.round(answered / total * 100)) : 0;
     const dt = new Date(p.lastAt);
-    const cardPane = document.createElement('div');
-    card.className = 'lv-card' + (p.done ? ' done' : '');
+    const card = document.createElement('div');
+    card.className = 'lv-card' +
+      (p.done ? ' done' : '') +
+      (p.locked ? ' locked' : '') +
+      (i === 0 ? ' top1' : i === 1 ? ' top2' : i === 2 ? ' top3' : '');
     card.innerHTML =
       '<div class="lv-head">' +
-      '<div class="lv-pet">' + dragonArt(d, p.stage) + '</div>' +
-      '<div class="lv-name"><b>' + esc(p.username) + '</b><span>' + esc(p.petName || d.name) + '</span></div>' +
-      '<div class="lv-score">' + p.score + ' 分</div>' +
+        '<div class="lv-rank">' + (i + 1) + '</div>' +
+        '<div class="lv-pet">' + dragonArt(d, p.stage) + '</div>' +
+        '<div class="lv-name"><b>' + esc(p.username) + '</b><span>' + esc(p.petName || d.name) + '</span></div>' +
+        '<div class="lv-score"><b>' + (p.score || 0) + '</b><span>得分</span></div>' +
       '</div>' +
-      '<div class="lv-word" title="' + esc(p.word || '') + '">' + (p.done ? '✓ 已完成' : (p.word ? esc(p.word) : '准备中…')) + '</div>' +
-      '<div class="lv-typed">' + (p.done ? '' : esc(typed) || '正在输入…') + '</div>' +
-      '<div class="lv-bar"><div style="width:' + pct + '%"></div></div>' +
-      '<div class="lv-stats"><span>进度 <b>' + p.answered + '</b></span><span>正确 <b>' + p.correct + '</b></span><span>错误 <b>' + p.wrong + '</b></span></div>' +
-      '<div class="lv-time">' + dt.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + '</div>';
+      '<div class="lv-progress">' +
+        '<div class="lv-progress-head"><span>进度</span><span class="lv-prog-num"><b>' + (total ? answered : '—') + '</b>' + (total ? ' / ' + total : '') + '</span></div>' +
+        '<div class="lv-bar"><div style="width:' + pct + '%"></div></div>' +
+        '<div class="lv-pct">' + (total ? pct + '%' : '—') + '</div>' +
+      '</div>' +
+      '<div class="lv-typing">' +
+        '<div class="lv-typing-head"><span class="lv-live-flag"></span><span class="lv-word">' + (p.word ? esc(p.word) : '&nbsp;') + '</span></div>' +
+        liveTypedHtml(p) +
+      '</div>' +
+      '<div class="lv-foot">' +
+        '<div class="lv-stats">' +
+          '<span>正确 <b class="ok">' + (p.correct || 0) + '</b></span>' +
+          '<span>错误 <b class="bad">' + (p.wrong || 0) + '</b></span>' +
+        '</div>' +
+        '<div class="lv-time">' + dt.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + '</div>' +
+      '</div>';
     grid.appendChild(card);
   });
 }
@@ -1573,23 +1626,145 @@ $('#liveFullBtn').onclick = () => {
   else if (el.requestFullscreen) el.requestFullscreen();
 };
 
+// ================= 老师 · 随机点名 =================
+const ROLLCALL_KEY = 'dict_rollcall_names';
+let _rollTimer = null;
+let _rollIdx = 0;
+let _rolling = false;
+let _rollNamesActive = [];
+let _rollLastWin = null;
+
+function rollNamesFromText() {
+  const seen = new Set();
+  return String($('#rollcallNames').value || '')
+    .split(/[\n,，、;；]+/)
+    .map(s => s.trim())
+    .filter(Boolean)
+    .filter(s => { const k = s.toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true; });
+}
+function refreshRollcallMeta() {
+  const n = rollNamesFromText().length;
+  $('#rollcallCount').textContent = n + ' 名';
+  $('#rollcallTip').textContent = n ? '共 ' + n + ' 名同学参与点名' : '名单里还没有学生，请先在下方录入～';
+}
+function showRollcall() {
+  const saved = localStorage.getItem(ROLLCALL_KEY);
+  if (saved != null && !String($('#rollcallNames').value || '').trim()) {
+    $('#rollcallNames').value = saved;
+  }
+  if (!_rolling) {
+    const names = rollNamesFromText();
+    if (_rollLastWin && names.indexOf(_rollLastWin) !== -1) {
+      $('#rollcallName').textContent = _rollLastWin;
+      $('#rollcallDisplay').classList.add('settled');
+      $('#rollcallDisplay').classList.remove('rolling');
+      $('#rollcallAgainBtn').hidden = false;
+      $('#rollcallBadge').hidden = false;
+    } else {
+      _rollLastWin = null;
+      $('#rollcallName').textContent = names.length ? '准备点名' : '点名啦～';
+      $('#rollcallDisplay').classList.remove('rolling', 'settled');
+      $('#rollcallAgainBtn').hidden = true;
+      $('#rollcallBadge').hidden = true;
+    }
+    $('#rollcallStartBtn').disabled = false;
+    $('#rollcallStopBtn').disabled = true;
+  }
+  refreshRollcallMeta();
+}
+function startRollcall() {
+  const names = rollNamesFromText();
+  if (!names.length) { alert('请先填写学生名单'); return; }
+  _rollLastWin = null;
+  _rollNamesActive = names;
+  _rolling = true;
+  _rollIdx = Math.floor(Math.random() * names.length);
+  const display = $('#rollcallDisplay');
+  display.classList.remove('settled');
+  display.classList.add('rolling');
+  $('#rollcallBadge').hidden = true;
+  $('#rollcallStartBtn').disabled = true;
+  $('#rollcallStopBtn').disabled = false;
+  $('#rollcallAgainBtn').hidden = true;
+  clearInterval(_rollTimer);
+  $('#rollcallName').textContent = names[_rollIdx];
+  _rollTimer = setInterval(() => {
+    _rollIdx = (_rollIdx + 1) % names.length;
+    $('#rollcallName').textContent = names[_rollIdx];
+  }, 60);
+}
+function stopRollcall() {
+  if (!_rolling) return;
+  clearInterval(_rollTimer); _rollTimer = null;
+  _rolling = false;
+  const names = _rollNamesActive.length ? _rollNamesActive : rollNamesFromText();
+  const win = names[_rollIdx] || names[0] || '';
+  _rollLastWin = win;
+  $('#rollcallName').textContent = win;
+  $('#rollcallDisplay').classList.remove('rolling');
+  $('#rollcallDisplay').classList.add('settled');
+  $('#rollcallBadge').hidden = false;
+  $('#rollcallStartBtn').disabled = false;
+  $('#rollcallStopBtn').disabled = true;
+  $('#rollcallAgainBtn').hidden = false;
+  playCorrect();
+}
+function saveRollcallNames() {
+  localStorage.setItem(ROLLCALL_KEY, $('#rollcallNames').value || '');
+  refreshRollcallMeta();
+}
+$('#rollcallStartBtn').onclick = startRollcall;
+$('#rollcallStopBtn').onclick = stopRollcall;
+$('#rollcallAgainBtn').onclick = startRollcall;
+$('#rollcallSaveBtn').onclick = saveRollcallNames;
+$('#rollcallClearBtn').onclick = () => {
+  if (!confirm('确定清空名单吗？')) return;
+  $('#rollcallNames').value = '';
+  localStorage.removeItem(ROLLCALL_KEY);
+  _rollLastWin = null;
+  showRollcall();
+};
+$('#rollcallImportBtn').onclick = async () => {
+  try {
+    const d = await api('/api/class/students');
+    const names = (d.students || []).map(s => s.name || s.username);
+    if (!names.length) { alert('班级里还没有学生注册，无法导入'); return; }
+    const cur = String($('#rollcallNames').value || '').trim();
+    $('#rollcallNames').value = cur ? cur + '\n' + names.join('\n') : names.join('\n');
+    saveRollcallNames();
+    showRollcall();
+  } catch (e) { alert(e.message); }
+};
+$('#rollcallFullBtn').onclick = () => {
+  const el = $('#rollcallStage');
+  if (document.fullscreenElement) { document.exitFullscreen(); }
+  else if (el.requestFullscreen) el.requestFullscreen();
+};
+let _rollSaveTimer = null;
+$('#rollcallNames').addEventListener('input', () => {
+  clearTimeout(_rollSaveTimer);
+  _rollSaveTimer = setTimeout(saveRollcallNames, 400);
+});
+
 // ================= 学生 · 大屏自动上报 =================
 let _liveReportTick = 0;
 function liveStatus() {
   if (!currentUser || currentUser.role !== 'student') return;
   const word = session && session.current ? session.current.chinese : '';
   const answer = session && session.current ? session.current.english : '';
-  const typedLen = session && !session.locked ? String($('#answerInput').value).replace(/\s+/g, '').length : 0;
+  const typed = session && !session.locked ? String($('#answerInput').value) : '';
+  const typedLen = typed.replace(/\s+/g, '').length;
   const total = session ? session.total : 0;
   const answered = session ? total - session.queue.length : 0;
   const done = !!(session && !session.queue.length && $('#practiceSummary') && !$('#practiceSummary').hidden);
+  const locked = !!(session && session.locked);
   const d = myDragon() || DRAGON_KINDS[0];
   api('/api/live/report', {
     method: 'POST',
     body: {
       dragonId: d.id, petName: (currentUser.pet && currentUser.pet.name) || '',
       stage: currentStageIndex(totalPoints), points: totalPoints,
-      word, answer, typedLen, answered,
+      word, answer, typed, typedLen, total, answered, locked,
       correct: session ? session.score : 0,
       wrong: session ? session.wrong : 0,
       score: session ? session.score : 0,

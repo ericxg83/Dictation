@@ -15,6 +15,14 @@ const app = express();
 const PORT = process.env.PORT || 3210;
 const PUBLIC_DIR = path.join(__dirname, 'public');
 
+// 兜底：任何未捕获的异步/同步异常只记日志，绝不让服务崩溃（数据库不可达、Express4 异步路由抛错时尤为关键）
+process.on('unhandledRejection', (reason) => {
+  console.error('未处理的 Promise 异常:', (reason && reason.stack) || reason);
+});
+process.on('uncaughtException', (err) => {
+  console.error('未捕获的异常:', (err && err.stack) || err);
+});
+
 // ================= 数据库（Supabase PostgreSQL） =================
 // 密码仅从环境变量读取，绝不硬编码进代码
 const DB = {
@@ -47,24 +55,41 @@ async function resolveDbHost() {
   }
 }
 let _pg = null;
-function pg() {
-  if (!_pg) {
-    _pg = new Client({ ...DB, host: getDbHost() });
-    _pg.connect().catch(e => { console.error('PG 连接失败:', e.message); _pg = null; });
-  }
-  return _pg;
-}
-// 简单查询封装：连不上或失败时尝试重连一次
-async function q(sql, params) {
+async function pg() {
+  if (_pg) return _pg;
+  const c = new Client({ ...DB, host: getDbHost(), connectionTimeoutMillis: 6000 });
+  _pg = c;
+  // 数据库不可达时仅记录日志，绝不让未捕获的 error 事件把整个服务拖垮
+  c.on('error', e => { console.error('PG 连接错误:', e.message); });
   try {
-    const r = await pg().query(sql, params);
-    return r;
+    await c.connect();
+    return c;
   } catch (e) {
-    if (e.code === '57P01' || /Client has encountered a connection error/.test(e.message)) {
-      try { await _pg.end(); } catch (e2) {}
+    console.error('PG 连接失败:', e.message);
+    _pg = null;
+    throw e;
+  }
+}
+// 简单查询封装：连不上或失败时尝试重连一次；连接类错误绝不抛出到外层导致进程崩溃
+async function q(sql, params) {
+  const isConnErr = e => !e ? false : !!(
+    e.code === '57P01' || e.code === '57P02' || e.code === 'ECONNREFUSED' || e.code === 'ENOTFOUND' ||
+    /client has encountered a connection error|connection terminated|timeout expired|connection refused|connect ECONNREFUSED/i.test(e.message || '')
+  );
+  try {
+    const client = await pg();
+    return await client.query(sql, params);
+  } catch (e) {
+    if (isConnErr(e)) {
+      try { if (_pg) { await _pg.end(); } } catch (e2) {}
       _pg = null;
-      const r = await pg().query(sql, params);
-      return r;
+      try {
+        const client2 = await pg();
+        return await client2.query(sql, params);
+      } catch (e2) {
+        if (isConnErr(e2)) return { rows: [], rowCount: 0 };
+        throw e2;
+      }
     }
     throw e;
   }
@@ -138,9 +163,15 @@ async function getSessionUser(req) {
   const h = req.headers.authorization || '';
   const token = h.startsWith('Bearer ') ? h.slice(7) : req.query.token;
   if (!token) return null;
-  const s = (await q('SELECT * FROM sessions WHERE token = $1', [token])).rows[0];
-  if (!s || s.expires_at < Date.now()) return null;
-  return (await q('SELECT * FROM users WHERE id = $1', [s.user_id])).rows[0] || null;
+  try {
+    const s = (await q('SELECT * FROM sessions WHERE token = $1', [token])).rows[0];
+    if (!s || s.expires_at < Date.now()) return null;
+    return (await q('SELECT * FROM users WHERE id = $1', [s.user_id])).rows[0] || null;
+  } catch (e) {
+    // 数据库暂不可用：按未登录处理，避免查询异常把进程打崩
+    console.error('认证查询异常:', e.message);
+    return null;
+  }
 }
 function requireAuth(req, res, next) {
   getSessionUser(req).then(u => {
@@ -148,6 +179,9 @@ function requireAuth(req, res, next) {
     req.user = u;
     req.token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '') || req.query.token;
     next();
+  }, e => {
+    console.error('认证失败:', e.message);
+    res.status(500).json({ error: '服务器暂时不可用，请稍后再试' });
   });
 }
 function requireRole(role) {
@@ -918,11 +952,14 @@ app.post('/api/live/report', requireAuth, requireRole('student'), async (req, re
     points: Number(b.points) || 0,
     word: String(b.word || ''),
     answer: String(b.answer || ''),
+    typed: String(b.typed || ''),
     typedLen: Number(b.typedLen) || 0,
+    total: Number(b.total) || 0,
     answered: Number(b.answered) || 0,
     correct: Number(b.correct) || 0,
     wrong: Number(b.wrong) || 0,
     score: Number(b.score) || 0,
+    locked: !!b.locked,
     done: !!b.done,
     lastAt: Date.now()
   };
