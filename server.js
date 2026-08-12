@@ -804,17 +804,17 @@ app.get('/api/bank/:id', requireAuth, async (req, res) => {
   res.json({ bank: { id: bank.id, title: bank.title }, entries });
 });
 
-// 学生：获取老师指定的默写题库（全班同一份，不按个人进度过滤）
+// 学生：获取老师指定的默写题库（全班同一份，不按个人进度过滤；数量由老师指定）
 app.get('/api/live/practice', requireAuth, async (req, res) => {
   const cls = await getClassInfo(req.user);
   const bd = cls && liveBoards[cls.id];
   const bankId = bd && !bd.session.ended && bd.bankId ? bd.bankId : null;
-  if (!bankId) return res.json({ active: false, bank: null, entries: [] });
+  if (!bankId) return res.json({ active: false, bank: null, count: 0, entries: [] });
   const bank = (await q('SELECT * FROM banks WHERE id = $1 AND class_id = $2', [bankId, cls.id])).rows[0];
-  if (!bank) return res.json({ active: false, bank: null, entries: [] });
+  if (!bank) return res.json({ active: false, bank: null, count: 0, entries: [] });
   const p = await syncBankProgress(req.user.id, bank);
   const byKey = new Map(p.entries.filter(e => e.bankId === bank.id).map(e => [e.key, e]));
-  const allEntries = bank.entries.map(be => {
+  const entries = bank.entries.map(be => {
     const prog = byKey.get(keyOf(be.english) + '|' + (be.chinese || '').trim()) || {};
     return {
       id: prog.id || '', english: be.english, chinese: be.chinese, pos: be.pos || '', type: be.type,
@@ -822,11 +822,8 @@ app.get('/api/live/practice', requireAuth, async (req, res) => {
       wrongCount: prog.wrongCount || 0, nextDue: prog.nextDue || Date.now()
     };
   });
-  // 数量锁定：老师指定 count，全班取同一批（按题库顺序固定取样，保证每人拿到相同的词）
-  const count = Math.max(1, Math.min(bd.count || allEntries.length, allEntries.length));
-  const step = Math.max(1, Math.floor(allEntries.length / count));
-  const entries = allEntries.filter((_, i) => i % step === 0).slice(0, count);
-  res.json({ active: true, bank: { id: bank.id, title: bank.title }, count: entries.length, entries });
+  const count = Math.min(bd.count || entries.length, entries.length);
+  res.json({ active: true, bank: { id: bank.id, title: bank.title }, count, entries: entries.slice(0, count) });
 });
 
 // ================= 路由：学生 · 练习 =================
@@ -920,10 +917,13 @@ app.post('/api/live/start', requireAuth, requireRole('teacher'), async (req, res
   const minutes = Math.min(60, Math.max(1, parseInt((req.body || {}).minutes, 10) || 10));
   const bankId = String((req.body || {}).bankId || '').trim();
   if (!bankId) return res.status(400).json({ error: '请选择默写题库' });
-  const bank = (await q('SELECT id, title, class_id, entries FROM banks WHERE id = $1 AND class_id = $2', [bankId, cls.id])).rows[0];
+  const bank = (await q('SELECT id, title, entries, class_id FROM banks WHERE id = $1 AND class_id = $2', [bankId, cls.id])).rows[0];
   if (!bank) return res.status(400).json({ error: '题库不存在或不属于本班' });
+  // 默写数量：默认取题库全部条目，最少 1 条
   const total = Array.isArray(bank.entries) ? bank.entries.length : 0;
-  const count = Math.min(total, Math.max(1, parseInt((req.body || {}).count, 10) || total || 1));
+  const rawCount = parseInt((req.body || {}).count, 10);
+  const count = Math.min(total, Math.max(1, isNaN(rawCount) ? total : rawCount));
+  if (total < 1) return res.status(400).json({ error: '题库为空，无法开启默写' });
   liveBoards[cls.id] = {
     id: genId('lv'),
     session: { startedAt: Date.now(), minutes, ended: false },
