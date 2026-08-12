@@ -1519,7 +1519,7 @@ async function loadLiveBanksForPicker() {
 async function loadLiveBoard() {
   let d;
   try { d = await api('/api/live/board'); } catch (e) { return; }
-  renderLiveClock(d.session, d.bankTitle);
+  renderLiveClock(d.session, d.bankTitle, d.count);
   renderLiveStats(d.players, d.session);
   renderLiveGrid(d.players, d.session);
 }
@@ -1529,7 +1529,7 @@ function fmtClock(sec) {
   const s = String(sec % 60).padStart(2, '0');
   return m + ':' + s;
 }
-function renderLiveClock(sess, bankTitle) {
+function renderLiveClock(sess, bankTitle, count) {
   const num = $('#liveClockNum');
   const state = $('#liveClockState');
   if (!sess) { num.textContent = '00:00'; state.textContent = '未开始'; state.className = 'live-clock-state'; return; }
@@ -1539,7 +1539,10 @@ function renderLiveClock(sess, bankTitle) {
     num.textContent = '00:00';
     state.className = 'live-clock-state timeup';
   } else {
-    state.textContent = bankTitle ? '默写中 · ' + bankTitle : '默写中';
+    let t = '默写中';
+    if (bankTitle) t += ' · ' + bankTitle;
+    if (count) t += ' · ' + count + ' 个';
+    state.textContent = t;
     state.className = 'live-clock-state running';
   }
 }
@@ -1626,7 +1629,8 @@ $('#liveStartBtn').onclick = async () => {
   const minutes = Math.min(60, Math.max(1, parseInt($('#liveMinutes').value, 10) || 10));
   const bankId = $('#liveBank').value;
   if (!bankId) { alert('请先选择题库'); return; }
-  await api('/api/live/start', { method: 'POST', body: { minutes, bankId } });
+  const count = Math.max(1, parseInt($('#liveCount').value, 10) || 1);
+  await api('/api/live/start', { method: 'POST', body: { minutes, bankId, count } });
   loadLiveBoard();
 };
 $('#liveStopBtn').onclick = async () => {
@@ -1828,7 +1832,9 @@ function studentLiveClock() {
       // 老师正在开启的默写 → 显示倒计时
       if (_liveBannerHideTimer) { clearTimeout(_liveBannerHideTimer); _liveBannerHideTimer = null; }
       wrap.hidden = false;
-      $('#liveBannerText').textContent = d.bankTitle ? '老师指定默写《' + d.bankTitle + '》' : '老师已开启默写';
+      $('#liveBannerText').textContent = d.bankTitle
+        ? '老师指定默写《' + d.bankTitle + '》' + (d.count ? ' · ' + d.count + ' 个' : '')
+        : '老师已开启默写';
       $('#liveBannerClock').textContent = fmtClock(d.remaining);
       // 给倒计时一个强调色
       banner.classList.remove('ended');
@@ -1994,12 +2000,12 @@ async function prepareToday() {
   if (_liveBank) {
     try {
       const d = await api('/api/live/practice');
-      if (d && d.active && Array.isArray(d.entries)) {
+      if (d && d.active && Array.isArray(d.entries) && d.entries.length) {
         $('#dueBanner').hidden = true;
         const items = d.entries.map(e => ({ id: e.id, english: e.english, chinese: e.chinese, pos: e.pos, type: e.type }));
         currentBank = d.bank ? { id: d.bank.id, title: d.bank.title } : { id: '', title: '默写' };
         showPracticeView();
-        preparePractice(items, '今日默写：' + currentBank.title, '老师指定题库，共 <b>' + d.entries.length + '</b> 条');
+        preparePractice(items, '今日默写：' + currentBank.title, '老师指定 <b>' + d.entries.length + '</b> 个单词，数量已锁定，不能调整', true);
         return;
       }
     } catch (e) { /* 拉取失败时回落到正常的今日练习 */ }
@@ -2020,7 +2026,7 @@ async function prepareToday() {
 
 $('#dueGoBtn').onclick = () => { switchView('practice'); startPractice(false); };
 
-function preparePractice(items, title, sub) {
+function preparePractice(items, title, sub, locked) {
   session = null;
   $('#practiceReady').hidden = false;
   $('#practiceSummary').hidden = true;
@@ -2028,28 +2034,34 @@ function preparePractice(items, title, sub) {
   $('#practiceTitle').textContent = title || '今日练习';
   $('#practiceSub').innerHTML = sub || '';
   if (items && items.length) {
-    renderCountPicker(items.length);
-    $('#startBtn').onclick = () => {
-      // 自定义模式：实时读 input 的最新值
-      let useCount = _pickCount;
-      if (useCount === -1) {
-        const inp = $('#countCustomInput');
-        const v = inp ? parseInt(inp.value, 10) : NaN;
-        if (v >= 10 && v <= _maxCount) useCount = v;
-        else if (v >= 10) useCount = _maxCount;
-        else {
-          // 无效输入：轻微提示，回退到「全部」
-          if (inp) {
-            inp.classList.add('invalid');
-            setTimeout(() => inp.classList.remove('invalid'), 600);
+    if (locked) {
+      // 老师锁定的默写：隐藏数量选择器，学生不能调整
+      renderCountPicker(0);
+      $('#startBtn').onclick = () => startPracticeFrom(shuffle(items));
+    } else {
+      renderCountPicker(items.length);
+      $('#startBtn').onclick = () => {
+        // 自定义模式：实时读 input 的最新值
+        let useCount = _pickCount;
+        if (useCount === -1) {
+          const inp = $('#countCustomInput');
+          const v = inp ? parseInt(inp.value, 10) : NaN;
+          if (v >= 10 && v <= _maxCount) useCount = v;
+          else if (v >= 10) useCount = _maxCount;
+          else {
+            // 无效输入：轻微提示，回退到「全部」
+            if (inp) {
+              inp.classList.add('invalid');
+              setTimeout(() => inp.classList.remove('invalid'), 600);
+            }
+            toast('请输入至少 10 个');
+            useCount = 0;
           }
-          toast('请输入至少 10 个');
-          useCount = 0;
         }
-      }
-      const useItems = sliceItems(items, useCount);
-      startPracticeFrom(shuffle(useItems));
-    };
+        const useItems = sliceItems(items, useCount);
+        startPracticeFrom(shuffle(useItems));
+      };
+    }
   } else {
     renderCountPicker(0); // 隐藏选择器
     $('#startBtn').onclick = () => startPractice(false);
@@ -2159,6 +2171,15 @@ function sliceItems(items, count) {
 }
 
 async function startPractice(force) {
+  // 老师指定默写进行中：「再练一轮」继续用同一批锁定单词
+  if (_liveBank) {
+    const d = await api('/api/live/practice');
+    if (d && d.active && Array.isArray(d.entries) && d.entries.length) {
+      const items = d.entries.map(e => ({ id: e.id, english: e.english, chinese: e.chinese, pos: e.pos, type: e.type }));
+      startPracticeFrom(shuffle(items));
+      return;
+    }
+  }
   let items;
   const d = await api('/api/today');
   if (d.dueCount) {

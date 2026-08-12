@@ -814,7 +814,7 @@ app.get('/api/live/practice', requireAuth, async (req, res) => {
   if (!bank) return res.json({ active: false, bank: null, entries: [] });
   const p = await syncBankProgress(req.user.id, bank);
   const byKey = new Map(p.entries.filter(e => e.bankId === bank.id).map(e => [e.key, e]));
-  const entries = bank.entries.map(be => {
+  const allEntries = bank.entries.map(be => {
     const prog = byKey.get(keyOf(be.english) + '|' + (be.chinese || '').trim()) || {};
     return {
       id: prog.id || '', english: be.english, chinese: be.chinese, pos: be.pos || '', type: be.type,
@@ -822,7 +822,11 @@ app.get('/api/live/practice', requireAuth, async (req, res) => {
       wrongCount: prog.wrongCount || 0, nextDue: prog.nextDue || Date.now()
     };
   });
-  res.json({ active: true, bank: { id: bank.id, title: bank.title }, entries });
+  // 数量锁定：老师指定 count，全班取同一批（按题库顺序固定取样，保证每人拿到相同的词）
+  const count = Math.max(1, Math.min(bd.count || allEntries.length, allEntries.length));
+  const step = Math.max(1, Math.floor(allEntries.length / count));
+  const entries = allEntries.filter((_, i) => i % step === 0).slice(0, count);
+  res.json({ active: true, bank: { id: bank.id, title: bank.title }, count: entries.length, entries });
 });
 
 // ================= 路由：学生 · 练习 =================
@@ -916,16 +920,18 @@ app.post('/api/live/start', requireAuth, requireRole('teacher'), async (req, res
   const minutes = Math.min(60, Math.max(1, parseInt((req.body || {}).minutes, 10) || 10));
   const bankId = String((req.body || {}).bankId || '').trim();
   if (!bankId) return res.status(400).json({ error: '请选择默写题库' });
-  const bank = (await q('SELECT id, title, class_id FROM banks WHERE id = $1 AND class_id = $2', [bankId, cls.id])).rows[0];
+  const bank = (await q('SELECT id, title, class_id, entries FROM banks WHERE id = $1 AND class_id = $2', [bankId, cls.id])).rows[0];
   if (!bank) return res.status(400).json({ error: '题库不存在或不属于本班' });
+  const total = Array.isArray(bank.entries) ? bank.entries.length : 0;
+  const count = Math.min(total, Math.max(1, parseInt((req.body || {}).count, 10) || total || 1));
   liveBoards[cls.id] = {
     id: genId('lv'),
     session: { startedAt: Date.now(), minutes, ended: false },
-    bankId, bankTitle: bank.title,
+    bankId, bankTitle: bank.title, count,
     players: {}
   };
   const remaining = Math.min(60, Math.max(1, minutes)) * 60;
-  res.json({ ok: true, remaining, bankId, bankTitle: bank.title });
+  res.json({ ok: true, remaining, bankId, bankTitle: bank.title, count });
 });
 app.post('/api/live/stop', requireAuth, requireRole('teacher'), async (req, res) => {
   const cls = await getClassInfo(req.user);
@@ -947,7 +953,8 @@ app.get('/api/live', requireAuth, async (req, res) => {
     remaining,
     ended: bd.session.ended,
     bankId: bd.bankId || null,
-    bankTitle: bd.bankTitle || ''
+    bankTitle: bd.bankTitle || '',
+    count: bd.count || 0
   });
 });
 // 老师大屏：全班实时状态
@@ -969,6 +976,7 @@ app.get('/api/live/board', requireAuth, requireRole('teacher'), async (req, res)
     },
     bankId: bd.bankId || null,
     bankTitle: bd.bankTitle || '',
+    count: bd.count || 0,
     players
   });
 });
