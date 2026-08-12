@@ -536,6 +536,7 @@ button.del:hover { background: #FADBDB; transform: scale(1.05); }
   box-shadow: inset 0 0 30px rgba(139, 92, 246, .12);
   position: relative;
 }
+.letter-box.fit-line { flex-wrap: nowrap; justify-content: center; }
 .letter-box-inner { display: contents; }
 /* 标题行小标签：在 letter-box 顶部显示词性 + 计数 */
 .letter-box-tip {
@@ -550,11 +551,11 @@ button.del:hover { background: #FADBDB; transform: scale(1.05); }
   box-shadow: 0 0 0 4px rgba(139, 92, 246, .25), inset 0 0 30px rgba(139, 92, 246, .2);
   background: linear-gradient(180deg, rgba(11, 8, 32, .8), rgba(26, 18, 64, .7));
 }
-/* 字母格子：去掉边框只保留下划线 */
+/* 字母格子：去掉边框只保留下划线（尺寸跟随 --lscale 缩放） */
 .l-cell {
-  width: 32px; height: 46px;
+  width: calc(32px * var(--lscale, 1)); height: calc(46px * var(--lscale, 1));
   display: flex; align-items: center; justify-content: center;
-  font-size: 26px; font-weight: 800; color: var(--text-on-dark); text-transform: lowercase;
+  font-size: calc(26px * var(--lscale, 1)); font-weight: 800; color: var(--text-on-dark); text-transform: lowercase;
   transition: transform .12s, background .12s, box-shadow .12s;
   background: transparent;
   border-radius: 10px;
@@ -607,12 +608,12 @@ button.del:hover { background: #FADBDB; transform: scale(1.05); }
   box-shadow: 0 0 10px rgba(240, 171, 252, .7);
   animation: underPulse 1.2s ease-in-out infinite;
 }
-.l-gap { width: 14px; }
+.l-gap { width: calc(14px * var(--lscale, 1)); }
 /* 标点提示（空格变间隔，逗号/句号/撇号/连字符等直接显示，无需默写） */
 .l-punct {
   display: flex; align-items: center; justify-content: center;
   min-width: 8px; padding: 0 1px;
-  font-size: 24px; font-weight: 700; line-height: 1;
+  font-size: calc(24px * var(--lscale, 1)); font-weight: 700; line-height: 1;
   color: rgba(196, 181, 253, .95);
   text-shadow: 0 0 8px rgba(167, 139, 250, .45);
 }
@@ -2025,15 +2026,15 @@ button:active::after, .primary:active::after, .ghost-btn:active::after, .header-
   .prompt { font-size: 26px; margin: 14px 0 2px; word-break: break-word; }
   .pos-line { font-size: 15px; }
   .answer-row { margin-top: 14px; }
-  /* 字母格子：超长单词自动缩放适配屏幕，必要时才换行（不再横向滚动） */
+  /* 字母格子：默认换行布局（永不横向滚动），超长内容自动换行；适中长度单词自动缩放保持单行 */
   .letter-box {
     --lscale: 1; /* 由 JS 按实际宽度计算，整体缩放格子 */
     padding: 24px 10px 16px; min-height: 70px;
     gap: calc(5px * var(--lscale));
-    overflow: hidden; flex-wrap: nowrap; justify-content: flex-start;
+    overflow: hidden; flex-wrap: wrap; justify-content: center;
     border-radius: 16px;
   }
-  .letter-box.wrap-overflow { flex-wrap: wrap; justify-content: center; }
+  .letter-box.fit-line { flex-wrap: nowrap; justify-content: center; }
   .l-cell { width: calc(28px * var(--lscale)); height: calc(40px * var(--lscale)); font-size: calc(22px * var(--lscale)); border-radius: 9px; }
   .l-cell::after { left: 4px; right: 4px; bottom: 5px; height: 3px; }
   .l-cell.filled::after { height: 3.5px; }

@@ -2733,26 +2733,32 @@ function haptic(pattern) {
   try { navigator.vibrate(pattern); } catch (e) {}
 }
 
-// 4) 字母格子宽度适配：超长单词时整体缩放格子让整行放进屏幕，实在放不下再换行（移动端不再出现横向滚动条）
+// 4) 字母格子宽度适配：先测单行总宽；适中长度单词缩放保持一行，
+//    单词过长时直接换行显示全部（永不出现横向滚动条/横向滚动）
 function updateLetterBoxOverflow() {
   const box = document.getElementById('letterBox');
   if (!box) return;
-  // 先恢复默认比例再测量
+  // 先恢复默认比例并清掉单行模式
+  box.classList.remove('fit-line');
   box.style.setProperty('--lscale', '1');
-  box.classList.remove('wrap-overflow');
   const cs = getComputedStyle(box);
   const padL = parseFloat(cs.paddingLeft) || 0;
   const padR = parseFloat(cs.paddingRight) || 0;
   const avail = box.clientWidth - padL - padR;
+  // 临时强制单行测出内容的自然总宽
+  box.classList.add('fit-line');
   const natural = box.scrollWidth - padL - padR;
-  if (natural <= avail + 2) return; // 放得下，保持默认
-  // 计算缩放比例，留 2px 余量，最小缩到 55%（再小就换行）
-  let scale = (avail - 2) / natural;
+  if (natural <= avail + 2) {
+    box.classList.remove('fit-line'); // 本来就能放下，回到可换行布局（也会是单行）
+    return;
+  }
+  // 计算缩放比例，留 2px 余量；缩到 55% 还放不下就换行
+  const scale = (avail - 2) / natural;
   if (scale >= 0.55) {
+    box.classList.add('fit-line'); // 适中长度：缩成单行
     box.style.setProperty('--lscale', scale.toFixed(3));
   } else {
-    box.style.setProperty('--lscale', '0.55');
-    box.classList.add('wrap-overflow'); // 极长单词/句子：换行而不是横向滚动
+    box.classList.remove('fit-line'); // 太长：保持换行，显示全部内容
   }
 }
 
