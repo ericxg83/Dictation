@@ -784,9 +784,9 @@ button.del:hover { background: #FADBDB; transform: scale(1.05); }
 .letter-box-tip .tip-dot { width: 6px; height: 6px; border-radius: 50%; background: #A78BFA; box-shadow: 0 0 6px #A78BFA; }
 .letter-box-tip .tip-count { color: rgba(196, 181, 253, .55); font-weight: 600; }
 .letter-box:focus-within {
-  border-color: var(--brand-3);
-  box-shadow: 0 0 0 4px rgba(139, 92, 246, .25), inset 0 0 30px rgba(139, 92, 246, .2);
-  background: linear-gradient(180deg, rgba(11, 8, 32, .8), rgba(26, 18, 64, .7));
+  /* 输入时不再给整盒加边框/光晕，只保持原底色 */
+  border-color: rgba(167, 139, 250, .25);
+  background: linear-gradient(180deg, rgba(11, 8, 32, .65), rgba(26, 18, 64, .55));
 }
 /* 字母格子：去掉边框只保留下划线；固定宽度，长句/词组自动换行 */
 .l-cell {
@@ -833,19 +833,18 @@ button.del:hover { background: #FADBDB; transform: scale(1.05); }
   background: linear-gradient(90deg, #FB7185, #F43F5E);
   box-shadow: 0 0 10px rgba(244, 63, 94, .7);
 }
-/* 当前应填入的位置：浅色高亮 + 发光描边 + 抬升，让光标位置一目了然 */
+/* 当前应填入的位置：浅色高亮 + 抬升（不画边框/光环） */
 .l-cell.current {
   border: none;
-  /* 浅色渐变高亮 + 粉色发光描边：填错后也能一眼看到「下一格」 */
+  /* 仅用渐变高亮标出下一格，不再加描边/光晕 */
   background: linear-gradient(180deg, rgba(167, 139, 250, .22), rgba(236, 72, 153, .22));
   border-radius: 10px;
-  box-shadow: 0 0 0 2px rgba(240, 171, 252, .55), 0 0 14px rgba(167, 139, 250, .35);
   transform: translateY(-2px);
   animation: cellPulse 1.2s ease-in-out infinite;
 }
 .l-cell.current::after {
   background: linear-gradient(90deg, #A78BFA, #F0ABFC);
-  box-shadow: 0 0 12px rgba(240, 171, 252, .9);
+  box-shadow: 0 0 10px rgba(240, 171, 252, .8);
   height: 4px;
   animation: underPulse 1.2s ease-in-out infinite;
 }
