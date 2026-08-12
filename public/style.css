@@ -106,12 +106,14 @@ h1, h2, h3 { color: var(--text-on-dark); }
 /* ===== 头部（App 风：渐变 + 大圆角 + 玻璃感） ===== */
 header {
   background: var(--gradient-brand);
-  color: #fff; padding: 16px 26px;
-  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;
-  box-shadow: 0 8px 32px rgba(99, 102, 241, .4), 0 2px 8px rgba(0, 0, 0, .5);
+  color: #fff; padding: 12px 22px;
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: nowrap; gap: 10px;
+  box-shadow: 0 6px 24px rgba(99, 102, 241, .32), 0 1px 0 rgba(255,255,255,.18) inset, 0 2px 6px rgba(0, 0, 0, .4);
   position: sticky; top: 0; z-index: 50;
   position: relative;
   overflow: hidden;
+  min-height: 56px;
+  border-bottom: 1px solid rgba(255, 255, 255, .12);
 }
 header::before {
   content: ""; position: absolute; inset: 0;
@@ -120,37 +122,64 @@ header::before {
     radial-gradient(circle at 85% 50%, rgba(255, 200, 220, .18) 0, transparent 50%);
   pointer-events: none;
 }
-header > * { position: relative; z-index: 1; }
+header > * { position: relative; z-index: 1; min-width: 0; }
 .brand {
-  font-size: 20px; font-weight: 900; letter-spacing: .5px;
-  display: flex; align-items: center; gap: 12px;
+  font-size: 18px; font-weight: 900; letter-spacing: .5px;
+  display: flex; align-items: center; gap: 10px;
   text-shadow: 0 2px 8px rgba(0,0,0,.15);
+  flex: 0 1 auto; min-width: 0;
+  white-space: nowrap;
+}
+.brand-text {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .brand::before {
-  content: "✏️"; font-size: 22px; width: 40px; height: 40px; border-radius: 12px;
+  content: "✏️"; font-size: 20px; width: 36px; height: 36px; border-radius: 11px;
   background: linear-gradient(135deg, rgba(255,255,255,.3), rgba(255,255,255,.15));
   display: flex; align-items: center; justify-content: center;
   box-shadow: inset 0 1px 0 rgba(255,255,255,.4), 0 4px 12px rgba(0,0,0,.15);
   backdrop-filter: blur(8px);
+  flex: 0 0 auto;
 }
-.userbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.userbar { display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; flex: 0 1 auto; min-width: 0; }
 .user-info {
-  font-size: 13px; font-weight: 700;
-  background: rgba(255,255,255,.22); padding: 6px 14px; border-radius: 99px;
+  font-size: 12px; font-weight: 700;
+  background: rgba(255,255,255,.22); padding: 5px 12px; border-radius: 99px;
   border: 1px solid rgba(255,255,255,.18); backdrop-filter: blur(8px);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 160px;
+  display: inline-flex; align-items: center; gap: 4px;
 }
+.user-info::before { content: "👤"; font-size: 12px; }
 .class-badge {
   background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.35);
   padding: 5px 12px; border-radius: 99px; font-size: 12px; letter-spacing: .3px;
   font-weight: 600;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 220px;
+  display: inline-flex; align-items: center; gap: 4px;
 }
+.class-badge::before { content: "🏫"; font-size: 12px; flex: 0 0 auto; }
 .header-btn {
   background: rgba(255,255,255,.2); border: 1px solid rgba(255,255,255,.35); color: #fff;
-  padding: 7px 18px; border-radius: 99px; cursor: pointer; font-size: 13px; font-weight: 700;
+  padding: 6px 14px; border-radius: 99px; cursor: pointer; font-size: 13px; font-weight: 700;
   transition: .2s; backdrop-filter: blur(8px);
+  display: inline-flex; align-items: center; gap: 4px;
+  white-space: nowrap; flex: 0 0 auto;
 }
 .header-btn:hover { background: rgba(255,255,255,.35); transform: translateY(-1px); }
 .header-btn:active { transform: translateY(0); }
+.header-btn .btn-icon { font-size: 15px; line-height: 1; }
+
+/* ===== 默写 ready 模式：header 超紧凑（默写启动前的选择页） ===== */
+body.practice-mode #appHeader {
+  padding: 7px 14px;
+  min-height: 44px;
+  box-shadow: 0 4px 14px rgba(99, 102, 241, .28), 0 1px 0 rgba(255,255,255,.18) inset, 0 1px 4px rgba(0, 0, 0, .35);
+}
+body.practice-mode .brand { font-size: 15px; gap: 8px; }
+body.practice-mode .brand::before { width: 28px; height: 28px; font-size: 15px; border-radius: 8px; }
+body.practice-mode .class-badge { font-size: 11px; padding: 4px 10px; max-width: 180px; }
+body.practice-mode .user-info { font-size: 11px; padding: 4px 10px; max-width: 130px; }
+body.practice-mode .header-btn { padding: 4px 12px; font-size: 12px; }
 
 /* ===== 导航（药丸状 chip tab：深紫底 + 紫光描边） ===== */
 nav {
@@ -1377,14 +1406,20 @@ button:active::after, .primary:active::after, .ghost-btn:active::after, .header-
 @media (max-width: 720px) {
   /* iOS 顶部状态栏留空，避免内容被刘海/灵动岛遮挡 */
   header { padding-top: calc(10px + env(safe-area-inset-top)); }
-  /* 顶部 header 简化：品牌 + 班级 + 退出；用户信息合并到品牌区 */
-  header { padding: 10px 14px; gap: 8px; }
-  .brand { font-size: 16px; }
-  .brand::before { width: 28px; height: 28px; font-size: 16px; border-radius: 8px; }
-  .user-info { display: none; }   /* 用户名隐藏到“班级码”里，节省空间 */
-  .class-badge { font-size: 11px; padding: 3px 10px; max-width: 200px;
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .header-btn { padding: 5px 12px; font-size: 12px; }
+  /* 顶部 header 紧凑化：单行紧凑 + 图标化 */
+  header { padding: 8px 10px; gap: 6px; min-height: 48px; }
+  .brand { font-size: 14px; gap: 7px; }
+  .brand::before { width: 26px; height: 26px; font-size: 14px; border-radius: 8px; }
+  .user-info { display: none; }   /* 移动端隐藏用户胶囊，节省空间 */
+  .class-badge {
+    font-size: 11px; padding: 4px 9px; max-width: 130px;
+    border-radius: 99px;
+  }
+  .class-badge::before { font-size: 11px; }
+  .header-btn { padding: 6px 9px; font-size: 12px; }
+  .header-btn .btn-text { display: none; }    /* 移动端只显示图标 */
+  .header-btn .btn-icon { font-size: 16px; }
+  .userbar { gap: 6px; }
 
   /* 顶部 nav 在小屏隐藏，交给底部 tab 栏 */
   nav#teacherNav, nav#studentNav { display: none !important; }
@@ -1402,6 +1437,14 @@ button:active::after, .primary:active::after, .ghost-btn:active::after, .header-
   .mobile-tabbar.is-student button[data-view="student-banks"],
   .mobile-tabbar.is-student button[data-view="practice"],
   .mobile-tabbar.is-student button[data-view="stats"] { display: flex; }
+
+  /* ===== 默写 ready 模式（移动端）：进一步压缩高度 ===== */
+  body.practice-mode #appHeader { padding: 6px 10px; min-height: 40px; }
+  body.practice-mode .brand { font-size: 13px; gap: 6px; }
+  body.practice-mode .brand::before { width: 24px; height: 24px; font-size: 13px; border-radius: 7px; }
+  body.practice-mode .class-badge { font-size: 10px; padding: 3px 8px; max-width: 110px; }
+  body.practice-mode .header-btn { padding: 5px 7px; }
+  body.practice-mode .header-btn .btn-icon { font-size: 15px; }
 
   main { padding: 14px 14px calc(80px + env(safe-area-inset-bottom)); }
 

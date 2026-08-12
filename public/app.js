@@ -962,8 +962,9 @@ function applyAuth(d) {
   localStorage.setItem(TOKEN_KEY, d.token);
   currentUser = d.user;
   classInfo = d.classInfo;
-  $('#userInfo').textContent = (d.user.role === 'teacher' ? '老师' : '学生') + '：' + (d.user.name || d.user.username);
-  $('#classBadge').textContent = classInfo ? (d.user.role === 'teacher' ? '班级 ' + classInfo.name + '（' + classInfo.code + '）' : '班级 ' + classInfo.name) : '未加入班级';
+  $('#userInfo').textContent = (d.user.role === 'teacher' ? '老师' : '学生') + '·' + (d.user.name || d.user.username);
+  // 班级徽章只显示班级名，🏫 图标由 CSS ::before 提供；移动端超长会自动省略
+  $('#classBadge').textContent = classInfo ? classInfo.name : '未加入班级';
   showApp();
   // 移动端底部 tab 栏：根据角色只显示对应的 3 个
   const tabbar = $('#mobileTabbar');
@@ -1018,6 +1019,8 @@ function switchView(name) {
   // 底部 tab 栏 active 同步
   const tabbar = $('#mobileTabbar');
   if (tabbar) Array.from(tabbar.querySelectorAll('button')).forEach(b => b.classList.toggle('active', b.dataset.view === name));
+  // 默写 ready 模式：给 body 加 class，让 header 切换为超紧凑样式
+  document.body.classList.toggle('practice-mode', name === 'practice');
   // 离开练习页时：退出沉浸式、停止键盘自适应
   if (name !== 'practice') {
     document.body.classList.remove('immersive');

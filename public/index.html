@@ -74,12 +74,17 @@
 
 <!-- ==================== 主应用 ==================== -->
 <div id="appView" hidden>
-  <header>
-    <div class="brand">英语默写助手</div>
+  <header id="appHeader">
+    <div class="brand">
+      <span class="brand-text">英语默写</span>
+    </div>
     <div class="userbar">
       <span id="userInfo" class="user-info"></span>
       <span id="classBadge" class="class-badge"></span>
-      <button id="logoutBtn" class="header-btn">退出</button>
+      <button id="logoutBtn" class="header-btn" title="退出登录" aria-label="退出登录">
+        <span class="btn-icon" aria-hidden="true">⎋</span>
+        <span class="btn-text">退出</span>
+      </button>
     </div>
   </header>
 
