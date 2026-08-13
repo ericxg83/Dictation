@@ -684,6 +684,28 @@
   </div>
 </div>
 
+<!-- 龙龙升级模态：积分跨阶段时屏幕中央展示新形象 + 升级特效 -->
+<div id="upgradeModal" hidden>
+  <div class="upgrade-mask" onclick="if(event.target===this)closeUpgradeModal()">
+    <div class="upgrade-stage">
+      <div class="upgrade-halo"></div>
+      <div class="upgrade-rays"></div>
+      <div class="upgrade-pet" id="upgradePetArt"></div>
+      <h3 class="upgrade-title" id="upgradeTitle">
+        <span class="emoji">✨</span> 龙龙进化啦！ <span class="emoji">✨</span>
+      </h3>
+      <div class="upgrade-stages">
+        <span class="upgrade-stage-old" id="upgradeStageOld">龙蛋</span>
+        <span class="upgrade-arrow">➜</span>
+        <span class="upgrade-stage-new" id="upgradeStageNew">幼龙</span>
+      </div>
+      <p class="upgrade-desc" id="upgradeDesc">破壳啦！小小的、超可爱～</p>
+      <div class="upgrade-points">当前累计 <b id="upgradePoints">0</b> 分</div>
+      <button class="upgrade-btn" id="upgradeBtn" onclick="closeUpgradeModal()">继续陪它成长 🚀</button>
+    </div>
+  </div>
+</div>
+
 <script src="app.js"></script>
 </body>
 </html>

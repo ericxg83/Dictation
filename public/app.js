@@ -95,12 +95,14 @@ const DRAGON_KINDS = [
   }
 ];
 
-// 积分 → 进化阶段：蛋(0) → 幼龙(10) → 少年龙(30) → 成年龙(60)
+// 积分 → 进化阶段（细化）：蛋(0) → 幼龙(10) → 少年龙(30) → 成年龙(60) → 传说龙(100)
+// 单词 +1、词组 +2、句子 +3  →  达到 100 分约 = 100 个单词 / 50 个词组 / 34 个句子
 const DRAGON_STAGES = [
-  { min: 0,  name: '龙蛋',   tip: '默写攒积分让它孵化吧' },
-  { min: 10, name: '幼龙',   tip: '破壳啦！继续攒积分成长' },
-  { min: 30, name: '少年龙', tip: '长出翅膀/鳞甲，更威风了' },
-  { min: 60, name: '成年龙', tip: '完全体！成为你的专属坐骑' }
+  { min: 0,   name: '龙蛋',     emoji: '🥚', tip: '默写攒积分，让它破壳而出吧～',         desc: '一颗安静等待被点亮的龙蛋。温度会随你的积分慢慢升高。' },
+  { min: 10,  name: '幼龙',     emoji: '🐣', tip: '破壳啦！小小的、超可爱～',              desc: '刚刚破壳的小家伙，好奇地打量世界。会跟着你默写的样子摇头摆尾。' },
+  { min: 30,  name: '少年龙',   emoji: '🐉', tip: '长出鳞片 / 翅膀 / 犄角，更威风了！',  desc: '已经能看出品种特征（尖刺 / 骨板 / 双翼 / 长角…），开始陪你做更难的词组。' },
+  { min: 60,  name: '成年龙',   emoji: '🐲', tip: '完全体！已解锁专属喷火 / 喷冰 / 飞扑', desc: '龙龙进入完全体，可以解锁特殊技能：霸王龙的血色獠牙、甲龙的骨锤、翼龙的俯冲…' },
+  { min: 100, name: '传说龙',   emoji: '✨', tip: '传说中的存在！和你一起站上 PK 王座！', desc: '从普通龙蜕变为传说级，全身泛着金光。在 PK 模式里它的气场能压倒对手。' }
 ];
 const DRAGON_MAX_STAGE = DRAGON_STAGES.length - 1;
 
@@ -715,8 +717,117 @@ function renderCornerPet() {
   if (!d || currentUser.role !== 'student') { wrap.hidden = true; return; }
   const idx = currentStageIndex(totalPoints);
   wrap.hidden = false;
+  // 蛋形态用 egg 修饰类（不同 idle 动画 + 阴影）
+  wrap.classList.toggle('egg', idx === 0);
   $('#cornerPetEmoji').innerHTML = dragonArt(d, idx);
   $('#cornerPetName').textContent = currentUser.pet.name || d.name;
+  // 启动 idle 跳动（仅在非升级庆祝时）
+  if (!wrap.classList.contains('celebrate') && !wrap.classList.contains('idle')) {
+    wrap.classList.add('idle');
+  }
+}
+
+// 触发角落宠物的「开心蹦跳」动画
+function celebrateCornerPet() {
+  const wrap = $('#cornerPet');
+  if (!wrap || wrap.hidden) return;
+  wrap.classList.remove('idle', 'celebrate');
+  // 强制 reflow，重新触发动画
+  void wrap.offsetWidth;
+  wrap.classList.add('idle', 'celebrate');
+  setTimeout(() => wrap.classList.remove('celebrate'), 850);
+}
+
+// ===== 龙龙升级模态（积分跨阶段时屏幕中央特效）=====
+let _prevStageIdx = -1;     // 上一次的阶段 idx（用于检测升级）
+let _upgradeLocked = false; // 升级模态显示期间锁定操作
+
+function checkStageUpgrade() {
+  if (!currentUser || !currentUser.pet) return;
+  const newIdx = currentStageIndex(totalPoints);
+  if (_prevStageIdx < 0) { _prevStageIdx = newIdx; return; } // 首次不弹
+  if (newIdx <= _prevStageIdx) return;                         // 未升级或不变
+  showUpgradeModal(_prevStageIdx, newIdx);
+  _prevStageIdx = newIdx;
+}
+
+function showUpgradeModal(oldIdx, newIdx) {
+  const d = myDragon();
+  if (!d) return;
+  // 蛋 → 幼龙时换新形象，其它阶段形象不变但展示更威风
+  const isEggHatch = oldIdx === 0 && newIdx === 1;
+  const oldStage = DRAGON_STAGES[oldIdx];
+  const newStage = DRAGON_STAGES[newIdx];
+  // 0. 升级瞬间先让输入框失焦，避免弹窗上敲键盘误输入
+  const ai = $('#answerInput');
+  if (ai && document.activeElement === ai) ai.blur();
+  // 1. 大图：永远展示新阶段（升级后的形态）
+  $('#upgradePetArt').innerHTML = dragonArt(d, newIdx);
+  // 2. 文案
+  const titles = {
+    '1': '龙龙破壳啦！',
+    '2': '龙龙茁壮成长！',
+    '3': '龙龙进入完全体！',
+    '4': '传说龙觉醒！'
+  };
+  $('#upgradeTitle').innerHTML = '<span class="emoji">' + newStage.emoji + '</span> ' +
+    (titles[String(newIdx)] || '龙龙进化啦！') + ' <span class="emoji">' + newStage.emoji + '</span>';
+  $('#upgradeStageOld').textContent = oldStage.name;
+  $('#upgradeStageNew').textContent = newStage.name + ' ' + newStage.emoji;
+  $('#upgradeDesc').textContent = newStage.desc;
+  $('#upgradePoints').textContent = totalPoints;
+  // 3. 屏幕中央闪光
+  const flash = document.createElement('div');
+  flash.className = 'upgrade-flash';
+  document.body.appendChild(flash);
+  setTimeout(() => flash.remove(), 1200);
+  // 4. 显示模态
+  const modal = $('#upgradeModal');
+  modal.hidden = false;
+  // 5. 粒子：从屏幕中心向四周散开
+  setTimeout(() => spawnUpgradeParticles(), 80);
+  // 6. 礼花：蛋破壳 + 进化为传说龙时加个全屏礼花
+  if (isEggHatch || newIdx === DRAGON_MAX_STAGE) {
+    setTimeout(fireworks, 200);
+  }
+  // 7. 触觉
+  haptic([25, 50, 25, 50, 25]);
+  _upgradeLocked = true;
+}
+
+function closeUpgradeModal() {
+  $('#upgradeModal').hidden = true;
+  _upgradeLocked = false;
+  // 关闭后让输入框重新获得焦点，继续下一题
+  const ai = $('#answerInput');
+  if (ai && !ai.disabled && !ai.hidden) {
+    setTimeout(() => { try { ai.focus(); } catch (e) {} }, 50);
+  }
+}
+
+// 生成屏幕中心扩散的升级粒子
+function spawnUpgradeParticles() {
+  const stage = document.querySelector('.upgrade-stage');
+  if (!stage) return;
+  const colors = ['#FBBF24', '#F43F5E', '#A78BFA', '#22D3EE', '#10B981', '#FB923C', '#EC4899'];
+  const cx = stage.offsetWidth / 2;
+  const cy = 110; // 大致宠物位置
+  for (let i = 0; i < 36; i++) {
+    const p = document.createElement('div');
+    p.className = 'upgrade-particle';
+    p.style.left = cx + 'px';
+    p.style.top = cy + 'px';
+    p.style.background = colors[Math.floor(Math.random() * colors.length)];
+    const angle = (i / 36) * Math.PI * 2 + (Math.random() - 0.5) * 0.4;
+    const dist = 140 + Math.random() * 120;
+    p.style.setProperty('--px', Math.cos(angle) * dist + 'px');
+    p.style.setProperty('--py', Math.sin(angle) * dist + 'px');
+    p.style.animationDelay = (Math.random() * 200) + 'ms';
+    p.style.width = (4 + Math.random() * 6) + 'px';
+    p.style.height = p.style.width;
+    stage.appendChild(p);
+    setTimeout(() => p.remove(), 1800);
+  }
 }
 
 // ===== 领取/更换龙龙 =====
@@ -765,13 +876,43 @@ $('#petConfirmBtn').onclick = async () => {
     closePetModal();
     renderPetPanel();
     renderCornerPet();
+    // 同步升级模态的基准（领养/换龙后可能跨阶段）
+    const afterIdx = currentStageIndex(totalPoints);
+    const upgraded = _prevStageIdx >= 0 && afterIdx > _prevStageIdx;
+    const downgraded = _prevStageIdx >= 0 && afterIdx < _prevStageIdx;
+    _prevStageIdx = afterIdx;
     if (isChange && r.lostPoints > 0) {
       alert('已更换伙伴！本次损失了 ' + r.lostPoints + ' 点经验值。从今天起，好好陪你的新龙龙成长吧～');
     } else {
       alert('领养成功！你的「' + name + '」会陪着你的，记得每天来默写给它升级～');
     }
+    // 换龙后若跨阶段升级，给个小提示；降级则一并提示
+    if (upgraded) {
+      setTimeout(() => showUpgradeModal(afterIdx - 1, afterIdx), 250);
+    } else if (downgraded) {
+      setTimeout(() => showPetDowngradeNotice(afterIdx, r.lostPoints || 0), 250);
+    }
   } catch (e) { $('#petMsg').textContent = e.message; }
 };
+
+// 更换伙伴后降级提示（走 alert 之外的轻量模态，不抢戏）
+function showPetDowngradeNotice(newIdx, lost) {
+  const stage = DRAGON_STAGES[newIdx];
+  const wrap = $('#achievement');
+  if (!wrap) return;
+  $('#achievementEmoji').textContent = '😢';
+  $('#achievementTitle').textContent = '龙龙有点失落…';
+  $('#achievementDesc').textContent = '失去 ' + lost + ' 分，降为「' + stage.name + '」。多陪它练几次就能涨回来～';
+  wrap.hidden = false;
+  wrap.classList.remove('show');
+  void wrap.offsetWidth;
+  wrap.classList.add('show');
+  if (window._petDownT) clearTimeout(window._petDownT);
+  window._petDownT = setTimeout(() => {
+    wrap.classList.remove('show');
+    setTimeout(() => { wrap.hidden = true; }, 500);
+  }, 3200);
+}
 
 // ===== 龙龙图鉴（点击宠物头像 / 名字打开） =====
 let _handbookTab = 'mine'; // 'mine' 当前伙伴 | 'all' 全部图鉴 | 'pick' 浏览某只龙的详情
@@ -3263,6 +3404,10 @@ async function checkAnswer() {
     if (r && typeof r.points === 'number') totalPoints = r.points;
   } catch (e) { console.error(e); var _gain = correct ? pointsByType(it.type) : 0; }
   renderCornerPet();
+  // 答对：角落宠物开心蹦跳一下
+  if (correct) celebrateCornerPet();
+  // 积分跨阶段 → 屏幕中央升级特效（仅答对时才会涨分）
+  if (correct) checkStageUpgrade();
 
   if (correct) {
     bumpCombo();
@@ -3483,9 +3628,11 @@ function fxCorrect(gain, type) {
     setTimeout(() => st.remove(), 1000);
   }
   const pet = $('#cornerPet');
-  pet.classList.remove('pop');
+  // 用更丰富的 happy bounce 代替旧的 pop 缩放
+  pet.classList.remove('pop', 'celebrate');
   void pet.offsetWidth;
-  pet.classList.add('pop');
+  pet.classList.add('celebrate');
+  setTimeout(() => pet.classList.remove('celebrate'), 850);
 }
 
 // ===== 连击 combo 系统 =====
@@ -3719,8 +3866,14 @@ function undoLastChar() {
 }
 // 闪现答案期间输入框被禁用，回车事件需在 document 上监听：回车可直接跳过闪现，立即重新默写
 document.addEventListener('keydown', e => {
-  if (e.key !== 'Enter') return;
-  if (session && session.locked && session.flashTimer) { e.preventDefault(); clearFlash(); }
+  if (e.key === 'Enter') {
+    if (session && session.locked && session.flashTimer) { e.preventDefault(); clearFlash(); }
+  }
+  // 升级模态打开时：Esc 或回车可关闭
+  if (e.key === 'Escape' || e.key === 'Enter') {
+    const m = $('#upgradeModal');
+    if (m && !m.hidden) { e.preventDefault(); closeUpgradeModal(); return; }
+  }
 });
 // 记录上一次输入值的长度，用于判断是「输入」还是「退格」；
 // 退格时不再触发 autoSpace，否则会立即把刚删掉的空格补回来。
@@ -3836,6 +3989,8 @@ function animateRing(ring, numEl, target) {
 async function loadStats() {
   const d = await api('/api/stats');
   totalPoints = d.points;
+  // 把当前阶段作为基准（避免初次加载时弹出升级模态）
+  _prevStageIdx = currentStageIndex(totalPoints);
   renderPetPanel();
   renderCornerPet();
   // 大数字：累计得分

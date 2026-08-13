@@ -1336,6 +1336,53 @@ button.del:hover { background: #FADBDB; transform: scale(1.05); }
   0% { transform: scale(1) } 40% { transform: scale(1.35) } 100% { transform: scale(1) }
 }
 
+/* === 角落宠物：日常陪伴的「轻微呼吸跳动」+ 答对时的开心蹦跳 === */
+@keyframes petIdleBob {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50%      { transform: translateY(-4px) rotate(-1.2deg); }
+}
+@keyframes petIdleBobEgg {
+  0%, 100% { transform: translateY(0) rotate(-3deg); }
+  50%      { transform: translateY(-3px) rotate(3deg); }
+}
+@keyframes petHappyBounce {
+  0%   { transform: translateY(0)    scale(1);    }
+  20%  { transform: translateY(-18px) scale(1.15); }
+  45%  { transform: translateY(0)    scale(.92);  }
+  65%  { transform: translateY(-8px)  scale(1.08); }
+  100% { transform: translateY(0)    scale(1);    }
+}
+@keyframes petBlink {
+  0%, 92%, 100% { transform: scaleY(1); }
+  94%, 96%      { transform: scaleY(0.1); }
+}
+@keyframes petShadowPulse {
+  0%, 100% { transform: scaleX(1);   opacity: .35; }
+  50%      { transform: scaleX(.85); opacity: .2;  }
+}
+#cornerPet.idle .corner-pet-emoji {
+  animation: petIdleBob 2.6s ease-in-out infinite;
+  transform-origin: center bottom;
+  will-change: transform;
+}
+#cornerPet.idle.egg .corner-pet-emoji {
+  animation: petIdleBobEgg 2.6s ease-in-out infinite;
+}
+/* 蛋形态：蛋壳下方加一个会呼吸的小阴影圆 */
+#cornerPet.idle.egg .corner-pet-emoji::after {
+  content: ""; position: absolute; left: 50%; bottom: -2px;
+  width: 50px; height: 10px; border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(0,0,0,.35) 0%, transparent 70%);
+  transform: translateX(-50%);
+  animation: petShadowPulse 2.6s ease-in-out infinite;
+  pointer-events: none;
+}
+/* 让角落宠物 emoji 容器相对定位（用于 ::after 阴影） */
+#cornerPet .corner-pet-emoji { position: relative; }
+#cornerPet.celebrate .corner-pet-emoji {
+  animation: petHappyBounce .8s cubic-bezier(.34, 1.56, .64, 1);
+}
+
 /* ===== 领取宠物弹窗（升级：玻璃拟态 + 大图） ===== */
 .modal-mask {
   position: fixed; inset: 0; background: rgba(23, 35, 62, .55);
@@ -2579,6 +2626,170 @@ button:active::after, .primary:active::after, .ghost-btn:active::after, .header-
 .all-card-en { font-size: 10px; color: #A78BFA; margin-top: 2px; font-weight: 600; }
 .all-card-summary { font-size: 11px; color: #C4BCEC; margin-top: 4px; line-height: 1.4; }
 
+/* === 龙龙升级模态：屏幕中央的进化特效（巨型龙展示 + 旋转光环 + 粒子） === */
+.upgrade-mask {
+  position: fixed; inset: 0; z-index: 200;
+  display: flex; align-items: center; justify-content: center;
+  padding: 18px;
+  background: radial-gradient(ellipse at center, rgba(91, 33, 182, .35) 0%, rgba(23, 35, 62, .75) 50%, rgba(5, 0, 16, .92) 100%);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  animation: maskFadeIn .35s ease;
+}
+.upgrade-stage {
+  position: relative;
+  display: flex; flex-direction: column; align-items: center;
+  padding: 32px 40px 28px; min-width: 320px; max-width: min(420px, 92vw);
+  background: linear-gradient(160deg, rgba(34, 24, 80, .96) 0%, rgba(26, 18, 64, .96) 100%);
+  border: 2px solid rgba(251, 191, 36, .55);
+  border-radius: 28px;
+  box-shadow:
+    0 0 80px rgba(251, 191, 36, .35),
+    0 0 30px rgba(236, 72, 153, .25),
+    0 30px 80px rgba(0, 0, 0, .55);
+  animation: upgradeRise .7s cubic-bezier(.34, 1.56, .64, 1);
+  overflow: visible;
+}
+@keyframes upgradeRise {
+  0%   { opacity: 0; transform: translateY(40px) scale(.55); }
+  55%  { opacity: 1; transform: translateY(-6px) scale(1.06); }
+  100% { opacity: 1; transform: translateY(0)    scale(1); }
+}
+.upgrade-stage::before {
+  content: ''; position: absolute; inset: -2px; border-radius: 28px;
+  background: linear-gradient(135deg, rgba(251, 191, 36, .4), rgba(236, 72, 153, .4), rgba(139, 92, 246, .4), rgba(34, 211, 238, .4));
+  z-index: -1; filter: blur(14px); opacity: .65;
+  animation: upgradeGlow 3s ease-in-out infinite alternate;
+}
+@keyframes upgradeGlow {
+  0%   { opacity: .45; }
+  100% { opacity: .85; }
+}
+/* 旋转光环（双层） */
+.upgrade-halo {
+  position: absolute; top: 92px; left: 50%; width: 240px; height: 240px;
+  transform: translate(-50%, -50%); pointer-events: none; z-index: 0;
+}
+.upgrade-halo::before, .upgrade-halo::after {
+  content: ''; position: absolute; inset: 0; border-radius: 50%;
+  border: 2px dashed transparent;
+}
+.upgrade-halo::before {
+  border-color: rgba(251, 191, 36, .55);
+  animation: upgradeSpin 8s linear infinite;
+}
+.upgrade-halo::after {
+  inset: 14px;
+  border-color: rgba(236, 72, 153, .45);
+  border-style: dotted;
+  animation: upgradeSpin 6s linear infinite reverse;
+}
+@keyframes upgradeSpin { to { transform: rotate(360deg); } }
+/* 光线 4 条 */
+.upgrade-rays {
+  position: absolute; top: 92px; left: 50%; width: 0; height: 0;
+  pointer-events: none; z-index: 0;
+}
+.upgrade-rays::before, .upgrade-rays::after {
+  content: ''; position: absolute;
+  width: 4px; height: 380px;
+  background: linear-gradient(180deg, transparent 0%, rgba(251, 191, 36, .65) 50%, transparent 100%);
+  transform-origin: center center;
+  filter: blur(1.5px);
+}
+.upgrade-rays::before { transform: translate(-50%, -50%) rotate(0deg);   animation: rayPulse 1.4s ease-in-out infinite; }
+.upgrade-rays::after  { transform: translate(-50%, -50%) rotate(90deg);  animation: rayPulse 1.4s ease-in-out infinite .35s; }
+@keyframes rayPulse {
+  0%, 100% { opacity: .3; }
+  50%      { opacity: 1; }
+}
+.upgrade-pet {
+  width: 180px; height: 140px; position: relative; z-index: 1;
+  margin-top: 10px;
+  filter: drop-shadow(0 8px 30px rgba(251, 191, 36, .55));
+  animation: petEnter 1.2s cubic-bezier(.34, 1.56, .64, 1) both,
+             petHover 2.2s ease-in-out 1.2s infinite;
+}
+.upgrade-pet .dragon-svg { width: 100%; height: 100%; }
+@keyframes petEnter {
+  0%   { transform: scale(0)   rotate(-180deg); opacity: 0; filter: brightness(2.5) drop-shadow(0 0 40px #FBBF24); }
+  60%  { transform: scale(1.2) rotate(20deg);   opacity: 1; filter: brightness(1.6) drop-shadow(0 0 30px #FBBF24); }
+  100% { transform: scale(1)   rotate(0deg);    opacity: 1; filter: drop-shadow(0 8px 30px rgba(251, 191, 36, .55)); }
+}
+@keyframes petHover {
+  0%, 100% { transform: translateY(0)    rotate(0); }
+  50%      { transform: translateY(-10px) rotate(-2deg); }
+}
+.upgrade-title {
+  font-size: 22px; font-weight: 900; color: #FBBF24; margin: 18px 0 4px;
+  text-align: center; letter-spacing: .5px; line-height: 1.2;
+  text-shadow: 0 0 16px rgba(251, 191, 36, .65), 0 2px 6px rgba(0, 0, 0, .4);
+  position: relative; z-index: 1;
+}
+.upgrade-title .emoji { display: inline-block; animation: bounceEmoji 1.2s ease-in-out infinite; }
+.upgrade-stages {
+  display: flex; align-items: center; gap: 8px; margin: 6px 0 6px;
+  font-size: 15px; color: var(--text-on-dark);
+  position: relative; z-index: 1;
+}
+.upgrade-stage-old { opacity: .55; text-decoration: line-through; }
+.upgrade-stage-new {
+  font-weight: 900; color: #FBBF24; font-size: 17px;
+  text-shadow: 0 0 10px rgba(251, 191, 36, .6);
+}
+.upgrade-arrow {
+  display: inline-block; color: #FBBF24; font-weight: 900;
+  animation: arrowGlow 1.2s ease-in-out infinite;
+}
+@keyframes arrowGlow {
+  0%, 100% { transform: scale(1);   opacity: 1; }
+  50%      { transform: scale(1.3); opacity: .6; }
+}
+.upgrade-desc {
+  font-size: 12.5px; color: var(--text-on-dark-2); margin: 0 0 14px;
+  text-align: center; line-height: 1.6; max-width: 320px;
+  position: relative; z-index: 1;
+}
+.upgrade-points {
+  font-size: 12px; color: var(--text-on-dark-2);
+  background: rgba(34, 24, 80, .6); border: 1px solid rgba(167, 139, 250, .3);
+  border-radius: 99px; padding: 4px 16px; margin: 0 0 16px;
+  position: relative; z-index: 1;
+}
+.upgrade-points b { color: #FBBF24; font-weight: 900; }
+.upgrade-btn {
+  background: linear-gradient(135deg, #F59E0B, #F43F5E);
+  color: #fff; border: none; padding: 11px 30px; border-radius: 99px;
+  font-size: 14px; font-weight: 800; cursor: pointer;
+  box-shadow: 0 8px 22px rgba(244, 63, 94, .4);
+  transition: transform .2s; letter-spacing: .5px;
+  position: relative; z-index: 1;
+}
+.upgrade-btn:hover { transform: translateY(-2px) scale(1.04); box-shadow: 0 12px 28px rgba(244, 63, 94, .5); }
+.upgrade-btn:active { transform: translateY(0); }
+/* 升级粒子（彩色光点向外扩散） */
+.upgrade-particle {
+  position: absolute; width: 8px; height: 8px; border-radius: 50%;
+  pointer-events: none; z-index: 0;
+  animation: particleFly 1.4s cubic-bezier(.22, .61, .36, 1) forwards;
+}
+@keyframes particleFly {
+  0%   { transform: translate(0, 0) scale(0);    opacity: 1; }
+  20%  { transform: translate(calc(var(--px) * .25), calc(var(--py) * .25)) scale(1); opacity: 1; }
+  100% { transform: translate(var(--px), var(--py)) scale(.4); opacity: 0; }
+}
+/* 屏幕中央放射闪光（升级瞬间的过曝效果） */
+.upgrade-flash {
+  position: fixed; inset: 0; z-index: 199; pointer-events: none;
+  background: radial-gradient(circle at center, rgba(255, 255, 255, .85) 0%, rgba(251, 191, 36, .5) 30%, transparent 60%);
+  animation: flashFade 1.1s ease-out forwards;
+}
+@keyframes flashFade {
+  0%   { opacity: 0; transform: scale(.3); }
+  20%  { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.6); }
+}
+
 @media (max-width: 720px) {
   .handbook-modal { max-height: 92vh; border-radius: 22px 22px 0 0; align-self: flex-end; }
   .handbook-hero { padding: 20px 18px 16px; gap: 12px; }
@@ -2589,6 +2800,13 @@ button:active::after, .primary:active::after, .ghost-btn:active::after, .header-
   .all-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
   .all-card-art { height: 70px; }
   .all-card-art .dragon-svg { height: 62px; }
+  .upgrade-stage { padding: 28px 22px 22px; border-radius: 22px; }
+  .upgrade-pet { width: 150px; height: 116px; }
+  .upgrade-halo { width: 200px; height: 200px; top: 80px; }
+  .upgrade-title { font-size: 19px; }
+  .upgrade-stages { font-size: 13px; }
+  .upgrade-stage-new { font-size: 15px; }
+  .upgrade-desc { font-size: 12px; }
 }
 
 /* ============================================================
