@@ -2769,6 +2769,316 @@ function startPracticeFrom(items) {
 $('#againBtn').onclick = () => startPractice(true);
 $('#backBanksBtn').onclick = () => { if (currentUser.role === 'student') switchView('student-banks'); };
 
+// ================= 📕 错题本 =================
+// 设计要点：
+// 1. 答错/偷看时自动入库（服务端 /api/result 已处理）；前端只负责展示 + 提示
+// 2. 错题页可筛选（未掌握/已掌握、答错/偷看、按题库）、批量清空、标记掌握
+// 3. "立即复习"：复用现有 practiceCard 跑一遍错题，连续 3 次答对自动标记为掌握
+let _wrongBook = [];         // 错题本全量数据（每次进页刷新）
+let _wrongBookLoaded = false;
+let _wbFilter = { status: 'active', reason: 'all', bankId: '' };
+
+function fmtDateShort(ts) {
+  if (!ts) return '';
+  const d = new Date(ts), now = new Date();
+  const t1 = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const t2 = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const days = Math.round((t2 - t1) / 86400000);
+  if (days === 0) {
+    return '今天 ' + d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+  }
+  if (days === 1) return '昨天';
+  if (days < 7) return days + ' 天前';
+  return (d.getMonth() + 1) + '月' + d.getDate() + '日';
+}
+
+// 答错/偷看时给一个飞入错题本的提示气泡（视觉反馈）
+function showWrongBookToast() {
+  const t = $('#wrongBookToast');
+  if (!t) return;
+  t.classList.remove('show');
+  // 强制重排让动画重跑
+  void t.offsetWidth;
+  t.hidden = false;
+  t.classList.add('show');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => {
+    t.classList.remove('show');
+    setTimeout(() => { t.hidden = true; }, 400);
+  }, 1400);
+  // 同步角标
+  refreshWrongBookBadge();
+}
+
+// 刷新顶部"错题本"按钮角标（未掌握数）
+async function refreshWrongBookBadge() {
+  const badge = $('#wrongBookBadge');
+  if (!badge || !currentUser || currentUser.role !== 'student') return;
+  try {
+    const d = await api('/api/wrong-book');
+    const n = d.active || 0;
+    if (n > 0) { badge.textContent = n > 99 ? '99+' : n; badge.hidden = false; }
+    else { badge.hidden = true; }
+  } catch (e) { /* 静默：角标失败不影响主流程 */ }
+}
+
+// 拉取 + 渲染错题列表
+async function loadWrongBook(forceRefresh) {
+  if (forceRefresh) _wrongBookLoaded = false;
+  if (!_wrongBookLoaded) {
+    try {
+      const d = await api('/api/wrong-book');
+      _wrongBook = d.items || [];
+      _wrongBookLoaded = true;
+    } catch (e) {
+      _wrongBook = [];
+      toast('错题本加载失败：' + (e.message || '网络错误'));
+    }
+  }
+  renderWrongBook();
+  refreshWrongBookBadge();
+}
+
+function renderWrongBook() {
+  // 顶部统计
+  const active = _wrongBook.filter(x => !x.resolved);
+  const wrong = active.filter(x => x.wrongCount > 0).length;
+  const peek = active.filter(x => x.peekCount > 0 && x.wrongCount === 0).length;
+  const both = active.filter(x => x.wrongCount > 0 && x.peekCount > 0).length;
+  const resolvedCount = _wrongBook.length - active.length;
+  $('#wbStatWrong').textContent = wrong + both;
+  $('#wbStatWrongTimes').textContent = '（累计 ' + active.reduce((s, x) => s + (x.wrongCount || 0), 0) + ' 次）';
+  $('#wbStatPeek').textContent = peek;
+  $('#wbStatPeekTimes').textContent = '（累计 ' + active.reduce((s, x) => s + (x.peekCount || 0), 0) + ' 次）';
+  $('#wbStatResolved').textContent = resolvedCount;
+
+  // 题库下拉
+  const bankSel = $('#wbBankFilter');
+  const bankMap = new Map();
+  _wrongBook.forEach(x => { if (x.bankId) bankMap.set(x.bankId, x.bankTitle || '已删除题库'); });
+  const curSel = _wbFilter.bankId;
+  bankSel.innerHTML = '<option value="">全部题库 (' + bankMap.size + ')</option>' +
+    Array.from(bankMap.entries())
+      .sort((a, b) => naturalCompare(a[1] || '', b[1] || ''))
+      .map(([id, title]) => '<option value="' + id + '">' + esc(title) + '</option>').join('');
+  bankSel.value = curSel && bankMap.has(curSel) ? curSel : '';
+
+  // 筛选
+  let list = _wrongBook.slice();
+  if (_wbFilter.status === 'active') list = list.filter(x => !x.resolved);
+  else if (_wbFilter.status === 'resolved') list = list.filter(x => x.resolved);
+  if (_wbFilter.reason === 'wrong') list = list.filter(x => (x.wrongCount || 0) > 0 && (x.peekCount || 0) === 0);
+  else if (_wbFilter.reason === 'peek') list = list.filter(x => (x.peekCount || 0) > 0 && (x.wrongCount || 0) === 0);
+  if (_wbFilter.bankId) list = list.filter(x => x.bankId === _wbFilter.bankId);
+
+  const listEl = $('#wbList');
+  const emptyEl = $('#wbEmpty');
+  if (!list.length) {
+    listEl.innerHTML = '';
+    emptyEl.hidden = false;
+    return;
+  }
+  emptyEl.hidden = true;
+
+  // 排序：未掌握优先 + 最近错优先
+  list.sort((a, b) => {
+    if (!!a.resolved !== !!b.resolved) return a.resolved ? 1 : -1;
+    return (b.lastWrongAt || 0) - (a.lastWrongAt || 0);
+  });
+
+  listEl.innerHTML = list.map(x => renderWrongBookCard(x)).join('');
+}
+
+function renderWrongBookCard(x) {
+  const hasW = (x.wrongCount || 0) > 0;
+  const hasP = (x.peekCount || 0) > 0;
+  let reasonCls = 'reason-wrong';
+  let reasonTag = '';
+  if (hasW && hasP) { reasonCls = 'reason-both'; reasonTag = '<span class="wb-tag tag-wrong">❌ ×' + x.wrongCount + '</span><span class="wb-tag tag-peek">👀 ×' + x.peekCount + '</span>'; }
+  else if (hasP) { reasonCls = 'reason-peek'; reasonTag = '<span class="wb-tag tag-peek">👀 ×' + x.peekCount + '</span>'; }
+  else if (hasW) { reasonTag = '<span class="wb-tag tag-wrong">❌ ×' + x.wrongCount + '</span>'; }
+
+  const emoji = x.resolved ? '🌟' : (hasP && hasW ? '🤔' : (hasP ? '👀' : '❌'));
+  const dateTxt = fmtDateShort(x.lastWrongAt);
+  const bankTxt = x.bankTitle
+    ? '<span class="wb-tag tag-bank">📚 ' + esc(x.bankTitle) + '</span>' : '';
+  const typeTag = '<span class="wb-tag tag-type">' + typeLabel(x.type) + '</span>';
+  const resolvedTag = x.resolved
+    ? '<span class="wb-tag tag-resolved">✓ 已掌握</span>' : '';
+  const reviewTag = x.reviewCount > 0
+    ? '<span class="wb-tag">已复习 ' + x.reviewCount + ' 次</span>' : '';
+
+  const actions = x.resolved
+    ? '<button class="ghost-btn" data-act="unresolve" data-id="' + x.id + '">↩ 重新加入</button>' +
+      '<button class="ghost-btn danger-btn" data-act="delete" data-id="' + x.id + '">永久删除</button>'
+    : '<button class="primary small-btn" data-act="practice-one" data-id="' + x.id + '">⚡ 单题练</button>' +
+      '<button class="ghost-btn" data-act="resolve" data-id="' + x.id + '">✓ 标记掌握</button>' +
+      '<button class="ghost-btn" data-act="delete" data-id="' + x.id + '">删除</button>';
+
+  return '<div class="wb-card ' + reasonCls + (x.resolved ? ' resolved' : '') + '">' +
+    '<div class="wb-card-emoji">' + emoji + '</div>' +
+    '<div class="wb-card-body">' +
+      '<div class="wb-card-en">' + esc(x.english) +
+        (x.pos ? '<span class="pos">' + esc(x.pos) + '</span>' : '') +
+      '</div>' +
+      (x.chinese ? '<div class="wb-card-zh">' + esc(x.chinese) + '</div>' : '') +
+      '<div class="wb-card-meta">' + reasonTag + typeTag + bankTxt + resolvedTag + reviewTag +
+        '<span class="wb-tag">🕒 ' + dateTxt + '</span>' +
+      '</div>' +
+    '</div>' +
+    '<div class="wb-card-actions">' + actions + '</div>' +
+  '</div>';
+}
+
+// 单题练：从错题本拿出一个题直接进练习模式（用 progress_id 拉详情）
+async function practiceOneFromWrongBook(wrongId) {
+  const w = _wrongBook.find(x => x.id === wrongId);
+  if (!w) return;
+  if (!w.progressId) { toast('该题已被题库删除，无法练习'); return; }
+  // 用 progress_id 当作题目 id，调 /api/bank/:id 拿到该题所在题库的全部条目 → 取出这一条
+  try {
+    const d = await api('/api/bank/' + w.bankId);
+    const entry = (d.entries || []).find(e => e.id === w.progressId);
+    if (!entry) { toast('该题已从题库移除'); return; }
+    switchView('practice');
+    const item = Object.assign({}, entry, { missCount: 0 });
+    startPracticeFrom([item]);
+  } catch (e) {
+    toast('加载失败：' + (e.message || '网络错误'));
+  }
+}
+
+// 错题本"立即复习"：从错题本拉取全部未掌握题，组成练习队列
+async function startWrongBookPractice() {
+  try {
+    const d = await api('/api/wrong-book/practice?limit=60');
+    const items = (d.items || []).map(it => ({
+      id: it.id,
+      english: it.english,
+      chinese: it.chinese,
+      pos: it.pos,
+      type: it.type,
+      wrongId: it.wrongId
+    }));
+    if (!items.length) {
+      toast('错题本是空的，没法复习～');
+      return;
+    }
+    currentBank = { id: '', title: '错题本复习' };
+    // 顶部副标题和 ready 模式显示
+    switchView('practice');
+    $('#practiceReady').hidden = true;
+    $('#practiceSummary').hidden = true;
+    // 复用通用 startPracticeFrom 走练习流程；
+    // checkAnswer / viewAnswer 会识别 session.wrongBook 模式，额外打 /api/wrong-book/:id/review
+    session = {
+      queue: items.map(it => Object.assign({}, it, { missCount: 0, strike: 0 })),
+      score: 0, correct: 0, wrong: 0, total: items.length,
+      locked: false, flashTimer: null,
+      wrongBook: true
+    };
+    checking = false;
+    $('#practiceCard').hidden = false;
+    // 清理 PK 徽章
+    const stage = $('#practiceCard .pk-race-stage-wrap');
+    if (stage) stage.remove();
+    enterImmersive();
+    showNext();
+  } catch (e) {
+    toast('加载失败：' + (e.message || '网络错误'));
+  }
+}
+
+// 错题本事件委托
+function bindWrongBookEvents() {
+  // 状态 / 原因 切换
+  const statusChips = $$('#wbStatusChips .wb-chip');
+  statusChips.forEach(b => b.onclick = () => {
+    statusChips.forEach(x => x.classList.remove('sel'));
+    b.classList.add('sel');
+    _wbFilter.status = b.dataset.status;
+    renderWrongBook();
+  });
+  const reasonChips = $$('#wbReasonChips .wb-chip');
+  reasonChips.forEach(b => b.onclick = () => {
+    reasonChips.forEach(x => x.classList.remove('sel'));
+    b.classList.add('sel');
+    _wbFilter.reason = b.dataset.reason;
+    renderWrongBook();
+  });
+  const bankSel = $('#wbBankFilter');
+  if (bankSel) bankSel.onchange = () => { _wbFilter.bankId = bankSel.value; renderWrongBook(); };
+
+  // 列表按钮
+  const listEl = $('#wbList');
+  if (listEl) listEl.onclick = async e => {
+    const btn = e.target.closest('button[data-act]');
+    if (!btn) return;
+    const id = btn.dataset.id;
+    const act = btn.dataset.act;
+    if (act === 'delete') {
+      if (!confirm('确定要永久删除这条错题吗？此操作不可恢复。')) return;
+      try {
+        await api('/api/wrong-book/' + id, { method: 'DELETE' });
+        _wrongBook = _wrongBook.filter(x => x.id !== id);
+        renderWrongBook();
+        refreshWrongBookBadge();
+        toast('已删除');
+      } catch (err) { toast('删除失败：' + (err.message || '网络错误')); }
+    } else if (act === 'resolve') {
+      try {
+        const r = await api('/api/wrong-book/' + id + '/resolve', { method: 'POST' });
+        const idx = _wrongBook.findIndex(x => x.id === id);
+        if (idx >= 0) _wrongBook[idx] = Object.assign(_wrongBook[idx], r.item);
+        renderWrongBook();
+        refreshWrongBookBadge();
+        toast('已标记为掌握');
+      } catch (err) { toast('操作失败：' + (err.message || '网络错误')); }
+    } else if (act === 'unresolve') {
+      try {
+        const r = await api('/api/wrong-book/' + id + '/unresolve', { method: 'POST' });
+        const idx = _wrongBook.findIndex(x => x.id === id);
+        if (idx >= 0) _wrongBook[idx] = Object.assign(_wrongBook[idx], r.item);
+        renderWrongBook();
+        refreshWrongBookBadge();
+        toast('已重新加入未掌握');
+      } catch (err) { toast('操作失败：' + (err.message || '网络错误')); }
+    } else if (act === 'practice-one') {
+      practiceOneFromWrongBook(id);
+    }
+  };
+
+  // 主操作
+  const practiceBtn = $('#wbPracticeBtn');
+  if (practiceBtn) practiceBtn.onclick = startWrongBookPractice;
+  const clearBtn = $('#wbClearResolvedBtn');
+  if (clearBtn) clearBtn.onclick = async () => {
+    const resolvedIds = _wrongBook.filter(x => x.resolved).map(x => x.id);
+    if (!resolvedIds.length) { toast('没有已掌握的题可以清空'); return; }
+    if (!confirm('确定要清空全部 ' + resolvedIds.length + ' 条已掌握的错题吗？')) return;
+    try {
+      await api('/api/wrong-book/batch-delete', { method: 'POST', body: { ids: resolvedIds } });
+      _wrongBook = _wrongBook.filter(x => !x.resolved);
+      renderWrongBook();
+      refreshWrongBookBadge();
+      toast('已清空 ' + resolvedIds.length + ' 条');
+    } catch (e) { toast('清空失败：' + (e.message || '网络错误')); }
+  };
+}
+bindWrongBookEvents();
+
+// 把错题本接入 switchView
+const _origSwitchView = switchView;
+switchView = function (name) {
+  _origSwitchView(name);
+  if (name === 'wrong-book') {
+    loadWrongBook();
+  } else {
+    // 离开错题本页时也刷一次角标，确保其它页操作后能立即反映
+    refreshWrongBookBadge();
+  }
+};
+
 // Fisher-Yates 洗牌：把数组乱序。默写内容应该乱序出现，避免学生按顺序记忆。
 function shuffle(arr) {
   const a = arr.slice();
@@ -2944,8 +3254,10 @@ async function checkAnswer() {
   if (!input.trim()) return;
   const correct = isCorrect(input, it.english);
   checking = true;
+  let resultResp = null;
   try {
-    const r = await api('/api/result', { method: 'POST', body: { id: it.id, correct } });
+    resultResp = await api('/api/result', { method: 'POST', body: { id: it.id, correct } });
+    var r = resultResp;
     // 服务端按题型给分：单词 1、词组 2、句子 3
     var _gain = (r && typeof r.gain === 'number') ? r.gain : (correct ? pointsByType(it.type) : 0);
     if (r && typeof r.points === 'number') totalPoints = r.points;
@@ -2957,6 +3269,17 @@ async function checkAnswer() {
     // 正确：清掉锁定状态
     session.locked = false;
     if (session.flashTimer) { clearTimeout(session.flashTimer); session.flashTimer = null; }
+    // 错题本复习模式：累计 review 次数；连续 3 次答对自动 mark resolved
+    if (session.wrongBook && it.wrongId) {
+      api('/api/wrong-book/' + it.wrongId + '/review', { method: 'POST', body: { correct: true, strike: 3 - (it.strike || 0) } }).then(rr => {
+        if (rr && rr.item && rr.item.resolved) {
+          toast('✓ 已从错题本掌握！');
+          // 同步本地缓存
+          const idx = _wrongBook.findIndex(x => x.id === it.wrongId);
+          if (idx >= 0) { _wrongBook[idx] = Object.assign(_wrongBook[idx], rr.item); renderWrongBook(); }
+        }
+      }).catch(() => {});
+    }
     if (it.strike > 0) {
       // 曾答错过的词：需连续答对（strike）次才能得分
       it.strike--;
@@ -3000,6 +3323,19 @@ async function checkAnswer() {
     playWrong();
     shakeCard();
     flashAnswer();
+    // 错题本同步：服务端 /api/result 答错时已自动写入 wrong_book，前端同步本地缓存 + 飞入提示
+    if (resultResp && resultResp.wrongEntry) {
+      const we = resultResp.wrongEntry;
+      const idx = _wrongBook.findIndex(x => x.progressId === it.id);
+      if (idx >= 0) _wrongBook[idx] = Object.assign(_wrongBook[idx], we);
+      else _wrongBook.unshift(we);
+      renderWrongBook();
+    }
+    showWrongBookToast();
+    // 错题本复习模式：记录一次"复习答错"
+    if (session.wrongBook && it.wrongId) {
+      api('/api/wrong-book/' + it.wrongId + '/review', { method: 'POST', body: { correct: false, strike: 0 } }).catch(() => {});
+    }
     checking = false;
   }
 }
@@ -3034,7 +3370,7 @@ function clearFlash() {
 }
 
 // 快捷键 Alt+V：直接查看答案，视为答错一次
-function viewAnswer() {
+async function viewAnswer() {
   if (checking || !session || !session.current) return;
   if (session.flashTimer) return;
   const it = session.current;
@@ -3046,6 +3382,22 @@ function viewAnswer() {
   playWrong();
   shakeCard();
   flashAnswer();
+  // 偷看答案：记入错题本（不计入正常得分；服务端会写入 wrong_book 并回填 bankTitle）
+  try {
+    const r = await api('/api/result', { method: 'POST', body: { id: it.id, correct: false, reason: 'peek' } });
+    if (r && r.wrongEntry) {
+      // 同步本地缓存
+      const idx = _wrongBook.findIndex(x => x.progressId === it.id);
+      if (idx >= 0) _wrongBook[idx] = Object.assign(_wrongBook[idx], r.wrongEntry);
+      else _wrongBook.unshift(r.wrongEntry);
+      renderWrongBook();
+    }
+  } catch (e) { /* 静默：错题入库失败不影响主流程 */ }
+  // 错题本复习模式：额外打 review 接口（标记一次"偷看"复习）
+  if (session.wrongBook && it.wrongId) {
+    api('/api/wrong-book/' + it.wrongId + '/review', { method: 'POST', body: { correct: false, strike: 0 } }).catch(() => {});
+  }
+  showWrongBookToast();
   checking = false;
 }
 

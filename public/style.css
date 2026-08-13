@@ -2590,3 +2590,297 @@ button:active::after, .primary:active::after, .ghost-btn:active::after, .header-
   .all-card-art { height: 70px; }
   .all-card-art .dragon-svg { height: 62px; }
 }
+
+/* ============================================================
+   📕 错题本（Wrong Book）
+   风格：暖色卡片（红/粉/橙）+ 深底，整体活泼但有"需要复习"的紧迫感
+   ============================================================ */
+
+/* 顶部导航错题本角标 */
+.nav-badge {
+  display: inline-block;
+  min-width: 18px; height: 18px; padding: 0 6px;
+  margin-left: 4px;
+  border-radius: 99px;
+  background: var(--gradient-warm);
+  color: #fff;
+  font-size: 11px; font-weight: 800;
+  line-height: 18px; text-align: center;
+  box-shadow: 0 2px 8px rgba(244, 63, 94, .45);
+  vertical-align: 1px;
+  animation: badgePop .4s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes badgePop {
+  0% { transform: scale(0); }
+  100% { transform: scale(1); }
+}
+
+/* Hero 顶部数据 + 主操作 */
+.wb-hero {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 18px;
+  align-items: center;
+  background: linear-gradient(135deg, rgba(244, 63, 94, .18) 0%, rgba(251, 113, 133, .08) 50%, rgba(139, 92, 246, .12) 100%);
+  border: 1px solid rgba(244, 63, 94, .25);
+  border-radius: var(--radius-lg);
+  padding: 18px 20px;
+  margin-bottom: 16px;
+  position: relative;
+  overflow: hidden;
+}
+.wb-hero::before {
+  content: ""; position: absolute; inset: 0;
+  background: radial-gradient(circle at 0% 0%, rgba(244, 63, 94, .25) 0, transparent 50%),
+              radial-gradient(circle at 100% 100%, rgba(139, 92, 246, .2) 0, transparent 50%);
+  pointer-events: none;
+}
+.wb-hero-stats {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+  position: relative; z-index: 1;
+}
+.wb-stat {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px;
+  background: rgba(15, 5, 36, .55);
+  border: 1px solid rgba(255, 255, 255, .08);
+  border-radius: var(--radius);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+.wb-stat-emoji { font-size: 24px; flex: 0 0 auto; }
+.wb-stat-meta { min-width: 0; }
+.wb-stat-meta b {
+  display: block; font-size: 22px; font-weight: 900; line-height: 1.1;
+  background: var(--gradient-warm);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: transparent;
+}
+.wb-stat-meta span {
+  display: block; font-size: 12px; color: var(--text-on-dark-2); margin-top: 2px;
+}
+.wb-stat-meta small { color: var(--text-on-dark-3); font-size: 11px; }
+.wb-stat-resolved .wb-stat-meta b {
+  background: var(--gradient-mint);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: transparent;
+}
+.wb-hero-actions {
+  display: flex; flex-direction: column; gap: 8px;
+  position: relative; z-index: 1;
+  flex: 0 0 auto;
+}
+.wb-hero-actions button { min-width: 140px; }
+
+/* 筛选区 */
+.wb-filters {
+  display: flex; flex-wrap: wrap; gap: 16px 24px;
+  padding: 14px 16px;
+  background: rgba(21, 10, 46, .55);
+  border: 1px solid rgba(167, 139, 250, .15);
+  border-radius: var(--radius);
+  margin-bottom: 16px;
+}
+.wb-filter-group {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+}
+.wb-filter-label {
+  font-size: 12px; color: var(--text-on-dark-2); font-weight: 700;
+  white-space: nowrap;
+}
+.wb-chips { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+.wb-chip {
+  padding: 6px 12px;
+  background: rgba(255, 255, 255, .04);
+  border: 1px solid rgba(255, 255, 255, .12);
+  color: var(--text-on-dark-2);
+  border-radius: 99px;
+  font-size: 12px; font-weight: 700;
+  cursor: pointer;
+  transition: all .18s ease;
+}
+.wb-chip:hover { background: rgba(255, 255, 255, .1); color: var(--text-on-dark); }
+.wb-chip.sel {
+  background: var(--gradient-warm);
+  color: #fff;
+  border-color: transparent;
+  box-shadow: 0 4px 14px rgba(244, 63, 94, .35);
+}
+.wb-chip[data-reason="peek"].sel {
+  background: linear-gradient(135deg, #F59E0B 0%, #FB923C 100%);
+  box-shadow: 0 4px 14px rgba(245, 158, 11, .35);
+}
+.wb-chip[data-reason="wrong"].sel {
+  background: linear-gradient(135deg, #F43F5E 0%, #EC4899 100%);
+  box-shadow: 0 4px 14px rgba(244, 63, 94, .35);
+}
+
+/* 错题卡片列表 */
+.wb-list { display: flex; flex-direction: column; gap: 12px; }
+.wb-card {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 14px;
+  align-items: center;
+  padding: 14px 16px;
+  background: linear-gradient(135deg, rgba(15, 5, 36, .85) 0%, rgba(31, 14, 69, .85) 100%);
+  border: 1px solid rgba(244, 63, 94, .2);
+  border-left: 4px solid var(--danger);
+  border-radius: var(--radius);
+  transition: all .2s ease;
+  position: relative;
+  overflow: hidden;
+}
+.wb-card:hover {
+  border-color: rgba(244, 63, 94, .4);
+  transform: translateX(2px);
+  box-shadow: var(--shadow-md);
+}
+.wb-card.reason-peek { border-left-color: #F59E0B; }
+.wb-card.reason-peek:hover { border-color: rgba(245, 158, 11, .4); }
+.wb-card.reason-both { border-left-color: #A855F7; }
+.wb-card.reason-both:hover { border-color: rgba(168, 85, 247, .4); }
+.wb-card.resolved {
+  border-left-color: var(--success);
+  opacity: .7;
+}
+.wb-card.resolved .wb-card-en { text-decoration: line-through; opacity: .6; }
+
+.wb-card-emoji {
+  width: 52px; height: 52px;
+  border-radius: 14px;
+  background: var(--gradient-warm);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 26px;
+  box-shadow: 0 4px 14px rgba(244, 63, 94, .35);
+  flex: 0 0 auto;
+}
+.wb-card.reason-peek .wb-card-emoji {
+  background: linear-gradient(135deg, #F59E0B 0%, #FB923C 100%);
+  box-shadow: 0 4px 14px rgba(245, 158, 11, .35);
+}
+.wb-card.reason-both .wb-card-emoji {
+  background: linear-gradient(135deg, #A855F7 0%, #EC4899 100%);
+  box-shadow: 0 4px 14px rgba(168, 85, 247, .35);
+}
+.wb-card.resolved .wb-card-emoji {
+  background: var(--gradient-mint);
+  box-shadow: 0 4px 14px rgba(34, 211, 238, .35);
+}
+
+.wb-card-body { min-width: 0; }
+.wb-card-en {
+  font-size: 18px; font-weight: 800; color: var(--text-on-dark);
+  margin-bottom: 2px; line-height: 1.3;
+  word-break: break-word;
+}
+.wb-card-en .pos {
+  display: inline-block; margin-left: 6px;
+  font-size: 11px; color: var(--text-on-dark-3); font-weight: 600;
+}
+.wb-card-zh {
+  font-size: 13px; color: var(--text-on-dark-2); line-height: 1.4;
+  margin-bottom: 6px;
+  word-break: break-word;
+}
+.wb-card-meta {
+  display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+  font-size: 11px; color: var(--text-on-dark-3);
+}
+.wb-tag {
+  display: inline-flex; align-items: center; gap: 3px;
+  padding: 2px 8px; border-radius: 99px;
+  background: rgba(255, 255, 255, .06);
+  border: 1px solid rgba(255, 255, 255, .1);
+  font-size: 11px; color: var(--text-on-dark-2);
+  white-space: nowrap;
+}
+.wb-tag.tag-wrong { background: rgba(244, 63, 94, .15); color: #FCA5A5; border-color: rgba(244, 63, 94, .35); }
+.wb-tag.tag-peek { background: rgba(245, 158, 11, .15); color: #FCD34D; border-color: rgba(245, 158, 11, .35); }
+.wb-tag.tag-type { background: rgba(34, 211, 238, .12); color: #67E8F9; border-color: rgba(34, 211, 238, .3); }
+.wb-tag.tag-bank { background: rgba(168, 85, 247, .15); color: #C4B5FD; border-color: rgba(168, 85, 247, .35); }
+.wb-tag.tag-resolved { background: rgba(34, 211, 238, .15); color: #67E8F9; border-color: rgba(34, 211, 238, .35); }
+
+.wb-card-actions {
+  display: flex; flex-direction: column; gap: 6px;
+  align-items: stretch;
+  flex: 0 0 auto;
+}
+.wb-card-actions button {
+  min-width: 92px;
+  padding: 6px 12px;
+  font-size: 12px;
+  border-radius: var(--radius-xs);
+  white-space: nowrap;
+}
+
+/* 空状态 */
+.wb-empty {
+  text-align: center;
+  padding: 60px 20px;
+  background: rgba(21, 10, 46, .4);
+  border: 1px dashed rgba(167, 139, 250, .3);
+  border-radius: var(--radius-lg);
+  margin-top: 8px;
+}
+.wb-empty-emoji { font-size: 64px; margin-bottom: 12px; animation: petFloat 3s ease-in-out infinite; }
+.wb-empty h3 { font-size: 20px; margin-bottom: 8px; color: var(--text-on-dark); }
+.wb-empty p { color: var(--text-on-dark-2); margin-bottom: 20px; font-size: 14px; }
+
+/* 答错时飞向错题本的提示气泡 */
+.wrong-book-toast {
+  position: fixed;
+  left: 50%; top: 100px;
+  transform: translateX(-50%);
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 18px;
+  background: rgba(15, 5, 36, .92);
+  border: 1px solid rgba(244, 63, 94, .5);
+  border-radius: 99px;
+  color: #fff;
+  font-size: 14px; font-weight: 700;
+  box-shadow: 0 8px 30px rgba(244, 63, 94, .45);
+  z-index: 1000;
+  pointer-events: none;
+  opacity: 0;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.wrong-book-toast.show {
+  animation: wbToastFly 1.4s cubic-bezier(.34, 1.56, .64, 1) forwards;
+}
+.wrong-book-toast .wb-toast-icon { font-size: 18px; }
+@keyframes wbToastFly {
+  0%   { opacity: 0; transform: translate(-50%, 10px) scale(.6); }
+  20%  { opacity: 1; transform: translate(-50%, 0) scale(1.05); }
+  35%  { transform: translate(-50%, 0) scale(1); }
+  75%  { opacity: 1; transform: translate(-50%, 0) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -16px) scale(.95); }
+}
+
+/* 错题本复习模式（复用 practiceCard） */
+.practiceCardMode { display: flex; flex-direction: column; }
+
+/* 移动端适配 */
+@media (max-width: 720px) {
+  .wb-hero { grid-template-columns: 1fr; }
+  .wb-hero-actions { flex-direction: row; }
+  .wb-hero-actions button { min-width: 0; flex: 1; }
+  .wb-hero-stats { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .wb-stat { padding: 8px; }
+  .wb-stat-emoji { font-size: 20px; }
+  .wb-stat-meta b { font-size: 18px; }
+  .wb-card {
+    grid-template-columns: auto 1fr;
+    grid-template-rows: auto auto;
+    gap: 10px;
+  }
+  .wb-card-emoji { width: 44px; height: 44px; font-size: 22px; }
+  .wb-card-en { font-size: 16px; }
+  .wb-card-actions {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+  .wb-card-actions button { flex: 1; min-width: 0; }
+}

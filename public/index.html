@@ -97,6 +97,7 @@
   <nav id="studentNav" hidden>
     <button data-view="student-banks" class="active">我的题库</button>
     <button data-view="practice">今日练习</button>
+    <button data-view="wrong-book">错题本<span class="nav-badge" id="wrongBookBadge" hidden>0</span></button>
     <button data-view="pk">自由 PK</button>
     <button data-view="stats">学习统计</button>
   </nav>
@@ -422,6 +423,80 @@
       </div>
     </section>
 
+    <!-- 学生 · 错题本 -->
+    <section id="view-wrong-book" class="view">
+      <h2>📕 错题本</h2>
+      <p class="sub">这里记录了你所有答错 / 偷看答案的题。反复刷几遍，错的题都能变成肌肉记忆 💪</p>
+
+      <!-- 顶部数据 + 操作 -->
+      <div class="wb-hero">
+        <div class="wb-hero-stats">
+          <div class="wb-stat wb-stat-wrong">
+            <span class="wb-stat-emoji">❌</span>
+            <div class="wb-stat-meta">
+              <b id="wbStatWrong">0</b>
+              <span>答错 <small id="wbStatWrongTimes">（累计 0 次）</small></span>
+            </div>
+          </div>
+          <div class="wb-stat wb-stat-peek">
+            <span class="wb-stat-emoji">👀</span>
+            <div class="wb-stat-meta">
+              <b id="wbStatPeek">0</b>
+              <span>偷看 <small id="wbStatPeekTimes">（累计 0 次）</small></span>
+            </div>
+          </div>
+          <div class="wb-stat wb-stat-resolved">
+            <span class="wb-stat-emoji">🌟</span>
+            <div class="wb-stat-meta">
+              <b id="wbStatResolved">0</b>
+              <span>已掌握</span>
+            </div>
+          </div>
+        </div>
+        <div class="wb-hero-actions">
+          <button id="wbPracticeBtn" class="primary big">⚡ 立即复习</button>
+          <button id="wbClearResolvedBtn" class="ghost-btn">清空已掌握</button>
+        </div>
+      </div>
+
+      <!-- 筛选 + 排序 -->
+      <div class="wb-filters">
+        <div class="wb-filter-group">
+          <span class="wb-filter-label">📂 状态</span>
+          <div class="wb-chips" id="wbStatusChips">
+            <button class="wb-chip sel" type="button" data-status="active">未掌握</button>
+            <button class="wb-chip" type="button" data-status="resolved">已掌握</button>
+            <button class="wb-chip" type="button" data-status="all">全部</button>
+          </div>
+        </div>
+        <div class="wb-filter-group">
+          <span class="wb-filter-label">🏷 原因</span>
+          <div class="wb-chips" id="wbReasonChips">
+            <button class="wb-chip sel" type="button" data-reason="all">全部</button>
+            <button class="wb-chip" type="button" data-reason="wrong">答错</button>
+            <button class="wb-chip" type="button" data-reason="peek">偷看</button>
+          </div>
+        </div>
+        <div class="wb-filter-group">
+          <span class="wb-filter-label">📚 题库</span>
+          <select id="wbBankFilter" class="select-inline">
+            <option value="">全部题库</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- 错题列表 -->
+      <div id="wbList" class="wb-list"></div>
+
+      <!-- 空状态 -->
+      <div id="wbEmpty" class="wb-empty" hidden>
+        <div class="wb-empty-emoji">🌱</div>
+        <h3>错题本是空的</h3>
+        <p>认真默写就不会有错题啦～ 继续加油！</p>
+        <button class="primary" onclick="switchView('practice')">开始今日练习</button>
+      </div>
+    </section>
+
     <!-- 学生 · 学习统计 -->
     <section id="view-stats" class="view">
       <h2>学习统计</h2>
@@ -541,9 +616,16 @@
     <button data-view="rollcall"><span class="tab-ico">🎲</span><span class="tab-label">点名</span></button>
     <button data-view="student-banks"><span class="tab-ico">📚</span><span class="tab-label">题库</span></button>
     <button data-view="practice"><span class="tab-ico">✍️</span><span class="tab-label">练习</span></button>
+    <button data-view="wrong-book"><span class="tab-ico">📕</span><span class="tab-label">错题本</span></button>
     <button data-view="pk"><span class="tab-ico">⚔️</span><span class="tab-label">PK</span></button>
     <button data-view="stats"><span class="tab-ico">📊</span><span class="tab-label">统计</span></button>
   </nav>
+</div>
+
+<!-- 错题本飞入提示：答错时飞向错题本按钮 -->
+<div id="wrongBookToast" class="wrong-book-toast" hidden>
+  <span class="wb-toast-icon">📕</span>
+  <span class="wb-toast-text">已加入错题本</span>
 </div>
 
 <!-- 角落宠物：练习时安静地趴在右下角 -->

@@ -137,6 +137,133 @@ async function dbDeleteBank(id) { await q('DELETE FROM banks WHERE id = $1', [id
 q("ALTER TABLE banks ADD COLUMN IF NOT EXISTS grade TEXT").catch(e => console.warn('banks.grade 兜底迁移失败：', e.message));
 q("CREATE INDEX IF NOT EXISTS idx_banks_grade ON banks (class_id, grade)").catch(e => {});
 
+// 启动时确保 wrong_book 表存在（migrate-wrongbook.js 之外，server 也兜底）
+q(`CREATE TABLE IF NOT EXISTS wrong_book (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  progress_id TEXT NOT NULL,
+  english TEXT NOT NULL,
+  chinese TEXT,
+  pos TEXT,
+  type TEXT,
+  bank_id TEXT,
+  bank_title TEXT,
+  reason TEXT NOT NULL DEFAULT 'wrong',
+  wrong_count INTEGER NOT NULL DEFAULT 1,
+  peek_count INTEGER NOT NULL DEFAULT 0,
+  first_wrong_at BIGINT NOT NULL,
+  last_wrong_at BIGINT NOT NULL,
+  review_count INTEGER NOT NULL DEFAULT 0,
+  last_review_at BIGINT,
+  resolved BOOLEAN NOT NULL DEFAULT false,
+  resolved_at BIGINT
+)`).catch(e => console.warn('wrong_book 兜底建表失败：', e.message));
+q(`CREATE INDEX IF NOT EXISTS idx_wrong_book_user ON wrong_book (user_id, resolved, last_wrong_at DESC)`).catch(e => {});
+q(`CREATE INDEX IF NOT EXISTS idx_wrong_book_progress ON wrong_book (user_id, progress_id)`).catch(e => {});
+
+// ---- 错题本 ----
+function publicWrongEntry(w) {
+  return {
+    id: w.id,
+    progressId: w.progress_id,
+    english: w.english,
+    chinese: w.chinese || '',
+    pos: w.pos || '',
+    type: w.type || 'word',
+    bankId: w.bank_id || null,
+    bankTitle: w.bank_title || '',
+    reason: w.reason || 'wrong',
+    wrongCount: w.wrong_count || 0,
+    peekCount: w.peek_count || 0,
+    firstWrongAt: w.first_wrong_at,
+    lastWrongAt: w.last_wrong_at,
+    reviewCount: w.review_count || 0,
+    lastReviewAt: w.last_review_at || null,
+    resolved: !!w.resolved,
+    resolvedAt: w.resolved_at || null
+  };
+}
+async function dbListWrongBook(uid) {
+  return (await q(
+    'SELECT * FROM wrong_book WHERE user_id = $1 ORDER BY resolved ASC, last_wrong_at DESC',
+    [uid]
+  )).rows;
+}
+async function dbFindWrongByProgress(uid, progressId) {
+  return (await q(
+    'SELECT * FROM wrong_book WHERE user_id = $1 AND progress_id = $2 LIMIT 1',
+    [uid, progressId]
+  )).rows[0] || null;
+}
+async function dbInsertWrong(w) {
+  await q(
+    `INSERT INTO wrong_book (id, user_id, progress_id, english, chinese, pos, type, bank_id, bank_title,
+       reason, wrong_count, peek_count, first_wrong_at, last_wrong_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
+    [w.id, w.userId, w.progressId, w.english, w.chinese || '', w.pos || '', w.type || 'word',
+     w.bankId || null, w.bankTitle || '', w.reason || 'wrong',
+     w.wrongCount || 1, w.peekCount || 0, w.firstWrongAt, w.lastWrongAt]
+  );
+}
+async function dbUpdateWrong(w) {
+  await q(
+    `UPDATE wrong_book SET english=$2, chinese=$3, pos=$4, type=$5, bank_id=$6, bank_title=$7,
+       reason=$8, wrong_count=$9, peek_count=$10, last_wrong_at=$11,
+       review_count=$12, last_review_at=$13, resolved=$14, resolved_at=$15
+     WHERE id=$1`,
+    [w.id, w.english, w.chinese || '', w.pos || '', w.type || 'word',
+     w.bankId || null, w.bankTitle || '', w.reason || 'wrong',
+     w.wrongCount || 0, w.peekCount || 0, w.lastWrongAt || w.firstWrongAt,
+     w.reviewCount || 0, w.lastReviewAt || null, !!w.resolved, w.resolvedAt || null]
+  );
+}
+async function dbDeleteWrong(id, uid) {
+  await q('DELETE FROM wrong_book WHERE id = $1 AND user_id = $2', [id, uid]);
+}
+// 把错题入库（已存在则累加计数；reason 标记为最新一次的原因）
+async function recordWrong(uid, progressEntry, reason) {
+  if (!progressEntry) return null;
+  const now = Date.now();
+  const existing = await dbFindWrongByProgress(uid, progressEntry.id);
+  if (existing) {
+    const w = publicWrongEntry(existing);
+    if (existing.resolved) {
+      // 已掌握的题再次出错：自动恢复未掌握状态
+      w.resolved = false;
+      w.resolvedAt = null;
+    }
+    w.lastWrongAt = now;
+    if (reason === 'peek') w.peekCount = (w.peekCount || 0) + 1;
+    else w.wrongCount = (w.wrongCount || 0) + 1;
+    w.reason = reason || w.reason;
+    // 同步条目快照（题库可能改名 / 改词性）
+    w.english = progressEntry.english || w.english;
+    w.chinese = progressEntry.chinese || w.chinese;
+    w.pos = progressEntry.pos || w.pos;
+    w.type = progressEntry.type || w.type;
+    await dbUpdateWrong(w);
+    return w;
+  }
+  const w = {
+    id: genId('w'),
+    userId: uid,
+    progressId: progressEntry.id,
+    english: progressEntry.english,
+    chinese: progressEntry.chinese || '',
+    pos: progressEntry.pos || '',
+    type: progressEntry.type || 'word',
+    bankId: progressEntry.bankId || null,
+    bankTitle: '', // 稍后由调用方填充（题库标题在 progress 不存）
+    reason: reason || 'wrong',
+    wrongCount: reason === 'peek' ? 0 : 1,
+    peekCount: reason === 'peek' ? 1 : 0,
+    firstWrongAt: now,
+    lastWrongAt: now
+  };
+  await dbInsertWrong(w);
+  return w;
+}
+
 // 年级分类：6/7/8/9 年级，null/空 表示未分类（兼容旧题库）
 const GRADES = ['6', '7', '8', '9'];
 function normalizeGrade(g) {
@@ -987,7 +1114,7 @@ function pointsByType(type) {
 }
 
 app.post('/api/result', requireAuth, async (req, res) => {
-  const { id, correct } = req.body || {};
+  const { id, correct, reason } = req.body || {};
   const p = await loadProgress(req.user.id);
   const e = p.entries.find(x => x.id === id);
   if (!e) return res.status(404).json({ error: '题目不存在' });
@@ -1018,7 +1145,17 @@ app.post('/api/result', requireAuth, async (req, res) => {
     h.wrong++;
   }
   await saveProgress(req.user.id, p);
-  res.json({ ok: true, item: publicProgEntry(e), points: p.stats.points, today: h, gain: e.lastGain });
+  // 答错或偷看答案：写入错题本
+  let wrongEntry = null;
+  if (!correct) {
+    wrongEntry = await recordWrong(req.user.id, e, reason === 'peek' ? 'peek' : 'wrong');
+    // 顺手把题库标题填上（progress 不存，只有 banks 表里有）
+    if (wrongEntry && wrongEntry.bankId && !wrongEntry.bankTitle) {
+      const bk = (await q('SELECT title FROM banks WHERE id = $1', [wrongEntry.bankId])).rows[0];
+      if (bk) { wrongEntry.bankTitle = bk.title; await dbUpdateWrong(wrongEntry); }
+    }
+  }
+  res.json({ ok: true, item: publicProgEntry(e), points: p.stats.points, today: h, gain: e.lastGain, wrongEntry: wrongEntry ? publicWrongEntry(wrongEntry) : null });
 });
 
 app.post('/api/sessionEnd', requireAuth, async (req, res) => {
@@ -1027,6 +1164,140 @@ app.post('/api/sessionEnd', requireAuth, async (req, res) => {
   p.stats.lastAt = Date.now();
   await saveProgress(req.user.id, p);
   res.json({ ok: true });
+});
+
+// ================= 错题本 =================
+// 列表 + 统计
+app.get('/api/wrong-book', requireAuth, requireRole('student'), async (req, res) => {
+  const rows = await dbListWrongBook(req.user.id);
+  // 回填题库标题（早期入库或题库改名时）
+  const bankIds = Array.from(new Set(rows.map(r => r.bank_id).filter(Boolean)));
+  const bankMap = {};
+  if (bankIds.length) {
+    const bks = (await q('SELECT id, title FROM banks WHERE id = ANY($1::text[])', [bankIds])).rows;
+    bks.forEach(b => { bankMap[b.id] = b.title; });
+    // 异步把缺失的 title 写回库（不阻塞返回）
+    for (const r of rows) {
+      if (r.bank_id && !r.bank_title && bankMap[r.bank_id]) {
+        r.bank_title = bankMap[r.bank_id];
+        dbUpdateWrong(publicWrongEntry(r)).catch(() => {});
+      }
+    }
+  }
+  const list = rows.map(r => {
+    const e = publicWrongEntry(r);
+    if (!e.bankTitle && e.bankId && bankMap[e.bankId]) e.bankTitle = bankMap[e.bankId];
+    return e;
+  });
+  const active = list.filter(x => !x.resolved);
+  res.json({
+    total: list.length,
+    active: active.length,
+    resolved: list.length - active.length,
+    wrongCount: active.reduce((s, x) => s + (x.wrongCount || 0), 0),
+    peekCount: active.reduce((s, x) => s + (x.peekCount || 0), 0),
+    items: list
+  });
+});
+
+// 单条删除
+app.delete('/api/wrong-book/:id', requireAuth, requireRole('student'), async (req, res) => {
+  await dbDeleteWrong(req.params.id, req.user.id);
+  res.json({ ok: true });
+});
+
+// 批量删除
+app.post('/api/wrong-book/batch-delete', requireAuth, requireRole('student'), async (req, res) => {
+  const ids = Array.isArray((req.body || {}).ids) ? (req.body || {}).ids : [];
+  if (!ids.length) return res.json({ ok: true, removed: 0 });
+  let removed = 0;
+  for (const id of ids) {
+    try { await dbDeleteWrong(String(id), req.user.id); removed++; } catch (e) {}
+  }
+  res.json({ ok: true, removed });
+});
+
+// 标记为已掌握
+app.post('/api/wrong-book/:id/resolve', requireAuth, requireRole('student'), async (req, res) => {
+  const row = (await q('SELECT * FROM wrong_book WHERE id = $1 AND user_id = $2', [req.params.id, req.user.id])).rows[0];
+  if (!row) return res.status(404).json({ error: '错题不存在' });
+  const w = publicWrongEntry(row);
+  w.resolved = true;
+  w.resolvedAt = Date.now();
+  await dbUpdateWrong(w);
+  res.json({ ok: true, item: w });
+});
+
+// 标记为未掌握（已掌握 → 重新加入）
+app.post('/api/wrong-book/:id/unresolve', requireAuth, requireRole('student'), async (req, res) => {
+  const row = (await q('SELECT * FROM wrong_book WHERE id = $1 AND user_id = $2', [req.params.id, req.user.id])).rows[0];
+  if (!row) return res.status(404).json({ error: '错题不存在' });
+  const w = publicWrongEntry(row);
+  w.resolved = false;
+  w.resolvedAt = null;
+  await dbUpdateWrong(w);
+  res.json({ ok: true, item: w });
+});
+
+// 复习模式：拿未掌握的题去练（按题库 + 取前 N 条）
+app.get('/api/wrong-book/practice', requireAuth, requireRole('student'), async (req, res) => {
+  const rawLimit = parseInt(req.query.limit, 10);
+  const limit = Math.min(100, Math.max(5, isNaN(rawLimit) ? 30 : rawLimit));
+  const rows = (await q(
+    'SELECT * FROM wrong_book WHERE user_id = $1 AND resolved = false ORDER BY last_wrong_at DESC LIMIT $2',
+    [req.user.id, limit]
+  )).rows;
+  if (!rows.length) return res.json({ items: [], count: 0, bankIds: [] });
+  // 找出这些错题对应在哪些题库（用 progress_id 反查 progress.entries）
+  const progIds = rows.map(r => r.progress_id);
+  const p = await loadProgress(req.user.id);
+  const byId = new Map(p.entries.map(e => [e.id, e]));
+  const bankIds = Array.from(new Set(rows.map(r => (byId.get(r.progress_id) || {}).bankId).filter(Boolean)));
+  let bankMap = {};
+  if (bankIds.length) {
+    const bks = (await q('SELECT id, title FROM banks WHERE id = ANY($1::text[])', [bankIds])).rows;
+    bks.forEach(b => { bankMap[b.id] = b.title; });
+  }
+  const items = rows.map(r => {
+    const prog = byId.get(r.progress_id) || {};
+    return {
+      id: prog.id || '',
+      wrongId: r.id,
+      english: prog.english || r.english,
+      chinese: prog.chinese || r.chinese,
+      pos: prog.pos || r.pos || '',
+      type: prog.type || r.type || 'word',
+      bankId: (byId.get(r.progress_id) || {}).bankId || r.bank_id || null,
+      bankTitle: bankMap[(byId.get(r.progress_id) || {}).bankId] || r.bank_title || '',
+      reason: r.reason,
+      wrongCount: r.wrong_count,
+      peekCount: r.peek_count
+    };
+  }).filter(x => x.id);
+  res.json({ items, count: items.length, bankIds: Object.keys(bankMap) });
+});
+
+// 错题复习时答对：累计 review_count，连续 3 次答对自动 mark resolved
+app.post('/api/wrong-book/:id/review', requireAuth, requireRole('student'), async (req, res) => {
+  const { correct, strike } = req.body || {};
+  const row = (await q('SELECT * FROM wrong_book WHERE id = $1 AND user_id = $2', [req.params.id, req.user.id])).rows[0];
+  if (!row) return res.status(404).json({ error: '错题不存在' });
+  const w = publicWrongEntry(row);
+  w.reviewCount = (w.reviewCount || 0) + 1;
+  w.lastReviewAt = Date.now();
+  if (correct) {
+    // 连续 3 次答对 → 自动标记为已掌握
+    if (Number(strike) >= 3) {
+      w.resolved = true;
+      w.resolvedAt = Date.now();
+    }
+  } else {
+    // 答错：把 lastWrongAt 更新到最近 + 累加错次数
+    w.lastWrongAt = Date.now();
+    w.wrongCount = (w.wrongCount || 0) + 1;
+  }
+  await dbUpdateWrong(w);
+  res.json({ ok: true, item: w });
 });
 
 app.get('/api/stats', requireAuth, async (req, res) => {
