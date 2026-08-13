@@ -2813,7 +2813,6 @@ function showNext() {
   $('#remaining').textContent = session.queue.length;
   _warned = false;
   checking = false;
-  const _bs = document.getElementById('bsBtn'); if (_bs) _bs.disabled = false;
 }
 
 // 根据答案生成字母格子：每个字母一个下划线格，词组/句子的空格显示为间隔
@@ -3013,7 +3012,6 @@ function flashAnswer() {
   $('#answerInput').value = '';
   renderLetterCells('');
   $('#answerInput').disabled = true;
-  const _bs = document.getElementById('bsBtn'); if (_bs) _bs.disabled = true;
   $('#feedback').innerHTML = '<div class="fb-flash">正确答案：<b>' + esc(it.english) + '</b></div>';
   speak(it.english);
   $('#practiceCard').classList.remove('bad');
@@ -3029,7 +3027,6 @@ function clearFlash() {
   renderLetterCells('');
   $('#answerInput').disabled = false;
   $('#answerInput').focus();
-  const _bs = document.getElementById('bsBtn'); if (_bs) _bs.disabled = false;
   $('#practiceCard').classList.remove('flash');
   $('#feedback').innerHTML = '';
   _warned = false;
@@ -3379,7 +3376,15 @@ document.addEventListener('keydown', e => {
 let _lastInputLen = 0;
 let _bsFlag = false;
 $('#answerInput').addEventListener('keydown', e => {
-  if (e.key === 'Backspace') _bsFlag = true;
+  if (e.key !== 'Backspace') return;
+  // 限定：退格键只能从最后一个字母往前退，忽略光标在中间的情况（不支持指定位置删除）。
+  e.preventDefault();
+  const el = e.target;
+  if (el.value.length === 0) return;
+  _bsFlag = true;
+  el.value = el.value.slice(0, -1);
+  el.setSelectionRange(el.value.length, el.value.length);
+  el.dispatchEvent(new Event('input'));
 });
 $('#answerInput').addEventListener('input', () => {
   const el = $('#answerInput');
@@ -3400,11 +3405,6 @@ $('#answerInput').addEventListener('input', () => {
 $('#answerInput').addEventListener('focus', () => {
   _lastInputLen = $('#answerInput').value.length;
   _bsFlag = false;
-  document.body.classList.remove('caret-paused'); // 恢复光标闪烁
-});
-$('#answerInput').addEventListener('blur', () => {
-  // 输入框失焦时（如用户切走/切回桌面），光标停在当前位置不再闪烁，避免误导
-  document.body.classList.add('caret-paused');
 });
 // 字母格子滚动时同步渐变指示
 const _letterBox = document.getElementById('letterBox');
@@ -3415,32 +3415,6 @@ window.addEventListener('orientationchange', () => setTimeout(updateLetterBoxOve
 $('#speakBtn').onclick = () => { if (session && session.current) speak(session.current.english); };
 $('#letterBox').onclick = () => $('#answerInput').focus();
 $('#endBtn').onclick = endSession;
-
-// 退格按钮：复用 input 处理逻辑，但显式标记为退格以跳过 autoSpace
-// 解决软键盘退格键不可靠（IME/手势/全选误删等）导致的体验问题
-function backspaceOnce() {
-  const el = $('#answerInput');
-  if (!el || el.disabled) return;
-  if (!el.value) return;
-  _bsFlag = true; // 复用 input 监听里的退格识别
-  el.value = el.value.slice(0, -1);
-  // 手动派发 input 事件，让 renderLetterCells / autoCheckTyping / 滚动 等逻辑统一执行
-  el.dispatchEvent(new Event('input', { bubbles: true }));
-  // 按钮本身给一个闪烁反馈
-  const btn = document.getElementById('bsBtn');
-  if (btn) {
-    btn.classList.remove('bs-flash');
-    void btn.offsetWidth; // 强制重排，重启动画
-    btn.classList.add('bs-flash');
-  }
-}
-const _bsBtn = document.getElementById('bsBtn');
-if (_bsBtn) {
-  // 防止点击按钮后输入框失焦（pointerdown 阻止默认即可保持光标位置）
-  _bsBtn.addEventListener('mousedown', e => e.preventDefault());
-  _bsBtn.addEventListener('touchstart', e => e.preventDefault(), { passive: false });
-  _bsBtn.addEventListener('click', backspaceOnce);
-}
 
 async function endSession() {
   if (!session) return;
