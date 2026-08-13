@@ -831,14 +831,13 @@ button.del:hover { background: #FADBDB; transform: scale(1.05); }
   background: linear-gradient(90deg, #FB7185, #F43F5E);
   box-shadow: 0 0 10px rgba(244, 63, 94, .7);
 }
-/* 当前应填入的位置：浅色高亮 + 抬升（不画边框/光环） */
+/* 当前应填入的位置：仅下划线加亮，移除圆形高亮背景/抬升/动画 */
 .l-cell.current {
   border: none;
-  /* 仅用渐变高亮标出下一格，不再加描边/光晕 */
-  background: linear-gradient(180deg, rgba(167, 139, 250, .22), rgba(236, 72, 153, .22));
+  background: transparent;
   border-radius: 10px;
-  transform: translateY(-2px);
-  animation: cellPulse 1.2s ease-in-out infinite;
+  transform: none;
+  animation: none;
 }
 .l-cell.current::after {
   background: linear-gradient(90deg, #A78BFA, #F0ABFC);
