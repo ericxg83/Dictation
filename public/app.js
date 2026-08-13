@@ -19,6 +19,8 @@ const DRAGON_KINDS = [
     summary: '恐龙界的暴君，陆地最强肉食者。最著名的明星恐龙，博物馆里的常客。',
     traits: ['🔪 香蕉大的牙齿，能咬碎骨头', '👀 视野和嗅觉极强', '🦵 后腿强壮，前肢只剩两根指头', '⚡ 短距离冲刺可达 30 km/h'],
     personality: '霸道、护短、有点小傲娇。一旦认定你是它的伙伴，就会用生命护你周全。',
+    legendTitle: '血色獠牙',   legendIcon: '🦷',  legendAccent: '#DC2626',
+    legendDesc: '传说中，白垩纪的最后一任「暴君之王」。当它觉醒时，牙尖会渗出岩浆般的红光，吼声能让整片森林的小恐龙俯首称臣。',
     story: '在白垩纪晚期的北美大陆，霸王龙是站在食物链顶端的绝对王者。它最显眼的特征是那颗能塞下一整个小孩的巨颅，加上 60 颗像香蕉一样的锯齿牙，连骨头都能咬碎。卡通里常被画成大嗓门暴脾气，但真正的化石证据显示，它的咬合力是现存所有动物中最强的——比今天的鳄鱼还猛三倍。领养它，你会拥有一位霸气侧漏的贴身保镖。'
   },
   {
@@ -27,6 +29,8 @@ const DRAGON_KINDS = [
     summary: '背上长着一排骨板的小憨憨，脑子只有核桃大，却是草食恐龙里的硬骨头。',
     traits: ['🛡️ 背上一排骨板可调节体温', '⚔️ 尾巴有 4 根尖刺，是它的看家武器', '🧠 脑子只有核桃大小', '🌿 每天要吃几百公斤植物'],
     personality: '温和、慢热、忠诚。不会主动挑事，但被惹急了会用尾刺给你一个深刻教训。',
+    legendTitle: '不破之盾',   legendIcon: '🛡️',  legendAccent: '#10B981',
+    legendDesc: '据传它是远古神匠锻造的「行走堡垒」。骨板上会浮现远古符文，任何靠近它的人都会被温和的金光安抚。',
     story: '剑龙最大的特点就是那两排骨板——科学家曾以为是用来防御的，但最新研究表明它更像"太阳能板"，能帮它调节体温。它的尾巴末端有 4 根锋利的尖刺，科学家管它叫"thagomizer"（剑尾），据说连同时代的异特龙都怕这招。脑子小归小，护崽时它可一点都不含糊，是恐龙界最佛系也最稳的"老大哥"。'
   },
   {
@@ -35,6 +39,8 @@ const DRAGON_KINDS = [
     summary: '三只角的装甲坦克，霸王龙唯一不敢轻易招惹的对手。',
     traits: ['🦏 鼻上 1 角 + 眉上 2 角共 3 角', '🛡️ 巨大的颈盾可挡霸王龙的咬合', '🐘 体重超过 9 吨', '💪 冲撞力相当于一辆小卡车'],
     personality: '沉稳、坚定、爱护同伴。群体中通常担任护卫角色，关键时刻敢于冲锋。',
+    legendTitle: '破阵三戟',   legendIcon: '🔱',  legendAccent: '#1D4ED8',
+    legendDesc: '远古战场的「破阵者」。三叉戟角能劈开一切阻碍，颈盾上的纹路被传为上古战场的阵图。',
     story: '三角龙是恐龙界的"重装骑士"。它的头骨能长到 2.5 米，是所有陆地动物中最长的头骨之一。颈盾和三个角的组合，让它正面硬刚霸王龙都不落下风——科学家曾在一只三角龙的颈盾上发现过霸王龙的咬痕，而且那个伤口已经愈合了，说明三角龙成功挡住了攻击并活了下来。它和霸王龙是真正的"老对手"。'
   },
   {
@@ -43,6 +49,8 @@ const DRAGON_KINDS = [
     summary: '会飞的爬行动物，翼展超过 6 米，是恐龙时代的"滑翔机飞行员"。',
     traits: ['🪽 翼展可达 6–7 米，相当于一辆公交车', '🦴 中空的骨头让它能轻盈地飞起来', '🍴 长喙无牙，专门捕鱼', '🌬️ 主要靠滑翔节省体力'],
     personality: '自由、洒脱、向往远方。不喜欢被束缚，最爱带你看尽天边的云。',
+    legendTitle: '风暴之翼',   legendIcon: '🌪️',  legendAccent: '#7C3AED',
+    legendDesc: '天空的「飓风之主」。它振翅时卷起雷云，三道光痕划过天际，是风暴来临前的预兆。',
     story: '翼龙虽然名字里带"龙"，但其实不是恐龙，而是会飞的爬行动物。它的后冠长达 1 米，科学家推测是用来"秀恩爱"和保持飞行稳定的。翼龙类是第一种演化出真正飞行能力的脊椎动物，比鸟类早了 7000 万年。它是天空的先驱者，领养它，你将拥有一位最酷的"飞行教练"。'
   },
   {
@@ -51,6 +59,8 @@ const DRAGON_KINDS = [
     summary: '长脖子长腿的温柔巨人，抬起头可以够到四层楼高的树叶。',
     traits: ['🦒 脖子长达 9 米，可以够到四层楼', '🌲 一天能吃掉 200 公斤植物', '❤️ 心脏重达 400 磅才能把血泵到头顶', '👣 每一步都像小地震'],
     personality: '温柔、耐心、包容。会默默听你说话，用鼻息给你最温柔的回应。',
+    legendTitle: '星空长颈',   legendIcon: '🌌',  legendAccent: '#0EA5E9',
+    legendDesc: '据传它能触碰到宇宙的边缘。长颈末端有一颗「星核」，抬头时整片夜空会随之转动。',
     story: '雷龙学名"腕龙"，意思是"长臂蜥蜴"，因为它的前肢比后肢还长，所以整个身体是斜着向上抬的。它的脖子长达 9 米，但科学家发现它并不是把脖子高高抬起去吃树叶，而是像起重机一样缓慢水平移动。它的心跳很慢，每分钟只有 8 次左右，是恐龙界的"佛系代表"。'
   },
   {
@@ -59,6 +69,8 @@ const DRAGON_KINDS = [
     summary: '背上长着"蝙蝠翼"大帆的水陆两栖龙，比霸王龙还长，捕鱼高手。',
     traits: ['🚤 身体长达 15 米，比霸王龙还长', '⛵ 背帆高 2 米，可能用于展示或调温', '🐟 主要吃鱼，爪子适合抓鱼', '🏊 半水生，会游泳潜水'],
     personality: '神秘、独来独往、深藏不露。平时看着高冷，但关键时刻非常靠谱。',
+    legendTitle: '炎背之帆',   legendIcon: '🔥',  legendAccent: '#F97316',
+    legendDesc: '尼罗河畔的「炎阳之灵」。它的背帆能点燃整条河水，落日的余晖与它鳞片上的火焰交相辉映。',
     story: '棘龙是 2020 年科学家发现的新证据，证实它是一种会游泳的恐龙！它的背帆形状像蝙蝠的翅膀，长达 2 米，科学家推测可能是用来吸引异性或在水中保持稳定。它的嘴巴像鳄鱼一样又长又扁，牙齿是圆锥形的，专门用来叉鱼。比起陆地霸王龙，棘龙更像是一位"水上猎人"，领地是北非的河流。'
   },
   {
@@ -67,6 +79,8 @@ const DRAGON_KINDS = [
     summary: '披着骨甲的"活坦克"，尾巴的骨锤能一击打碎霸王龙的腿。',
     traits: ['🛡️ 全身覆盖骨质鳞甲，连眼皮都是骨头的', '🔨 尾巴末端有巨大的骨锤', '🦷 牙齿很小，但消化系统超强', '🐢 趴下后连霸王龙都咬不动'],
     personality: '稳重、可靠、护短。一旦它认定你，你就是它要用生命守护的人。',
+    legendTitle: '碎岳之锤',   legendIcon: '🔨',  legendAccent: '#A16207',
+    legendDesc: '据传它能单锤击碎山脉，是大地的守门人。尾锤上刻着古老的山纹，传说可撼动地脉。',
     story: '甲龙是恐龙时代的"防弹车"。它的背部、侧面、头顶甚至眼皮都覆盖着坚硬的骨板，连颈椎和肋骨都长着额外的骨刺，让它趴下后几乎无法被攻击。尾巴末端的骨锤有 50 公斤重，挥动时像一根大型棒球棍——科学家估计它的骨锤可以轻松击碎霸王龙的腿骨。甲龙不主动惹事，但谁也别想欺负它的伙伴。'
   },
   {
@@ -75,6 +89,8 @@ const DRAGON_KINDS = [
     summary: '西方传说中最经典的龙，喷火、长翅膀、守着金山银山。',
     traits: ['🔥 喷火是中世纪欧洲龙的标配', '💰 传说中守着大堆金币和珠宝', '🪽 蝙蝠一样的巨翼能遮天蔽日', '👑 拥有高度智慧，会说话'],
     personality: '高傲、强大、重承诺。说要守护的东西，至死方休。',
+    legendTitle: '黄金君主',   legendIcon: '👑',  legendAccent: '#D97706',
+    legendDesc: '中世纪最富有的「黄金之主」。喷火即是它的王冠，鳞片下流淌着岩浆般的王权之血。',
     story: '欧洲龙源自北欧和英格兰的民间传说，是西方龙文化的鼻祖。最著名的故事包括《霍比特人》中史矛革、《指环王》和各种屠龙传说。它们住在山洞里，守护着成堆的金币，能喷火，能说话，被认为比人类还聪明。欧洲龙是中世纪"骑士与恶龙"故事中的灵魂角色，代表着力量、宝藏和对未知的恐惧。'
   },
   {
@@ -83,6 +99,8 @@ const DRAGON_KINDS = [
     summary: '中华文明的图腾，呼风唤雨、腾云驾雾，是吉祥与权力的象征。',
     traits: ['☁️ 腾云驾雾、呼风唤雨', '🐟 蛇身、鹿角、鹰爪、鱼鳞集九种动物于一身', '🪙 掌管江河湖海与天气', '🍃 象征吉祥、力量和皇权'],
     personality: '威严、护佑、心怀天下。喜欢被仰望，但私下其实很护短。',
+    legendTitle: '御天神龙',   legendIcon: '☁️',  legendAccent: '#FBBF24',
+    legendDesc: '九天之上最古老的「御天神明」。它能召唤四海龙王，腾云时万道金光同时洒落大地。',
     story: '东方龙是中华民族的图腾，地位远高于西方龙——它不是被屠的对象，而是被敬仰的神明。相传黄帝乘龙升天，古代帝王自称"真龙天子"。东方龙集合了九种动物的特征：驼头、鹿角、兔眼、蛇颈、蜃腹、鲤鳞、鹰爪、虎掌、牛耳，象征着"集万物之长"。在十二生肖中，它是唯一虚构的。领养一只东方龙，就是给自己请来了一位"守护神"。'
   },
   {
@@ -91,18 +109,24 @@ const DRAGON_KINDS = [
     summary: '从极北之地走来的冰蓝色精灵，能呼出冻气，性格冷静沉着。',
     traits: ['❄️ 呼出的气息能瞬间结冰', '🧊 翅膀如冰晶般半透明', '👁️ 冰蓝色的瞳孔能透视一切', '💎 鳞片坚硬如钢'],
     personality: '冷静、理性、内心温柔。表面看是"高冷男神/女神"，熟了之后超暖。',
+    legendTitle: '永冬之心',   legendIcon: '❄️',  legendAccent: '#38BDF8',
+    legendDesc: '北境最古老的「永冻之魂」。它呼出的冻气能冻结时间，每一片鳞片都刻着千年冰晶的纹路。',
     story: '冰龙是极北冰原传说中才有的神秘生物。它们住在永冻的冰山之巅，能呼出零下 200 度的冻气，所到之处都会飘下雪花。冰龙是少数能"冷静思考"的龙族——它们不会被愤怒冲昏头脑，每一次攻击都精确无误。在北欧神话和《冰与火之歌》中都有它们的身影。领养一只冰龙，你会拥有一位"夏日解暑神器"，因为它走到哪儿都自带冷气。'
   }
 ];
 
-// 积分 → 进化阶段（细化）：蛋(0) → 幼龙(10) → 少年龙(30) → 成年龙(60) → 传说龙(100)
-// 单词 +1、词组 +2、句子 +3  →  达到 100 分约 = 100 个单词 / 50 个词组 / 34 个句子
+// 积分 → 进化阶段（5 档，对应每种龙的专属形象）
+// 单词 +1、词组 +2、句子 +3  →  当前进度下：
+//   50 分 ≈ 50 单词 / 25 词组 / 17 句子
+//   200 分 ≈ 200 单词 / 100 词组 / 67 句子
+//   500 分 ≈ 500 单词 / 250 词组 / 167 句子
+//  1500 分 ≈ 1500 单词 / 750 词组 / 500 句子（约 1-2 个月的坚持）
 const DRAGON_STAGES = [
-  { min: 0,   name: '龙蛋',     emoji: '🥚', tip: '默写攒积分，让它破壳而出吧～',         desc: '一颗安静等待被点亮的龙蛋。温度会随你的积分慢慢升高。' },
-  { min: 10,  name: '幼龙',     emoji: '🐣', tip: '破壳啦！小小的、超可爱～',              desc: '刚刚破壳的小家伙，好奇地打量世界。会跟着你默写的样子摇头摆尾。' },
-  { min: 30,  name: '少年龙',   emoji: '🐉', tip: '长出鳞片 / 翅膀 / 犄角，更威风了！',  desc: '已经能看出品种特征（尖刺 / 骨板 / 双翼 / 长角…），开始陪你做更难的词组。' },
-  { min: 60,  name: '成年龙',   emoji: '🐲', tip: '完全体！已解锁专属喷火 / 喷冰 / 飞扑', desc: '龙龙进入完全体，可以解锁特殊技能：霸王龙的血色獠牙、甲龙的骨锤、翼龙的俯冲…' },
-  { min: 100, name: '传说龙',   emoji: '✨', tip: '传说中的存在！和你一起站上 PK 王座！', desc: '从普通龙蜕变为传说级，全身泛着金光。在 PK 模式里它的气场能压倒对手。' }
+  { min: 0,    name: '龙蛋',     emoji: '🥚', tip: '默写攒积分，让它破壳而出吧～',         desc: '一颗安静等待被点亮的龙蛋。温度会随你的积分慢慢升高。' },
+  { min: 50,   name: '幼龙',     emoji: '🐣', tip: '破壳啦！小小的、超可爱～',              desc: '刚刚破壳的小家伙，好奇地打量世界。会跟着你默写的样子摇头摆尾。' },
+  { min: 200,  name: '少年龙',   emoji: '🐉', tip: '长出鳞片 / 翅膀 / 犄角，更威风了！',  desc: '已经能看出品种特征（尖刺 / 骨板 / 双翼 / 长角…），开始陪你做更难的词组。' },
+  { min: 500,  name: '成年龙',   emoji: '🐲', tip: '完全体！已解锁专属喷火 / 喷冰 / 飞扑', desc: '龙龙进入完全体，可以解锁特殊技能：霸王龙的血色獠牙、甲龙的骨锤、翼龙的俯冲…' },
+  { min: 1500, name: '传说龙',   emoji: '✨', tip: '传说中的存在！和你一起站上 PK 王座！', desc: '从普通龙蜕变为传说级，全身泛着金光。每种龙都有独属的传说称号。' }
 ];
 const DRAGON_MAX_STAGE = DRAGON_STAGES.length - 1;
 
@@ -216,10 +240,75 @@ function eggArt(d) {
 }
 
 // 主调度：按 d.id 派发到独立画法
+// stage 0 = 蛋（eggArt）；stage 1/2/3 = 幼龙/少年/成年（对应 size 0.6/0.78/1.0 + 各自特征）
+// stage 4 = 传说龙（每个龙专属称号 + 王冠 + 招牌元素 + 金色光晕 + 浮动粒子）
 function dragonArt(d, stage) {
   if (stage <= 0) return eggArt(d);
   const fn = DRAGON_DRAWERS[d.id] || drawGeneric;
+  if (stage >= 4) return legendArt(d, fn);
   return fn(d, stage);
+}
+
+// 传说龙渲染：完全体 + 专属称号 + 金色王冠 + 招牌元素 + 浮动粒子
+// 招牌元素是 SVG fragment 数组，根据 dragon.id 选用，体现「每种龙的传说级都不同」
+function legendArt(d, baseDraw) {
+  const adultSvg = baseDraw(d, 3);
+  // 把 .dragon-svg 标记为 legendary（CSS 给金色 drop-shadow + 脉冲）
+  const adultSvgMarked = adultSvg.replace('class="dragon-svg"', 'class="dragon-svg legendary-svg"');
+  // 龙专属招牌元素（叠加在完全体之上） + 王冠 + 粒子
+  const accent = d.legendAccent || '#FBBF24';
+  const icon = d.legendIcon || '👑';
+  const title = d.legendTitle || '传说龙';
+  // 招牌元素：根据 dragon.trait 决定加在哪个位置
+  const motif = legendMotif(d, accent);
+  // 王冠：在头顶偏左（viewBox 内 y=8-26 区域）
+  const crown = '<g class="legendary-crown-group">' +
+    '<path d="M-14 6 L-10 -4 L-6 4 L-2 -8 L2 -8 L6 4 L10 -4 L14 6 Z" fill="#FBBF24" stroke="#92400E" stroke-width="1.2" stroke-linejoin="round"/>' +
+    '<circle cx="-2" cy="-4" r="2" fill="' + accent + '" stroke="#fff" stroke-width=".8"/>' +
+    '<circle cx="6"  cy="2"  r="1.4" fill="#10B981"/>' +
+    '<circle cx="-9" cy="2"  r="1.4" fill="#3B82F6"/>' +
+    '<text x="0" y="14" text-anchor="middle" font-size="11" class="legendary-icon">' + icon + '</text>' +
+    '</g>';
+  // 浮动粒子（围绕完全体）
+  const sparkles = legendSparkles(accent);
+  // 整体包一层 div（用于 CSS 定位王冠/粒子），但 SVG 本身已是完整元素
+  return '<div class="dragon-legendary" data-kind="' + d.id + '" data-accent="' + accent + '">' +
+    adultSvgMarked +
+    '<svg class="legend-overlay" viewBox="-16 -4 32 16" preserveAspectRatio="xMidYMin meet">' + crown + '</svg>' +
+    sparkles +
+    '<div class="legend-motif">' + motif + '</div>' +
+  '</div>';
+}
+
+// 招牌元素（按 d.id）：不同的龙在完全体之上添加不同的"传说级"专属装饰
+function legendMotif(d, accent) {
+  const id = d.id;
+  if (id === 'trex')   return '<span class="motif-treasure">👑 血色獠牙</span>';
+  if (id === 'stego')  return '<span class="motif-treasure">🛡️ 不破之盾</span>';
+  if (id === 'tricera')return '<span class="motif-treasure">🔱 破阵三戟</span>';
+  if (id === 'ptero')  return '<span class="motif-treasure">🌪️ 风暴之翼</span>';
+  if (id === 'brachio')return '<span class="motif-treasure">🌌 星空长颈</span>';
+  if (id === 'spino')  return '<span class="motif-treasure">🔥 炎背之帆</span>';
+  if (id === 'ankylo') return '<span class="motif-treasure">🔨 碎岳之锤</span>';
+  if (id === 'euro')   return '<span class="motif-treasure">👑 黄金君主</span>';
+  if (id === 'east')   return '<span class="motif-treasure">☁️ 御天神龙</span>';
+  if (id === 'ice')    return '<span class="motif-treasure">❄️ 永冬之心</span>';
+  return '<span class="motif-treasure">✨ 传说</span>';
+}
+
+// 6 颗浮动粒子（CSS 动画控制位置 + 闪烁）
+function legendSparkles(accent) {
+  const positions = [
+    { left: '8%',  top: '12%', delay: '0s',   size: 14 },
+    { left: '85%', top: '20%', delay: '.4s',  size: 12 },
+    { left: '20%', top: '78%', delay: '.8s',  size: 10 },
+    { left: '78%', top: '72%', delay: '1.2s', size: 14 },
+    { left: '50%', top: '6%',  delay: '.6s',  size: 12 },
+    { left: '50%', top: '90%', delay: '1.5s', size: 10 }
+  ];
+  return positions.map(p =>
+    '<span class="legend-sparkle" style="left:' + p.left + ';top:' + p.top + ';animation-delay:' + p.delay + ';font-size:' + p.size + 'px;color:' + accent + '">✦</span>'
+  ).join('');
 }
 
 function drawGeneric(d, stage) {
@@ -703,9 +792,13 @@ function renderPetPanel() {
   const d = myDragon();
   const pi = dragonInfo(totalPoints);
   $('#petEmoji').innerHTML = d ? dragonArt(d, pi.idx) : eggArt(null);
-  $('#petName').textContent = d ? (currentUser.pet.name || d.name) : '尚未领养';
-  $('#petDesc').textContent = d
-    ? d.name + ' · ' + pi.cur.name + (currentUser.pet.name ? '（' + currentUser.pet.name + '）' : '')
+  // 传说级时：宠物名字下方追加龙专属称号
+  const isLegend = d && pi.idx === 4;
+  const nameLine = d ? (currentUser.pet.name || d.name) : '尚未领养';
+  $('#petName').textContent = nameLine;
+  $('#petDesc').innerHTML = d
+    ? d.name + ' · ' + pi.cur.name + (currentUser.pet.name ? '（' + currentUser.pet.name + '）' : '') +
+      (isLegend ? ' · <b style="color:#FBBF24;text-shadow:0 0 6px rgba(251,191,36,.5)">' + (d.legendIcon || '✨') + ' ' + (d.legendTitle || '传说龙') + '</b>' : '')
     : '在「学习统计」里领养一只龙龙吧';
   $('#petBar').style.width = pi.pct + '%';
   $('#petProgress').textContent = pi.label;
@@ -721,6 +814,16 @@ function renderCornerPet() {
   wrap.classList.toggle('egg', idx === 0);
   $('#cornerPetEmoji').innerHTML = dragonArt(d, idx);
   $('#cornerPetName').textContent = currentUser.pet.name || d.name;
+  // 传说龙时：显示一个小小的"👑 传说"角标
+  const legendEl = $('#cornerPetLegend');
+  if (legendEl) {
+    if (idx === 4 && d.legendTitle) {
+      legendEl.hidden = false;
+      legendEl.textContent = (d.legendIcon || '✨') + ' ' + d.legendTitle;
+    } else {
+      legendEl.hidden = true;
+    }
+  }
   // 启动 idle 跳动（仅在非升级庆祝时）
   if (!wrap.classList.contains('celebrate') && !wrap.classList.contains('idle')) {
     wrap.classList.add('idle');
@@ -756,6 +859,7 @@ function showUpgradeModal(oldIdx, newIdx) {
   if (!d) return;
   // 蛋 → 幼龙时换新形象，其它阶段形象不变但展示更威风
   const isEggHatch = oldIdx === 0 && newIdx === 1;
+  const isLegendary = newIdx === 4;
   const oldStage = DRAGON_STAGES[oldIdx];
   const newStage = DRAGON_STAGES[newIdx];
   // 0. 升级瞬间先让输入框失焦，避免弹窗上敲键盘误输入
@@ -763,18 +867,25 @@ function showUpgradeModal(oldIdx, newIdx) {
   if (ai && document.activeElement === ai) ai.blur();
   // 1. 大图：永远展示新阶段（升级后的形态）
   $('#upgradePetArt').innerHTML = dragonArt(d, newIdx);
-  // 2. 文案
+  // 2. 文案：传说级时显示龙专属称号
   const titles = {
     '1': '龙龙破壳啦！',
     '2': '龙龙茁壮成长！',
     '3': '龙龙进入完全体！',
-    '4': '传说龙觉醒！'
+    '4': (d.legendTitle || '传说龙') + ' 觉醒！'
   };
-  $('#upgradeTitle').innerHTML = '<span class="emoji">' + newStage.emoji + '</span> ' +
-    (titles[String(newIdx)] || '龙龙进化啦！') + ' <span class="emoji">' + newStage.emoji + '</span>';
+  const stageEmoji = isLegendary ? (d.legendIcon || '✨') : newStage.emoji;
+  $('#upgradeTitle').innerHTML = '<span class="emoji">' + stageEmoji + '</span> ' +
+    (titles[String(newIdx)] || '龙龙进化啦！') + ' <span class="emoji">' + stageEmoji + '</span>';
   $('#upgradeStageOld').textContent = oldStage.name;
-  $('#upgradeStageNew').textContent = newStage.name + ' ' + newStage.emoji;
-  $('#upgradeDesc').textContent = newStage.desc;
+  $('#upgradeStageNew').textContent = newStage.name + (isLegendary ? ' · ' + (d.legendTitle || '') + ' ' + (d.legendIcon || '') : ' ' + newStage.emoji);
+  // 传说级时副标题突出龙专属描述
+  if (isLegendary) {
+    $('#upgradeDesc').innerHTML = '<b style="color:#FBBF24">' + d.name + '</b> 已觉醒为 <b style="color:#FCD34D">' + (d.legendTitle || '传说龙') + '</b>！' +
+      '<br><span style="opacity:.85">满 1500 分的坚持，让它从一只蛋走到了传说之巅。</span>';
+  } else {
+    $('#upgradeDesc').textContent = newStage.desc;
+  }
   $('#upgradePoints').textContent = totalPoints;
   // 3. 屏幕中央闪光
   const flash = document.createElement('div');
@@ -785,9 +896,9 @@ function showUpgradeModal(oldIdx, newIdx) {
   const modal = $('#upgradeModal');
   modal.hidden = false;
   // 5. 粒子：从屏幕中心向四周散开
-  setTimeout(() => spawnUpgradeParticles(), 80);
-  // 6. 礼花：蛋破壳 + 进化为传说龙时加个全屏礼花
-  if (isEggHatch || newIdx === DRAGON_MAX_STAGE) {
+  setTimeout(() => spawnUpgradeParticles(isLegendary ? (d.legendAccent || '#FBBF24') : null), 80);
+  // 6. 礼花：蛋破壳 + 传说龙觉醒时加个全屏礼花
+  if (isEggHatch || isLegendary) {
     setTimeout(fireworks, 200);
   }
   // 7. 触觉
@@ -806,20 +917,25 @@ function closeUpgradeModal() {
 }
 
 // 生成屏幕中心扩散的升级粒子
-function spawnUpgradeParticles() {
+// accentColor: 传说级时用龙的 legendAccent 色；其它阶段 null 时用多彩默认
+function spawnUpgradeParticles(accentColor) {
   const stage = document.querySelector('.upgrade-stage');
   if (!stage) return;
-  const colors = ['#FBBF24', '#F43F5E', '#A78BFA', '#22D3EE', '#10B981', '#FB923C', '#EC4899'];
+  const palette = accentColor
+    ? [accentColor, '#FBBF24', '#FFFFFF', accentColor, '#FBBF24', '#FFFFFF']
+    : ['#FBBF24', '#F43F5E', '#A78BFA', '#22D3EE', '#10B981', '#FB923C', '#EC4899'];
+  const colors = accentColor ? palette : palette;
   const cx = stage.offsetWidth / 2;
   const cy = 110; // 大致宠物位置
-  for (let i = 0; i < 36; i++) {
+  const count = accentColor ? 56 : 36;
+  for (let i = 0; i < count; i++) {
     const p = document.createElement('div');
     p.className = 'upgrade-particle';
     p.style.left = cx + 'px';
     p.style.top = cy + 'px';
     p.style.background = colors[Math.floor(Math.random() * colors.length)];
-    const angle = (i / 36) * Math.PI * 2 + (Math.random() - 0.5) * 0.4;
-    const dist = 140 + Math.random() * 120;
+    const angle = (i / count) * Math.PI * 2 + (Math.random() - 0.5) * 0.4;
+    const dist = (accentColor ? 200 : 140) + Math.random() * (accentColor ? 180 : 120);
     p.style.setProperty('--px', Math.cos(angle) * dist + 'px');
     p.style.setProperty('--py', Math.sin(angle) * dist + 'px');
     p.style.animationDelay = (Math.random() * 200) + 'ms';
@@ -979,6 +1095,21 @@ function renderHandbook() {
 
 function renderHandbookDetail(d, isMine) {
   const traits = (d.traits || []).map(t => '<li>' + esc(t) + '</li>').join('');
+  // 当前用户的龙若已达传说龙阶段 → 在图鉴里也亮出"传说形态"
+  const showLegend = isMine && currentStageIndex(totalPoints) >= 4;
+  // 任何龙的传说形态都展示（让学生看到"目标"）
+  const legendBlock =
+    '<div class="detail-section legend-section">' +
+      '<h4>' + (d.legendIcon || '👑') + ' 传说形态 · ' + esc(d.legendTitle || '传说龙') + '</h4>' +
+      '<p style="color:#FCD34D;font-size:13px;line-height:1.7">' +
+        esc(d.legendDesc || '需要累计 1500 积分才能觉醒。') +
+      '</p>' +
+      (showLegend
+        ? '<p style="margin-top:8px;font-size:12px;color:#FBBF24">✨ 你已达成传说形态！</p>'
+        : (isMine
+            ? '<p style="margin-top:8px;font-size:12px;opacity:.7">🔒 1500 积分解锁传说形态</p>'
+            : '')) +
+    '</div>';
   return '' +
     '<div class="detail-section">' +
       '<h4>📌 一句话简介</h4>' +
@@ -996,6 +1127,7 @@ function renderHandbookDetail(d, isMine) {
       '<h4>📜 来历故事</h4>' +
       '<p>' + esc(d.story) + '</p>' +
     '</div>' +
+    legendBlock +
     (isMine ? '' : '<div class="detail-section" style="text-align:center;background:rgba(251,191,36,.08);border-color:rgba(251,191,36,.3)"><p style="font-size:13px;color:#FCD34D">⚠️ 这只龙龙你还没领养，点击「更换伙伴」可切换</p></div>');
 }
 
