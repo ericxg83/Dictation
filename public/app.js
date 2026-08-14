@@ -2181,6 +2181,7 @@ function showPartyRollcall() {
   if (saved != null && !String($('#partyNames').value || '').trim()) {
     $('#partyNames').value = saved;
   }
+  _partyNames = partyNamesFromText();
   refreshPartyMeta();
   resetPartyUI();
 }
@@ -2220,6 +2221,7 @@ function bindPartyEvents() {
     if (!confirm('确定清空名单吗？')) return;
     $('#partyNames').value = '';
     localStorage.removeItem(PARTY_NAMES_KEY);
+    _partyNames = [];
     _partyWin = null;
     refreshPartyMeta();
     resetPartyUI();
@@ -2467,32 +2469,32 @@ function spinGrid() {
     if (winIdx < 0) { resolve(win); return; }
 
     // === 三阶段时长（毫秒） ===
-    // 阶段 1：纯随机多格闪烁（无任何剧透）
-    // 阶段 2：单格慢扫序列（全部是干扰项，最后一步也不是 win）
-    // 阶段 3：锁定（picked 动画），winIdx 只在这一刻才出现
     const phase1Dur = 2000;
     const phase2Dur = 1200;
     const phase3Dur = 350;
-    const seqLen = 5;
     const totalDur = phase1Dur + phase2Dur + phase3Dur;
 
     // 预生成扫描序列：全部随机，且**绝不包含 winIdx**，
     // 锁定瞬间才把高亮从最后一格的"干扰项"切到真正的 winIdx
+    // GUARD: 学生数很少时，扫描序列长度不能超过可用候选人数量
+    const avail = total - 1;  // 排除 winIdx 后的候选人数
+    const seqLen = Math.min(5, avail);
     const sequence = [];
-    const used = new Set();
-    while (sequence.length < seqLen) {
-      const r = Math.floor(Math.random() * total);
-      if (r === winIdx) continue;
-      if (used.has(r)) continue;
-      sequence.push(r);
-      used.add(r);
+    if (seqLen > 0) {
+      const used = new Set();
+      while (sequence.length < seqLen) {
+        const r = Math.floor(Math.random() * total);
+        if (r === winIdx) continue;
+        if (used.has(r)) continue;
+        sequence.push(r);
+        used.add(r);
+      }
     }
-    const seqStepDur = phase2Dur / sequence.length;
+    const seqStepDur = seqLen > 0 ? phase2Dur / seqLen : phase2Dur;
 
     let startTime = null;
     let lastStep = -1;
     let phase2Done = false;
-    let lastFlashIdx = -1;  // 记录阶段 2 最后一格被高亮的是谁（不是 win）
 
     const tick = (now) => {
       if (startTime === null) startTime = now;
@@ -2502,7 +2504,8 @@ function spinGrid() {
         // === 阶段 1：纯随机多格闪烁 ===
         const progress = elapsed / phase1Dur;
         // 起始闪 8 格，越接近阶段 2 越少（最低 3 格）
-        const num = Math.max(3, Math.floor(8 - progress * 5));
+        const rawNum = Math.max(3, Math.floor(8 - progress * 5));
+        const num = Math.min(rawNum, total);  // GUARD: 不超过学生总数
         const picks = new Set();
         while (picks.size < num) {
           const r = Math.floor(Math.random() * total);
@@ -2512,12 +2515,13 @@ function spinGrid() {
       } else if (!phase2Done) {
         // === 阶段 2：单格慢扫（全部是干扰项，最后一格也绝不是 win） ===
         const phase2Elapsed = elapsed - phase1Dur;
-        const step = Math.min(Math.floor(phase2Elapsed / seqStepDur), sequence.length - 1);
+        const step = seqLen > 0
+          ? Math.min(Math.floor(phase2Elapsed / seqStepDur), sequence.length - 1)
+          : -1;
         if (step !== lastStep) {
           cells.forEach(c => c.classList.remove('flash'));
           if (step >= 0 && step < sequence.length) {
             cells[sequence[step]].classList.add('flash');
-            lastFlashIdx = sequence[step];
           }
           lastStep = step;
         }
@@ -2527,7 +2531,6 @@ function spinGrid() {
           cells.forEach(c => c.classList.remove('flash'));
           cells[winIdx].classList.add('picked');
           playPartyHit();  // 卡点音效
-          locked = true;
         }
       } else if (elapsed < totalDur) {
         // === 阶段 3：等待锁定动画完成 ===
