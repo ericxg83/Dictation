@@ -92,7 +92,8 @@
     <button data-view="teacher-banks" class="active">题库发布</button>
     <button data-view="teacher-students">班级学生</button>
     <button data-view="live">大屏显示</button>
-    <button data-view="rollcall">随机点名</button>
+    <button data-view="party-rollcall">🎉 欢乐点名</button>
+    <button data-view="rollcall">⚡ 快速点名</button>
   </nav>
   <nav id="studentNav" hidden>
     <button data-view="student-banks" class="active">我的题库</button>
@@ -226,6 +227,50 @@
         </div>
       </div>
       <div class="hint small">名单自动保存在当前浏览器本地，无需每次重输；换电脑后可用「从班级导入」一次性补回。</div>
+    </section>
+
+    <!-- 老师 · 🎉 欢乐点名 -->
+    <section id="view-party-rollcall" class="view">
+      <h2>🎉 欢乐点名</h2>
+      <p class="sub">三种抽取动画 + 欢迎台词 + 全屏特效 + 语音播报，给课堂加点仪式感～</p>
+
+      <div class="party-stage" id="partyStage">
+        <canvas id="partyCanvas" class="party-canvas"></canvas>
+        <div class="party-mode-row">
+          <button class="party-mode-btn active" data-mode="wheel">🎡 轮盘</button>
+          <button class="party-mode-btn" data-mode="slot">🎰 老虎机</button>
+          <button class="party-mode-btn" data-mode="grid">🟦 网格</button>
+        </div>
+        <div class="party-display wheel" id="partyDisplay">
+          <div class="party-empty">名单为空，请先在下方导入或录入</div>
+        </div>
+        <div class="party-win-line" id="partyWinLine"></div>
+        <div class="party-tools">
+          <button id="partyStartBtn" class="primary big">🎯 开始抽取</button>
+          <button id="partyRedrawBtn" class="ghost-btn" hidden>🔁 再抽一次</button>
+          <button id="partyTtsBtn" class="ghost-btn">🔊 语音开</button>
+          <button id="partyFullBtn" class="ghost-btn">⛶ 全屏</button>
+          <button id="partyCloseBtn" class="ghost-btn">✕ 关闭</button>
+        </div>
+        <div class="party-meta">
+          <span class="party-count" id="partyCount">0 名</span>
+          <span class="party-tip" id="partyTip">名单为空，请先从「班级学生」导入或在下方手动录入～</span>
+        </div>
+      </div>
+
+      <h3>学生名单</h3>
+      <div class="rollcall-edit">
+        <label class="field">
+          <span>花名册（一行一个姓名，用逗号 / 顿号分隔也可以）</span>
+          <textarea id="partyNames" rows="8" placeholder="例如：&#10;王小明&#10;李小红&#10;张伟"></textarea>
+        </label>
+        <div class="rollcall-edit-tools">
+          <button id="partyImportBtn" class="ghost-btn">从班级导入</button>
+          <button id="partySaveBtn" class="primary">保存名单</button>
+          <button id="partyClearBtn" class="ghost-btn">清空</button>
+        </div>
+      </div>
+      <div class="hint small">名单自动保存在当前浏览器本地，每次随机抽取（不设冷却池，可重复抽到同一人）。</div>
     </section>
 
     <!-- 学生 · 我的题库 -->
@@ -613,7 +658,8 @@
     <button data-view="teacher-banks"><span class="tab-ico">📚</span><span class="tab-label">题库</span></button>
     <button data-view="teacher-students"><span class="tab-ico">👥</span><span class="tab-label">学生</span></button>
     <button data-view="live"><span class="tab-ico">📺</span><span class="tab-label">大屏</span></button>
-    <button data-view="rollcall"><span class="tab-ico">🎲</span><span class="tab-label">点名</span></button>
+    <button data-view="party-rollcall"><span class="tab-ico">🎉</span><span class="tab-label">欢乐</span></button>
+    <button data-view="rollcall"><span class="tab-ico">⚡</span><span class="tab-label">快速</span></button>
     <button data-view="student-banks"><span class="tab-ico">📚</span><span class="tab-label">题库</span></button>
     <button data-view="practice"><span class="tab-ico">✍️</span><span class="tab-label">练习</span></button>
     <button data-view="wrong-book"><span class="tab-ico">📕</span><span class="tab-label">错题本</span></button>

@@ -3228,3 +3228,252 @@ button:active::after, .primary:active::after, .ghost-btn:active::after, .header-
   }
   .wb-card-actions button { flex: 1; min-width: 0; }
 }
+
+/* ============================================================
+   🎉 老师 · 欢乐点名
+   风格：霓虹紫粉渐变 + 全屏粒子 + 震动/闪光特效
+   ============================================================ */
+#view-party-rollcall { padding-bottom: 40px; }
+
+.party-stage {
+  position: relative;
+  background:
+    radial-gradient(120% 80% at 20% 0%, rgba(236, 72, 153, .22) 0, transparent 55%),
+    radial-gradient(120% 80% at 80% 100%, rgba(124, 58, 237, .25) 0, transparent 55%),
+    linear-gradient(160deg, #1D103F 0%, #150A2E 55%, #110723 100%);
+  border: 2px solid rgba(236, 72, 153, .4);
+  border-radius: var(--radius-lg);
+  padding: 22px;
+  margin-bottom: 18px;
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+  isolation: isolate;
+}
+.party-canvas {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  pointer-events: none; z-index: 1;
+}
+
+.party-mode-row {
+  position: relative; z-index: 2;
+  display: flex; gap: 8px; justify-content: center; margin-bottom: 14px;
+}
+.party-mode-btn {
+  background: rgba(11, 8, 32, .5);
+  border: 1.5px solid rgba(168, 85, 247, .35);
+  color: var(--text-on-dark);
+  font-weight: 800; font-size: 14px;
+  padding: 8px 16px; border-radius: 99px;
+  cursor: pointer; transition: .2s;
+}
+.party-mode-btn:hover { border-color: var(--brand-3); transform: translateY(-1px); }
+.party-mode-btn.active {
+  background: var(--gradient-warm); color: #fff;
+  border-color: transparent;
+  box-shadow: 0 4px 14px rgba(236, 72, 153, .5);
+}
+
+.party-display {
+  position: relative; z-index: 2;
+  min-height: 360px;
+  border-radius: var(--radius);
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(11, 8, 32, .5);
+  border: 2px dashed rgba(168, 85, 247, .35);
+  overflow: hidden;
+  padding: 18px;
+}
+.party-display.rolling { border-style: solid; border-color: rgba(236, 72, 153, .5); }
+.party-display.settled { border-style: solid; border-color: rgba(254, 194, 96, .65); box-shadow: 0 0 60px rgba(254, 194, 96, .25); }
+.party-display.shake { animation: partyShake .5s cubic-bezier(.36, .07, .19, .97); }
+@keyframes partyShake {
+  10%, 90% { transform: translate3d(-2px, 0, 0); }
+  20%, 80% { transform: translate3d(4px, 0, 0); }
+  30%, 50%, 70% { transform: translate3d(-8px, 0, 0); }
+  40%, 60% { transform: translate3d(8px, 0, 0); }
+}
+.party-empty {
+  color: var(--text-on-dark-3);
+  font-weight: 700; font-size: 15px; padding: 40px 20px;
+}
+
+/* === 模式一：轮盘 === */
+.party-wheel {
+  position: relative; width: 320px; height: 320px;
+}
+.party-wheel-inner { width: 100%; height: 100%; transform-origin: center; }
+.party-wheel-inner svg { width: 100%; height: 100%; display: block; }
+.party-wheel-pointer {
+  position: absolute; top: -10px; left: 50%;
+  transform: translateX(-50%);
+  font-size: 36px; line-height: 1;
+  color: #FEC260;
+  text-shadow: 0 0 12px rgba(254, 194, 96, .8);
+  z-index: 3;
+  animation: pointerBounce 1.2s ease-in-out infinite;
+}
+@keyframes pointerBounce {
+  0%, 100% { transform: translateX(-50%) translateY(0); }
+  50% { transform: translateX(-50%) translateY(4px); }
+}
+
+/* === 模式二：老虎机 === */
+.party-slot {
+  position: relative;
+  display: flex; gap: 14px; justify-content: center; align-items: center;
+  height: 240px;
+  padding: 0 12px;
+}
+.party-slot-col {
+  width: 110px; height: 240px;
+  background: linear-gradient(180deg, #0F0828, #1A0F3D 50%, #0F0828);
+  border: 2px solid rgba(168, 85, 247, .5);
+  border-radius: 18px;
+  overflow: hidden;
+  position: relative;
+  box-shadow: inset 0 0 20px rgba(168, 85, 247, .25);
+}
+.party-slot-strip {
+  position: absolute; left: 0; right: 0; top: 0;
+  display: flex; flex-direction: column;
+  will-change: transform;
+}
+.party-slot-item {
+  height: 80px; flex: 0 0 80px;
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-weight: 900; font-size: 22px;
+  border-bottom: 1px dashed rgba(168, 85, 247, .2);
+  background: linear-gradient(180deg, transparent, rgba(168, 85, 247, .06) 50%, transparent);
+  letter-spacing: 1px;
+  padding: 0 6px; text-align: center;
+  word-break: break-all;
+}
+.party-slot-cover {
+  position: absolute; left: 0; right: 0; top: 50%; height: 80px;
+  transform: translateY(-50%);
+  background: linear-gradient(180deg, transparent, rgba(254, 194, 96, .18) 50%, transparent);
+  border-top: 2px solid rgba(254, 194, 96, .7);
+  border-bottom: 2px solid rgba(254, 194, 96, .7);
+  pointer-events: none;
+  box-shadow: 0 0 30px rgba(254, 194, 96, .25);
+}
+
+/* === 模式三：网格 === */
+.party-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 10px;
+  width: 100%; max-width: 700px;
+}
+.party-grid-cell {
+  background: rgba(11, 8, 32, .65);
+  border: 2px solid rgba(168, 85, 247, .35);
+  border-radius: 12px;
+  padding: 14px 8px;
+  color: var(--text-on-dark);
+  font-weight: 800; font-size: 16px;
+  text-align: center;
+  transition: all .12s;
+}
+.party-grid-cell.flash {
+  background: var(--gradient-warm);
+  border-color: #FEC260;
+  color: #fff;
+  transform: scale(1.08);
+  box-shadow: 0 0 18px rgba(254, 194, 96, .6);
+}
+.party-grid-cell.picked {
+  background: linear-gradient(135deg, #FF6B9D, #7C3AED);
+  border-color: #FEC260;
+  color: #fff;
+  transform: scale(1.18);
+  box-shadow: 0 0 30px rgba(254, 194, 96, .75);
+  animation: pickedPop .55s cubic-bezier(.2, 1.4, .4, 1);
+}
+@keyframes pickedPop {
+  0% { transform: scale(1.4); }
+  60% { transform: scale(.92); }
+  100% { transform: scale(1.18); }
+}
+
+/* === 欢迎台词 === */
+.party-win-line {
+  position: relative; z-index: 2;
+  min-height: 28px; margin: 14px 0 6px;
+  text-align: center;
+  font-size: 18px; font-weight: 800;
+  color: #FEC260;
+  text-shadow: 0 0 14px rgba(254, 194, 96, .55);
+  opacity: 0; transform: translateY(8px) scale(.92);
+  transition: opacity .35s, transform .35s cubic-bezier(.2, 1.3, .4, 1);
+  padding: 0 16px;
+  line-height: 1.5;
+}
+.party-win-line.show { opacity: 1; transform: translateY(0) scale(1); }
+
+/* === 工具栏 === */
+.party-tools {
+  position: relative; z-index: 2;
+  display: flex; gap: 10px; align-items: center; justify-content: center;
+  flex-wrap: wrap; margin-top: 12px;
+}
+.party-tools button:disabled { opacity: .4; cursor: not-allowed; pointer-events: none; }
+#partyTtsBtn.off { opacity: .65; }
+
+.party-meta {
+  position: relative; z-index: 2;
+  display: flex; align-items: center; gap: 12px; justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 14px;
+  font-weight: 600; font-size: 13px;
+}
+.party-count {
+  background: rgba(124, 58, 237, .2);
+  border: 1px solid rgba(168, 85, 247, .4);
+  color: var(--brand-3);
+  font-size: 12px; font-weight: 800;
+  padding: 3px 10px; border-radius: 99px;
+}
+.party-tip { color: var(--text-on-dark-3); }
+.party-tip.saved { color: #7AE7B5; }
+
+/* === 屏幕闪光背景 === */
+.party-stage.flash-bg { animation: stageFlash .6s ease-out; }
+.party-stage.big-flash-bg { animation: stageBigFlash .9s ease-out; }
+@keyframes stageFlash {
+  0% { box-shadow: 0 0 0 0 rgba(254, 194, 96, 0); }
+  20% { box-shadow: 0 0 80px 20px rgba(254, 194, 96, .35); }
+  100% { box-shadow: 0 0 0 0 rgba(254, 194, 96, 0); }
+}
+@keyframes stageBigFlash {
+  0% { background-color: rgba(254, 194, 96, 0); }
+  15% { background-color: rgba(254, 194, 96, .18); }
+  40% { background-color: rgba(236, 72, 153, .15); }
+  100% { background-color: rgba(254, 194, 96, 0); }
+}
+
+/* === 全屏模式 === */
+.party-stage:fullscreen {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 30px; gap: 18px;
+}
+.party-stage:fullscreen .party-display {
+  flex: 1; width: 100%; min-height: 0;
+  border-radius: 28px;
+}
+.party-stage:fullscreen .party-mode-row { margin-bottom: 0; }
+.party-stage:fullscreen .party-win-line { font-size: 26px; }
+.party-stage:fullscreen .party-meta { display: none; }
+
+/* === 移动端适配 === */
+@media (max-width: 720px) {
+  .party-display { min-height: 280px; padding: 12px; }
+  .party-wheel { width: 260px; height: 260px; }
+  .party-slot { gap: 8px; height: 200px; }
+  .party-slot-col { width: 90px; height: 200px; }
+  .party-slot-item { height: 66px; flex-basis: 66px; font-size: 18px; }
+  .party-grid { grid-template-columns: repeat(auto-fill, minmax(86px, 1fr)); }
+  .party-grid-cell { font-size: 14px; padding: 10px 4px; }
+  .party-win-line { font-size: 15px; }
+  .party-tools button { font-size: 13px; padding: 8px 12px; }
+}

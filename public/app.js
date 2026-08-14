@@ -1303,8 +1303,13 @@ function switchView(name) {
   if (name === 'teacher-banks') loadBanks();
   if (name === 'teacher-students') loadStudents();
   if (name === 'rollcall') showRollcall();
+  if (name === 'party-rollcall') showPartyRollcall();
   if (name !== 'rollcall' && _rollTimer) {
     clearInterval(_rollTimer); _rollTimer = null; _rolling = false;
+  }
+  if (name !== 'party-rollcall' && _partyRolling) {
+    if (window.speechSynthesis) window.speechSynthesis.cancel();
+    stopParticles();
   }
   if (name === 'live') { enterLiveBoard(); return; }
   if (name === 'student-banks') loadStudentBanks();
@@ -2066,6 +2071,539 @@ let _rollSaveTimer = null;
 $('#rollcallNames').addEventListener('input', () => {
   clearTimeout(_rollSaveTimer);
   _rollSaveTimer = setTimeout(saveRollcallNames, 400);
+});
+
+// ================= 老师 · 欢乐点名 =================
+// 欢迎台词库（30+ 条 · 与宠物/单词系统完全解耦，不涉及龙龙）
+// 占位符 {name} 会在抽出学生后替换
+const WELCOME_LINES = [
+  // 🌟 励志/加油
+  '准备好了吗{name}？今天的你会比昨天更厉害！',
+  '深呼吸，放轻松，{name} 接下来要开始发光啦～',
+  '不管结果如何，敢于站出来的 {name} 已经很棒了！',
+  '{name}，属于你的高光时刻，来了！',
+  '今天的运势写着：{name} 超常发挥！',
+  '{name} 上场，全场掌声准备好！',
+
+  // 🎬 电影/动画梗
+  'Welcome to the show, {name}! Time to shine!',
+  '{name} 登场，自带出场 BGM！',
+  'The chosen one has arrived —— 欢迎 {name}！',
+  '{name}，你的故事由你书写！',
+  '镜头对准 {name}，Action！',
+
+  // 🎮 游戏梗
+  '技能冷却完成！叮！{name} 满血复活！',
+  '{name} 进入战场，装备已就绪！',
+  'Boss 关开启，挑战者 {name} 请入场！',
+  '{name} 触发暴击，今日状态拉满！',
+  'Loading complete —— {name} 准备就绪！',
+
+  // 😆 搞笑梗
+  '听说 {name} 昨天默写全对，地球已经装不下了！',
+  '是 {name} 啊，今天的快乐源泉到了！',
+  '{name} 一出场，教室的笑声已上线！',
+  '今天的锦鲤是 —— {name}！',
+
+  // 🎤 主播/互动
+  '来来来麦给 {name}，说出你的故事！',
+  '{name} 驾到，今天的教室正式热闹起来！',
+  '麦克风递给 {name}，三秒后开始你的表演！',
+  '{name} 出场自带 BGM，全场静音让一让！',
+
+  // ✨ 二次元/中二
+  '传说中的主角登场！今天的 BGM 属于 {name}！',
+  '命运的齿轮开始转动 —— {name}，觉醒吧！',
+  '{name} 携神秘力量降临，全员注意！',
+  '这一刻被时间记住 —— {name} 的舞台！',
+  '奇迹之名，{name}！',
+  '星光汇聚之处，正是 {name} 所站之地！'
+];
+
+// 视图相关 DOM 引用
+let _partyStage = null;
+let _partyCanvas = null;
+let _partyCtx = null;
+let _partyParticles = [];
+let _partyRaf = null;
+let _partyMode = 'wheel';  // wheel | slot | grid
+let _partyNames = [];
+let _partyWin = null;
+let _partyWinLine = '';
+let _partyTts = true;
+let _partyRolling = false;
+
+const PARTY_NAMES_KEY = 'dict_party_rollcall_names';
+
+function partyNamesFromText() {
+  const seen = new Set();
+  return String($('#partyNames').value || '')
+    .split(/[\n,，、;；]+/)
+    .map(s => s.trim())
+    .filter(Boolean)
+    .filter(s => { const k = s.toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true; });
+}
+
+function refreshPartyMeta() {
+  const n = partyNamesFromText().length;
+  $('#partyCount').textContent = n + ' 名';
+  $('#partyTip').textContent = n
+    ? '共 ' + n + ' 名同学可参与抽取'
+    : '名单为空，请先从「班级学生」导入或在下方手动录入～';
+}
+
+function showPartyRollcall() {
+  if (!_partyStage) {
+    _partyStage = $('#partyStage');
+    _partyCanvas = $('#partyCanvas');
+    _partyCtx = _partyCanvas && _partyCanvas.getContext('2d');
+    bindPartyEvents();
+  }
+  const saved = localStorage.getItem(PARTY_NAMES_KEY);
+  if (saved != null && !String($('#partyNames').value || '').trim()) {
+    $('#partyNames').value = saved;
+  }
+  refreshPartyMeta();
+  resetPartyUI();
+}
+
+function bindPartyEvents() {
+  // 模式切换
+  $$('.party-mode-btn').forEach(btn => {
+    btn.onclick = () => {
+      if (_partyRolling) return;
+      _partyMode = btn.dataset.mode;
+      $$('.party-mode-btn').forEach(b => b.classList.toggle('active', b === btn));
+      resetPartyUI();
+    };
+  });
+  $('#partyStartBtn').onclick = () => startPartyDraw();
+  $('#partyCloseBtn').onclick = () => closePartyFullscreen();
+  $('#partyTtsBtn').onclick = () => {
+    _partyTts = !_partyTts;
+    const b = $('#partyTtsBtn');
+    b.textContent = _partyTts ? '🔊 语音开' : '🔇 语音关';
+    b.classList.toggle('off', !_partyTts);
+    if (!_partyTts && window.speechSynthesis) window.speechSynthesis.cancel();
+  };
+  $('#partyFullBtn').onclick = () => {
+    if (!_partyStage) return;
+    if (document.fullscreenElement) document.exitFullscreen();
+    else if (_partyStage.requestFullscreen) _partyStage.requestFullscreen();
+  };
+  $('#partySaveBtn').onclick = () => {
+    localStorage.setItem(PARTY_NAMES_KEY, $('#partyNames').value || '');
+    refreshPartyMeta();
+    flashSaveTip();
+  };
+  $('#partyClearBtn').onclick = () => {
+    if (!confirm('确定清空名单吗？')) return;
+    $('#partyNames').value = '';
+    localStorage.removeItem(PARTY_NAMES_KEY);
+    _partyWin = null;
+    refreshPartyMeta();
+    resetPartyUI();
+  };
+  $('#partyImportBtn').onclick = async () => {
+    try {
+      const d = await api('/api/class/students');
+      const names = (d.students || []).map(s => s.name || s.username);
+      if (!names.length) { alert('班级里还没有学生注册，无法导入'); return; }
+      const cur = String($('#partyNames').value || '').trim();
+      $('#partyNames').value = cur ? cur + '\n' + names.join('\n') : names.join('\n');
+      localStorage.setItem(PARTY_NAMES_KEY, $('#partyNames').value);
+      refreshPartyMeta();
+      resetPartyUI();
+      flashSaveTip();
+    } catch (e) { alert(e.message); }
+  };
+  let _saveT = null;
+  $('#partyNames').addEventListener('input', () => {
+    clearTimeout(_saveT);
+    _saveT = setTimeout(() => {
+      localStorage.setItem(PARTY_NAMES_KEY, $('#partyNames').value || '');
+      refreshPartyMeta();
+    }, 400);
+  });
+  $('#partyRedrawBtn').onclick = () => startPartyDraw();
+}
+
+function flashSaveTip() {
+  const t = $('#partyTip');
+  if (!t) return;
+  t.textContent = '已保存 ✓';
+  t.classList.add('saved');
+  setTimeout(() => { t.classList.remove('saved'); refreshPartyMeta(); }, 1200);
+}
+
+function resetPartyUI() {
+  _partyRolling = false;
+  _partyWin = null;
+  const display = $('#partyDisplay');
+  display.classList.remove('rolling', 'settled', 'shake', 'wheel', 'slot', 'grid');
+  display.classList.add(_partyMode);
+  if (_partyMode === 'wheel') buildWheel();
+  else if (_partyMode === 'slot') buildSlot();
+  else if (_partyMode === 'grid') buildGrid();
+  $('#partyStartBtn').disabled = false;
+  $('#partyStartBtn').textContent = '🎯 开始抽取';
+  $('#partyRedrawBtn').hidden = true;
+  $('#partyWinLine').textContent = '';
+  $('#partyWinLine').classList.remove('show');
+}
+
+function pickRandomName() {
+  if (!_partyNames.length) return null;
+  return _partyNames[Math.floor(Math.random() * _partyNames.length)];
+}
+function pickRandomLine(name) {
+  const tpl = WELCOME_LINES[Math.floor(Math.random() * WELCOME_LINES.length)];
+  return tpl.replace(/\{name\}/g, name);
+}
+
+// ================= 模式一：轮盘 =================
+function buildWheel() {
+  const display = $('#partyDisplay');
+  display.innerHTML = '<div class="party-wheel"><div class="party-wheel-pointer">▼</div><div class="party-wheel-inner" id="partyWheelInner"></div></div>';
+  const inner = $('#partyWheelInner');
+  if (!_partyNames.length) {
+    inner.innerHTML = '<div class="party-empty">名单为空，请先导入</div>';
+    return;
+  }
+  const n = _partyNames.length;
+  const sectors = 12;
+  const palette = [
+    '#FF6B9D', '#FEC260', '#7AE7B5', '#6EC1E4',
+    '#B58CF2', '#FF8E72', '#FFD166', '#06D6A0',
+    '#EF476F', '#A78BFA', '#FB7185', '#22D3EE'
+  ];
+  let svg = '';
+  for (let i = 0; i < sectors; i++) {
+    const a0 = (i / sectors) * Math.PI * 2 - Math.PI / 2;
+    const a1 = ((i + 1) / sectors) * Math.PI * 2 - Math.PI / 2;
+    const r = 150;
+    const cx = 160, cy = 160;
+    const x0 = cx + r * Math.cos(a0), y0 = cy + r * Math.sin(a0);
+    const x1 = cx + r * Math.cos(a1), y1 = cy + r * Math.sin(a1);
+    const large = (a1 - a0) > Math.PI ? 1 : 0;
+    const d = `M${cx},${cy} L${x0},${y0} A${r},${r} 0 ${large} 1 ${x1},${y1} Z`;
+    const name = _partyNames[i % n];
+    const midA = (a0 + a1) / 2;
+    const tr = (midA * 180 / Math.PI);
+    const tx = cx + (r * 0.62) * Math.cos(midA);
+    const ty = cy + (r * 0.62) * Math.sin(midA);
+    svg += `<path d="${d}" fill="${palette[i % palette.length]}" stroke="#fff" stroke-width="1.5" />`;
+    svg += `<text x="${tx}" y="${ty}" text-anchor="middle" dominant-baseline="middle" fill="#fff" font-weight="900" font-size="11" transform="rotate(${tr} ${tx} ${ty})">${esc(name)}</text>`;
+  }
+  svg += `<circle cx="160" cy="160" r="18" fill="#fff" stroke="#7C3AED" stroke-width="3" />`;
+  svg += `<text x="160" y="166" text-anchor="middle" fill="#7C3AED" font-weight="900" font-size="18">GO</text>`;
+  inner.innerHTML = svg;
+  inner.style.transition = 'none';
+  inner.style.transform = 'rotate(0deg)';
+}
+
+function spinWheel() {
+  return new Promise(resolve => {
+    const win = pickRandomName();
+    const n = _partyNames.length;
+    const sectors = 12;
+    let winIdx = 0;
+    for (let i = 0; i < sectors; i++) {
+      if (_partyNames[i % n] === win) { winIdx = i; break; }
+    }
+    // 扇形 i 中心初始角度 = (i + 0.5) * (360/sectors) - 90（-90 是 12 点钟方向）
+    // 旋转 target 度（顺时针）后，新角度 = 初始 + target
+    // 目标：让扇形中心落在 -90（指针方向） → target = -初始 + 360*k
+    const sectorCenter = (winIdx + 0.5) * (360 / sectors) - 90;
+    const target = 360 * 6 - sectorCenter - 90;
+    const inner = $('#partyWheelInner');
+    inner.style.transition = 'transform 4.2s cubic-bezier(.18, .9, .28, 1)';
+    inner.style.transform = `rotate(${target}deg)`;
+    setTimeout(() => resolve(win), 4250);
+  });
+}
+
+// ================= 模式二：老虎机 =================
+function buildSlot() {
+  const display = $('#partyDisplay');
+  display.innerHTML = '<div class="party-slot">'
+    + '<div class="party-slot-col"><div class="party-slot-strip" id="partySlot0"></div></div>'
+    + '<div class="party-slot-col"><div class="party-slot-strip" id="partySlot1"></div></div>'
+    + '<div class="party-slot-col"><div class="party-slot-strip" id="partySlot2"></div></div>'
+    + '<div class="party-slot-cover"></div>'
+    + '</div>';
+  for (let i = 0; i < 3; i++) {
+    const strip = $('#partySlot' + i);
+    strip.innerHTML = buildSlotStrip(_partyNames, 18);
+    strip.style.transition = 'none';
+    strip.style.transform = 'translateY(0)';
+  }
+}
+function buildSlotStrip(names, count) {
+  if (!names.length) return '<div class="party-slot-item">空</div>';
+  let html = '';
+  for (let i = 0; i < count; i++) {
+    html += `<div class="party-slot-item">${esc(names[i % names.length])}</div>`;
+  }
+  return html;
+}
+function spinSlot() {
+  return new Promise(resolve => {
+    const win = pickRandomName();
+    const n = _partyNames.length;
+    const cols = [0, 1, 2];
+    const delays = [0, 350, 700];
+    const durations = [2400, 2800, 3200];
+    cols.forEach((c, i) => {
+      setTimeout(() => {
+        const strip = $('#partySlot' + c);
+        const list = [];
+        for (let j = 0; j < 18; j++) list.push(_partyNames[(j * 3 + c) % n]);
+        // 末尾固定 3 个 win，保证落点
+        list.push(win); list.push(win); list.push(win);
+        strip.innerHTML = list.map(x => `<div class="party-slot-item">${esc(x)}</div>`).join('');
+        const itemH = 80;
+        const total = list.length;
+        const finalIdx = total - 3;
+        // 中间一行展示 finalIdx：相对 0 行偏移 (finalIdx - 1) * itemH
+        const offset = -(finalIdx - 1) * itemH;
+        strip.style.transition = `transform ${durations[i]}ms cubic-bezier(.18, .85, .28, 1)`;
+        strip.style.transform = `translateY(${offset}px)`;
+      }, delays[i]);
+    });
+    setTimeout(() => resolve(win), 700 + 3200 + 200);
+  });
+}
+
+// ================= 模式三：网格闪烁 =================
+function buildGrid() {
+  const display = $('#partyDisplay');
+  const n = _partyNames.length;
+  if (!n) {
+    display.innerHTML = '<div class="party-empty">名单为空，请先导入</div>';
+    return;
+  }
+  display.innerHTML = '<div class="party-grid" id="partyGrid"></div>';
+  const grid = $('#partyGrid');
+  _partyNames.forEach(name => {
+    const cell = document.createElement('div');
+    cell.className = 'party-grid-cell';
+    cell.textContent = name;
+    grid.appendChild(cell);
+  });
+}
+function spinGrid() {
+  return new Promise(resolve => {
+    const win = pickRandomName();
+    const cells = $$('.party-grid-cell');
+    const total = cells.length;
+    let elapsed = 0;
+    const totalDur = 3600;
+    const tickMs = 70;
+    const curWinIdx = cells.findIndex(c => c.textContent === win);
+    const interval = setInterval(() => {
+      elapsed += tickMs;
+      const progress = elapsed / totalDur;
+      const num = Math.max(1, Math.floor(6 * (1 - progress)));
+      const picks = new Set();
+      while (picks.size < num) picks.add(Math.floor(Math.random() * total));
+      if (progress > 0.78 && curWinIdx >= 0) picks.add(curWinIdx);
+      cells.forEach((c, i) => c.classList.toggle('flash', picks.has(i)));
+      if (elapsed >= totalDur) {
+        clearInterval(interval);
+        cells.forEach((c, i) => {
+          c.classList.remove('flash');
+          if (i === curWinIdx) c.classList.add('picked');
+        });
+        setTimeout(() => resolve(win), 350);
+      }
+    }, tickMs);
+  });
+}
+
+// ================= 抽取主流程 =================
+function startPartyDraw() {
+  _partyNames = partyNamesFromText();
+  if (!_partyNames.length) { alert('请先填写学生名单'); return; }
+  if (_partyMode === 'wheel') buildWheel();
+  else if (_partyMode === 'slot') buildSlot();
+  else if (_partyMode === 'grid') buildGrid();
+
+  _partyRolling = true;
+  const display = $('#partyDisplay');
+  display.classList.add('rolling');
+  display.classList.remove('settled', 'shake');
+  $('#partyWinLine').textContent = '';
+  $('#partyWinLine').classList.remove('show');
+  $('#partyStartBtn').disabled = true;
+  $('#partyRedrawBtn').hidden = true;
+
+  flashScreen();
+  startParticles();
+
+  let p;
+  if (_partyMode === 'wheel') p = spinWheel();
+  else if (_partyMode === 'slot') p = spinSlot();
+  else p = spinGrid();
+
+  p.then(win => {
+    _partyWin = win;
+    _partyWinLine = pickRandomLine(win);
+    onPartyWin();
+  });
+}
+
+function onPartyWin() {
+  const display = $('#partyDisplay');
+  display.classList.remove('rolling');
+  display.classList.add('settled', 'shake');
+  const lineEl = $('#partyWinLine');
+  lineEl.textContent = _partyWinLine;
+  requestAnimationFrame(() => lineEl.classList.add('show'));
+  burstParticles(160);
+  bigFlash();
+  if (_partyTts) speak('欢迎 ' + _partyWin + '！' + _partyWinLine.replace(/\{name\}/g, ''));
+  $('#partyStartBtn').disabled = false;
+  $('#partyStartBtn').textContent = '🔁 再抽一次';
+  $('#partyRedrawBtn').hidden = false;
+  _partyRolling = false;
+}
+
+function speak(text) {
+  if (!('speechSynthesis' in window)) return;
+  try {
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'zh-CN';
+    u.rate = 1.05;
+    u.pitch = 1.1;
+    u.volume = 1;
+    const voices = window.speechSynthesis.getVoices();
+    const zh = voices.find(v => /zh|Chinese|Mandarin/i.test(v.lang) || /chinese|mandarin/i.test(v.name));
+    if (zh) u.voice = zh;
+    window.speechSynthesis.speak(u);
+  } catch (e) {}
+}
+
+function closePartyFullscreen() {
+  if (window.speechSynthesis) window.speechSynthesis.cancel();
+  stopParticles();
+  if (document.fullscreenElement) document.exitFullscreen();
+  resetPartyUI();
+}
+
+// ================= 粒子（canvas） =================
+function resizePartyCanvas() {
+  if (!_partyCanvas) return;
+  const dpr = window.devicePixelRatio || 1;
+  _partyCanvas.width = _partyCanvas.clientWidth * dpr;
+  _partyCanvas.height = _partyCanvas.clientHeight * dpr;
+  _partyCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+function startParticles() {
+  if (!_partyCanvas) return;
+  resizePartyCanvas();
+  stopParticles();
+  _partyParticles = [];
+  for (let i = 0; i < 30; i++) _partyParticles.push(makeParticle(true));
+  const tick = () => {
+    _partyCtx.clearRect(0, 0, _partyCanvas.clientWidth, _partyCanvas.clientHeight);
+    _partyParticles.forEach(p => {
+      p.x += p.vx; p.y += p.vy; p.vy += 0.05; p.rot += p.vr; p.life -= 1;
+      if (p.life <= 0) {
+        Object.assign(p, makeParticle(false));
+      }
+      _partyCtx.save();
+      _partyCtx.translate(p.x, p.y);
+      _partyCtx.rotate(p.rot);
+      _partyCtx.globalAlpha = Math.max(0, Math.min(1, p.life / p.maxLife));
+      _partyCtx.fillStyle = p.color;
+      if (p.shape === 'rect') {
+        _partyCtx.fillRect(-p.size, -p.size * 0.4, p.size * 2, p.size * 0.8);
+      } else if (p.shape === 'star') {
+        drawStar(0, 0, p.size, 5);
+      } else {
+        _partyCtx.beginPath();
+        _partyCtx.arc(0, 0, p.size * 0.5, 0, Math.PI * 2);
+        _partyCtx.fill();
+      }
+      _partyCtx.restore();
+    });
+    _partyRaf = requestAnimationFrame(tick);
+  };
+  _partyRaf = requestAnimationFrame(tick);
+}
+function stopParticles() {
+  if (_partyRaf) cancelAnimationFrame(_partyRaf);
+  _partyRaf = null;
+  if (_partyCtx && _partyCanvas) _partyCtx.clearRect(0, 0, _partyCanvas.clientWidth, _partyCanvas.clientHeight);
+}
+function makeParticle(initialFromTop) {
+  const palette = ['#FF6B9D', '#FEC260', '#7AE7B5', '#6EC1E4', '#B58CF2', '#FFD166', '#22D3EE'];
+  const shape = ['rect', 'circle', 'star'][Math.floor(Math.random() * 3)];
+  return {
+    x: Math.random() * _partyCanvas.clientWidth,
+    y: initialFromTop ? -20 - Math.random() * 60 : Math.random() * _partyCanvas.clientHeight,
+    vx: (Math.random() - 0.5) * 1.4,
+    vy: initialFromTop ? 1 + Math.random() * 1.6 : -1 - Math.random() * 1.6,
+    rot: Math.random() * Math.PI * 2,
+    vr: (Math.random() - 0.5) * 0.18,
+    size: 6 + Math.random() * 10,
+    color: palette[Math.floor(Math.random() * palette.length)],
+    shape,
+    life: 200 + Math.random() * 160,
+    maxLife: 360
+  };
+}
+function drawStar(cx, cy, r, n) {
+  const ctx = _partyCtx;
+  ctx.beginPath();
+  for (let i = 0; i < n * 2; i++) {
+    const a = (i / (n * 2)) * Math.PI * 2 - Math.PI / 2;
+    const rr = i % 2 === 0 ? r : r * 0.45;
+    const x = cx + rr * Math.cos(a);
+    const y = cy + rr * Math.sin(a);
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  ctx.closePath();
+  ctx.fill();
+}
+function burstParticles(n) {
+  if (!_partyCanvas) return;
+  for (let i = 0; i < n; i++) {
+    _partyParticles.push({
+      x: _partyCanvas.clientWidth / 2,
+      y: _partyCanvas.clientHeight / 2,
+      vx: (Math.random() - 0.5) * 12,
+      vy: (Math.random() - 0.5) * 12 - 3,
+      rot: Math.random() * Math.PI * 2,
+      vr: (Math.random() - 0.5) * 0.32,
+      size: 8 + Math.random() * 14,
+      color: ['#FF6B9D', '#FEC260', '#7AE7B5', '#6EC1E4', '#B58CF2', '#FFD166', '#22D3EE', '#fff'][Math.floor(Math.random() * 8)],
+      shape: ['rect', 'circle', 'star'][Math.floor(Math.random() * 3)],
+      life: 140 + Math.random() * 120,
+      maxLife: 260
+    });
+  }
+}
+
+function flashScreen() {
+  if (!_partyStage) return;
+  _partyStage.classList.remove('flash-bg', 'big-flash-bg');
+  void _partyStage.offsetWidth;
+  _partyStage.classList.add('flash-bg');
+  setTimeout(() => _partyStage.classList.remove('flash-bg'), 600);
+}
+function bigFlash() {
+  if (!_partyStage) return;
+  _partyStage.classList.remove('flash-bg', 'big-flash-bg');
+  void _partyStage.offsetWidth;
+  _partyStage.classList.add('big-flash-bg');
+  setTimeout(() => _partyStage.classList.remove('big-flash-bg'), 900);
+}
+
+window.addEventListener('resize', () => {
+  if (_partyCanvas && _partyStage && !_partyStage.hidden) resizePartyCanvas();
 });
 
 // ================= 学生 · 大屏自动上报 =================
