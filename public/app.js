@@ -1371,6 +1371,24 @@ function playWarn() {
   tone(320, 0, 0.1, 'square', 0.12);
   haptic(8);
 }
+// ===== 欢乐点名 · 网格模式专用音效 =====
+// 开始抽取：上扬琶音 + 收尾"叮"，像"出发"的小号角
+function playPartyStart() {
+  tone(523, 0,    0.12, 'triangle', 0.22);  // C5
+  tone(659, 0.10, 0.12, 'triangle', 0.22);  // E5
+  tone(784, 0.20, 0.12, 'triangle', 0.22);  // G5
+  tone(1046,0.30, 0.22, 'sine',     0.20);  // C6
+  haptic([8, 20, 8]);
+}
+// 卡点命中：低频重击 + 高频"叮"，有"啪嗒一下"砸下来的感觉
+function playPartyHit() {
+  tone(70,  0,    0.20, 'sine',     0.38);  // 低频鼓点
+  tone(55,  0.04, 0.28, 'sine',     0.32);  // 次低频余震
+  tone(180, 0,    0.08, 'square',   0.14);  // 体感冲击
+  tone(1320,0.04, 0.45, 'sine',     0.22);  // 高频"叮"
+  tone(1760,0.10, 0.40, 'sine',     0.18);  // 高频余韵
+  haptic([20, 30, 20]);
+}
 // ===== 语音合成：预热声纹列表，避免首次朗读卡顿 =====
 let _voicesReady = false;
 let _enVoice = null;
@@ -2261,43 +2279,61 @@ function pickRandomLine(name) {
   return tpl.replace(/\{name\}/g, name);
 }
 
-// ================= 模式一：轮盘 =================
+// ================= 模式一：复古木头风轮盘 =================
 function buildWheel() {
   const display = $('#partyDisplay');
-  display.innerHTML = '<div class="party-wheel"><div class="party-wheel-pointer">▼</div><div class="party-wheel-inner" id="partyWheelInner"></div></div>';
-  const inner = $('#partyWheelInner');
   if (!_partyNames.length) {
-    inner.innerHTML = '<div class="party-empty">名单为空，请先导入</div>';
+    display.innerHTML = '<div class="party-empty">名单为空，请先导入</div>';
     return;
   }
   const n = _partyNames.length;
   const sectors = 12;
-  const palette = [
-    '#FF6B9D', '#FEC260', '#7AE7B5', '#6EC1E4',
-    '#B58CF2', '#FF8E72', '#FFD166', '#06D6A0',
-    '#EF476F', '#A78BFA', '#FB7185', '#22D3EE'
+  const radius = 118;  // 文字距圆心的距离
+
+  // 12 段交替木纹色（深胡桃 / 浅橡木 / 红木），复古质感
+  const woodSectors = [
+    '#5C3A1E', '#C19A6B', '#7A4B26', '#D4A373',
+    '#5C3A1E', '#C19A6B', '#7A4B26', '#D4A373',
+    '#5C3A1E', '#C19A6B', '#7A4B26', '#D4A373'
   ];
-  let svg = '';
+
+  let labels = '';
   for (let i = 0; i < sectors; i++) {
-    const a0 = (i / sectors) * Math.PI * 2 - Math.PI / 2;
-    const a1 = ((i + 1) / sectors) * Math.PI * 2 - Math.PI / 2;
-    const r = 150;
-    const cx = 160, cy = 160;
-    const x0 = cx + r * Math.cos(a0), y0 = cy + r * Math.sin(a0);
-    const x1 = cx + r * Math.cos(a1), y1 = cy + r * Math.sin(a1);
-    const large = (a1 - a0) > Math.PI ? 1 : 0;
-    const d = `M${cx},${cy} L${x0},${y0} A${r},${r} 0 ${large} 1 ${x1},${y1} Z`;
     const name = _partyNames[i % n];
-    const midA = (a0 + a1) / 2;
-    const tr = (midA * 180 / Math.PI);
-    const tx = cx + (r * 0.62) * Math.cos(midA);
-    const ty = cy + (r * 0.62) * Math.sin(midA);
-    svg += `<path d="${d}" fill="${palette[i % palette.length]}" stroke="#fff" stroke-width="1.5" />`;
-    svg += `<text x="${tx}" y="${ty}" text-anchor="middle" dominant-baseline="middle" fill="#fff" font-weight="900" font-size="11" transform="rotate(${tr} ${tx} ${ty})">${esc(name)}</text>`;
+    // 扇形中心角（从 12 点钟方向开始，顺时针）
+    const midDeg = (i + 0.5) * (360 / sectors) - 90;
+    // 根据名字长度自适应字号
+    let fs = 22;
+    if (name.length >= 4) fs = 17;
+    if (name.length >= 5) fs = 14;
+    if (name.length >= 6) fs = 12;
+    if (name.length >= 8) fs = 10;
+    labels += `<div class="wheel-label" style="transform: rotate(${midDeg}deg) translateY(-${radius}px); font-size:${fs}px;">${esc(name)}</div>`;
   }
-  svg += `<circle cx="160" cy="160" r="18" fill="#fff" stroke="#7C3AED" stroke-width="3" />`;
-  svg += `<text x="160" y="166" text-anchor="middle" fill="#7C3AED" font-weight="900" font-size="18">GO</text>`;
-  inner.innerHTML = svg;
+
+  display.innerHTML =
+    '<div class="party-wheel-wrap">' +
+      '<div class="party-wheel-wood" id="partyWheelInner">' +
+        // 木纹底色
+        '<div class="party-wheel-bg"></div>' +
+        // 木纹纹理叠加
+        '<div class="party-wheel-grain"></div>' +
+        // 扇形分隔钉
+        '<div class="party-wheel-pins">' +
+          Array.from({ length: 12 }).map(() => '<span></span>').join('') +
+        '</div>' +
+        // 名字标签
+        '<div class="party-wheel-labels">' + labels + '</div>' +
+        // 中心金属轴
+        '<div class="party-wheel-hub"><div class="party-wheel-hub-inner">★</div></div>' +
+      '</div>' +
+      // 指针
+      '<div class="party-wheel-pointer"><div class="party-wheel-pointer-tip"></div></div>' +
+    '</div>';
+
+  // 存储木色和名字到 dataset，方便 spin 时计算落点
+  const inner = $('#partyWheelInner');
+  inner.dataset.woodSectors = JSON.stringify(woodSectors);
   inner.style.transition = 'none';
   inner.style.transform = 'rotate(0deg)';
 }
@@ -2311,27 +2347,39 @@ function spinWheel() {
     for (let i = 0; i < sectors; i++) {
       if (_partyNames[i % n] === win) { winIdx = i; break; }
     }
-    // 扇形 i 中心初始角度 = (i + 0.5) * (360/sectors) - 90（-90 是 12 点钟方向）
-    // 旋转 target 度（顺时针）后，新角度 = 初始 + target
-    // 目标：让扇形中心落在 -90（指针方向） → target = -初始 + 360*k
+    // 扇形 i 中心初始角度 = (i + 0.5) * 30 - 90
+    // 旋转 target 后，扇形中心应落在 -90（12 点钟，指针方向）
+    // → target = -((i + 0.5) * 30 - 90) + 360k
     const sectorCenter = (winIdx + 0.5) * (360 / sectors) - 90;
     const target = 360 * 6 - sectorCenter - 90;
     const inner = $('#partyWheelInner');
-    inner.style.transition = 'transform 4.2s cubic-bezier(.18, .9, .28, 1)';
+    inner.style.transition = 'transform 4.5s cubic-bezier(.16, .9, .26, 1)';
     inner.style.transform = `rotate(${target}deg)`;
-    setTimeout(() => resolve(win), 4250);
+    setTimeout(() => resolve(win), 4550);
   });
 }
 
-// ================= 模式二：老虎机 =================
+// ================= 模式二：老虎机（带拉杆） =================
 function buildSlot() {
   const display = $('#partyDisplay');
-  display.innerHTML = '<div class="party-slot">'
-    + '<div class="party-slot-col"><div class="party-slot-strip" id="partySlot0"></div></div>'
-    + '<div class="party-slot-col"><div class="party-slot-strip" id="partySlot1"></div></div>'
-    + '<div class="party-slot-col"><div class="party-slot-strip" id="partySlot2"></div></div>'
-    + '<div class="party-slot-cover"></div>'
-    + '</div>';
+  display.innerHTML =
+    '<div class="party-slot-wrap">' +
+      '<div class="party-slot-board">' +
+        '<div class="party-slot-sign"><span>🎰 S L O T</span></div>' +
+        '<div class="party-slot-frame">' +
+          '<div class="party-slot-col"><div class="party-slot-strip" id="partySlot0"></div></div>' +
+          '<div class="party-slot-col"><div class="party-slot-strip" id="partySlot1"></div></div>' +
+          '<div class="party-slot-col"><div class="party-slot-strip" id="partySlot2"></div></div>' +
+          '<div class="party-slot-cover"></div>' +
+        '</div>' +
+        '<div class="party-slot-base"></div>' +
+      '</div>' +
+      '<div class="party-slot-lever" id="partySlotLever">' +
+        '<div class="party-slot-lever-ball"></div>' +
+        '<div class="party-slot-lever-rod"></div>' +
+        '<div class="party-slot-lever-base"></div>' +
+      '</div>' +
+    '</div>';
   for (let i = 0; i < 3; i++) {
     const strip = $('#partySlot' + i);
     strip.innerHTML = buildSlotStrip(_partyNames, 18);
@@ -2347,31 +2395,40 @@ function buildSlotStrip(names, count) {
   }
   return html;
 }
+function pullLeverDown() {
+  const lever = $('#partySlotLever');
+  if (lever) lever.classList.add('pulled');
+}
+function releaseLeverUp() {
+  const lever = $('#partySlotLever');
+  if (lever) lever.classList.remove('pulled');
+}
 function spinSlot() {
   return new Promise(resolve => {
     const win = pickRandomName();
     const n = _partyNames.length;
     const cols = [0, 1, 2];
-    const delays = [0, 350, 700];
-    const durations = [2400, 2800, 3200];
+    // 三列同步启动，时长递增制造落差感
+    const durations = [2400, 2900, 3400];
+    pullLeverDown();
     cols.forEach((c, i) => {
-      setTimeout(() => {
-        const strip = $('#partySlot' + c);
-        const list = [];
-        for (let j = 0; j < 18; j++) list.push(_partyNames[(j * 3 + c) % n]);
-        // 末尾固定 3 个 win，保证落点
-        list.push(win); list.push(win); list.push(win);
-        strip.innerHTML = list.map(x => `<div class="party-slot-item">${esc(x)}</div>`).join('');
-        const itemH = 80;
-        const total = list.length;
-        const finalIdx = total - 3;
-        // 中间一行展示 finalIdx：相对 0 行偏移 (finalIdx - 1) * itemH
-        const offset = -(finalIdx - 1) * itemH;
-        strip.style.transition = `transform ${durations[i]}ms cubic-bezier(.18, .85, .28, 1)`;
-        strip.style.transform = `translateY(${offset}px)`;
-      }, delays[i]);
+      const strip = $('#partySlot' + c);
+      const list = [];
+      for (let j = 0; j < 18; j++) list.push(_partyNames[(j * 3 + c) % n]);
+      list.push(win); list.push(win); list.push(win);
+      strip.innerHTML = list.map(x => `<div class="party-slot-item">${esc(x)}</div>`).join('');
+      const itemH = 80;
+      const total = list.length;
+      const finalIdx = total - 3;
+      const offset = -(finalIdx - 1) * itemH;
+      // 机械感曲线：前段快、中段稳、末段强减速
+      strip.style.transition = `transform ${durations[i]}ms cubic-bezier(.14, .8, .22, 1)`;
+      strip.style.transform = `translateY(${offset}px)`;
     });
-    setTimeout(() => resolve(win), 700 + 3200 + 200);
+    setTimeout(() => {
+      releaseLeverUp();
+      resolve(win);
+    }, 3400 + 200);
   });
 }
 
@@ -2394,6 +2451,7 @@ function buildGrid() {
 }
 function spinGrid() {
   return new Promise(resolve => {
+    playPartyStart();  // 开始：上扬琶音
     const win = pickRandomName();
     const cells = $$('.party-grid-cell');
     const total = cells.length;
@@ -2415,6 +2473,7 @@ function spinGrid() {
           c.classList.remove('flash');
           if (i === curWinIdx) c.classList.add('picked');
         });
+        playPartyHit();  // 卡点：低频鼓点 + 高频"叮"
         setTimeout(() => resolve(win), 350);
       }
     }, tickMs);
