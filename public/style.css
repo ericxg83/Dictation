@@ -2156,18 +2156,22 @@ button:active::after, .primary:active::after, .ghost-btn:active::after, .header-
   /* 顶部 nav 在小屏隐藏，交给底部 tab 栏 */
   nav#teacherNav, nav#studentNav { display: none !important; }
   .mobile-tabbar { display: flex; }
-  /* 显示当前角色对应的 3 个 tab，隐藏另外 3 个（由 JS 在 applyAuth 里设置） */
+  /* 显示当前角色对应的 tab，隐藏另外的（由 JS 在 applyAuth 里设置） */
   .mobile-tabbar button[data-view^="teacher-"],
   .mobile-tabbar button[data-view="live"],
-  .mobile-tabbar button[data-view="rollcall"] { display: none; }
+  .mobile-tabbar button[data-view="rollcall"],
+  .mobile-tabbar button[data-view="party-rollcall"] { display: none; }
   .mobile-tabbar.is-teacher button[data-view^="teacher-"],
   .mobile-tabbar.is-teacher button[data-view="live"],
-  .mobile-tabbar.is-teacher button[data-view="rollcall"] { display: flex; }
+  .mobile-tabbar.is-teacher button[data-view="rollcall"],
+  .mobile-tabbar.is-teacher button[data-view="party-rollcall"] { display: flex; }
   .mobile-tabbar.is-teacher button[data-view="student-banks"],
   .mobile-tabbar.is-teacher button[data-view="practice"],
   .mobile-tabbar.is-teacher button[data-view="stats"] { display: none; }
   .mobile-tabbar.is-student button[data-view^="teacher-"],
-  .mobile-tabbar.is-student button[data-view="live"] { display: none; }
+  .mobile-tabbar.is-student button[data-view="live"],
+  .mobile-tabbar.is-student button[data-view="rollcall"],
+  .mobile-tabbar.is-student button[data-view="party-rollcall"] { display: none; }
   .mobile-tabbar.is-student button[data-view="student-banks"],
   .mobile-tabbar.is-student button[data-view="practice"],
   .mobile-tabbar.is-student button[data-view="stats"] { display: flex; }

@@ -1302,8 +1302,8 @@ function switchView(name) {
   }
   if (name === 'teacher-banks') loadBanks();
   if (name === 'teacher-students') loadStudents();
-  if (name === 'rollcall') showRollcall();
-  if (name === 'party-rollcall') showPartyRollcall();
+  if (name === 'rollcall') { if (currentUser.role !== 'teacher') return; showRollcall(); }
+  if (name === 'party-rollcall') { if (currentUser.role !== 'teacher') return; showPartyRollcall(); }
   if (name !== 'rollcall' && _rollTimer) {
     clearInterval(_rollTimer); _rollTimer = null; _rolling = false;
   }
