@@ -2211,7 +2211,9 @@ function bindPartyEvents() {
   };
   $('#partySaveBtn').onclick = () => {
     localStorage.setItem(PARTY_NAMES_KEY, $('#partyNames').value || '');
+    _partyNames = partyNamesFromText();
     refreshPartyMeta();
+    resetPartyUI();
     flashSaveTip();
   };
   $('#partyClearBtn').onclick = () => {
@@ -2230,6 +2232,7 @@ function bindPartyEvents() {
       const cur = String($('#partyNames').value || '').trim();
       $('#partyNames').value = cur ? cur + '\n' + names.join('\n') : names.join('\n');
       localStorage.setItem(PARTY_NAMES_KEY, $('#partyNames').value);
+      _partyNames = partyNamesFromText();
       refreshPartyMeta();
       resetPartyUI();
       flashSaveTip();
@@ -2240,7 +2243,9 @@ function bindPartyEvents() {
     clearTimeout(_saveT);
     _saveT = setTimeout(() => {
       localStorage.setItem(PARTY_NAMES_KEY, $('#partyNames').value || '');
+      _partyNames = partyNamesFromText();
       refreshPartyMeta();
+      resetPartyUI();
     }, 400);
   });
   $('#partyRedrawBtn').onclick = () => startPartyDraw();
