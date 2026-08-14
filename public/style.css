@@ -3272,6 +3272,9 @@ button:active::after, .primary:active::after, .ghost-btn:active::after, .header-
   border-color: transparent;
   box-shadow: 0 4px 14px rgba(236, 72, 153, .5);
 }
+/* 临时隐藏轮盘和老虎机模式（仅留网格） */
+.party-mode-btn[data-mode="wheel"],
+.party-mode-btn[data-mode="slot"] { display: none; }
 
 .party-display {
   position: relative; z-index: 2;

@@ -2144,7 +2144,7 @@ let _partyCanvas = null;
 let _partyCtx = null;
 let _partyParticles = [];
 let _partyRaf = null;
-let _partyMode = 'wheel';  // wheel | slot | grid
+let _partyMode = 'grid';  // wheel | slot | grid（wheel/slot 暂时隐藏）
 let _partyNames = [];
 let _partyWin = null;
 let _partyWinLine = '';
@@ -2268,6 +2268,8 @@ function resetPartyUI() {
   $('#partyRedrawBtn').hidden = true;
   $('#partyWinLine').textContent = '';
   $('#partyWinLine').classList.remove('show');
+  // 同步 mode-row 的 active 状态
+  $$('.party-mode-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === _partyMode));
 }
 
 function pickRandomName() {
@@ -2455,28 +2457,82 @@ function spinGrid() {
     const win = pickRandomName();
     const cells = $$('.party-grid-cell');
     const total = cells.length;
-    let elapsed = 0;
-    const totalDur = 3600;
-    const tickMs = 70;
-    const curWinIdx = cells.findIndex(c => c.textContent === win);
-    const interval = setInterval(() => {
-      elapsed += tickMs;
-      const progress = elapsed / totalDur;
-      const num = Math.max(1, Math.floor(6 * (1 - progress)));
-      const picks = new Set();
-      while (picks.size < num) picks.add(Math.floor(Math.random() * total));
-      if (progress > 0.78 && curWinIdx >= 0) picks.add(curWinIdx);
-      cells.forEach((c, i) => c.classList.toggle('flash', picks.has(i)));
-      if (elapsed >= totalDur) {
-        clearInterval(interval);
-        cells.forEach((c, i) => {
-          c.classList.remove('flash');
-          if (i === curWinIdx) c.classList.add('picked');
-        });
-        playPartyHit();  // 卡点：低频鼓点 + 高频"叮"
-        setTimeout(() => resolve(win), 350);
+    if (!total) { resolve(win); return; }
+    const winIdx = cells.findIndex(c => c.textContent === win);
+    if (winIdx < 0) { resolve(win); return; }
+
+    // === 三阶段时长（毫秒） ===
+    // 阶段 1：纯随机多格闪烁（无任何剧透）
+    // 阶段 2：单格慢扫序列（全部是干扰项，最后一步也不是 win）
+    // 阶段 3：锁定（picked 动画），winIdx 只在这一刻才出现
+    const phase1Dur = 2000;
+    const phase2Dur = 1200;
+    const phase3Dur = 350;
+    const seqLen = 5;
+    const totalDur = phase1Dur + phase2Dur + phase3Dur;
+
+    // 预生成扫描序列：全部随机，且**绝不包含 winIdx**，
+    // 锁定瞬间才把高亮从最后一格的"干扰项"切到真正的 winIdx
+    const sequence = [];
+    const used = new Set();
+    while (sequence.length < seqLen) {
+      const r = Math.floor(Math.random() * total);
+      if (r === winIdx) continue;
+      if (used.has(r)) continue;
+      sequence.push(r);
+      used.add(r);
+    }
+    const seqStepDur = phase2Dur / sequence.length;
+
+    let startTime = null;
+    let lastStep = -1;
+    let phase2Done = false;
+    let lastFlashIdx = -1;  // 记录阶段 2 最后一格被高亮的是谁（不是 win）
+
+    const tick = (now) => {
+      if (startTime === null) startTime = now;
+      const elapsed = now - startTime;
+
+      if (elapsed < phase1Dur) {
+        // === 阶段 1：纯随机多格闪烁 ===
+        const progress = elapsed / phase1Dur;
+        // 起始闪 8 格，越接近阶段 2 越少（最低 3 格）
+        const num = Math.max(3, Math.floor(8 - progress * 5));
+        const picks = new Set();
+        while (picks.size < num) {
+          const r = Math.floor(Math.random() * total);
+          picks.add(r);
+        }
+        cells.forEach((c, i) => c.classList.toggle('flash', picks.has(i)));
+      } else if (!phase2Done) {
+        // === 阶段 2：单格慢扫（全部是干扰项，最后一格也绝不是 win） ===
+        const phase2Elapsed = elapsed - phase1Dur;
+        const step = Math.min(Math.floor(phase2Elapsed / seqStepDur), sequence.length - 1);
+        if (step !== lastStep) {
+          cells.forEach(c => c.classList.remove('flash'));
+          if (step >= 0 && step < sequence.length) {
+            cells[sequence[step]].classList.add('flash');
+            lastFlashIdx = sequence[step];
+          }
+          lastStep = step;
+        }
+        if (elapsed >= phase1Dur + phase2Dur) {
+          phase2Done = true;
+          // 关键：从"干扰项"瞬间跳到 winIdx，不给玩家预判时间
+          cells.forEach(c => c.classList.remove('flash'));
+          cells[winIdx].classList.add('picked');
+          playPartyHit();  // 卡点音效
+          locked = true;
+        }
+      } else if (elapsed < totalDur) {
+        // === 阶段 3：等待锁定动画完成 ===
+      } else {
+        resolve(win);
+        return;
       }
-    }, tickMs);
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
   });
 }
 
