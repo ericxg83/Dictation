@@ -3771,6 +3771,143 @@ function fxCorrect(gain, type) {
 // 连续答对累积，达到 3/5/8/10/15 时触发大字 + 成就提示
 let _combo = 0;
 let _maxCombo = 0;
+
+// ===== 连击鼓励语：本地兜底词库 =====
+// LLM 不可用或慢时用这里的文案保证体验；不同档位（3/5/8/10/15/20/30）独立成组，避免视觉割裂。
+const COMBO_LOCAL = {
+  combo: {
+    3:  ['再稳一波～', '手感来了！', '别眨眼', '这波可以的', '稳住！', '势如破竹', '漂亮，继续'],
+    5:  ['太稳了！', '键盘都在冒烟～', '谁与争锋！', '起飞！', '手感火辣', '这波谁顶得住', '手速真快'],
+    8:  ['势不可挡！', '手感火辣！', '这把稳赢', '绝绝子升级', '登峰造极', '挡不住', '气场全开'],
+    10: ['满级大佬！', 'YYDS！', '无敌了！', '火力全开！', '封神！', '无人能挡', '把把都对'],
+    15: ['神仙操作！', '破纪录了！', '已超神！', '绝顶高手', '人类之光', '稳住我们能赢'],
+    20: ['传奇连击！', '外星人来了', '手速爆表', '不可思议', '超神降临'],
+    30: ['天选之人！', '传说级别', '封号斗罗', '挂都不敢这么开', '无敌真寂寞']
+  },
+  break: [
+    '深呼吸，再来！',
+    '没事，收拾一下继续',
+    '别灰心，下一题更稳',
+    '谁还没翻车过～',
+    '调整节奏，卷土重来',
+    '失误是常态，加油',
+    '再战一题！',
+    '慢慢来不着急'
+  ],
+  perfect: [
+    '本轮零失误，零失分',
+    '满分如探囊取物',
+    '一气呵成，毫无破绽',
+    '本轮表现堪称完美',
+    '把把都对，状态拉满',
+    '稳定输出，太稳了'
+  ],
+  maxcombo: {
+    5:  ['节奏感很棒，继续保持～', '手感不错，下次冲更高', '稳如老狗'],
+    8:  ['手感来了，下次再创纪录～', '势不可挡，继续', '巅峰手感'],
+    10: ['封神表现，下次能更高', '状态爆炸', '手感火辣'],
+    15: ['传说级连击，无人能挡', '表现炸裂', '膜拜'],
+    20: ['人类极限了', '开挂了吧', '不可思议'],
+    30: ['外星人！', '膜拜大佬', '已超神']
+  }
+};
+
+function pickComboLocal(type, ctx) {
+  const c = ctx || {};
+  if (type === 'combo') {
+    const n = c.combo || 0;
+    const level = n >= 30 ? 30 : n >= 20 ? 20 : n >= 15 ? 15 : n >= 10 ? 10 : n >= 8 ? 8 : n >= 5 ? 5 : 3;
+    const arr = (COMBO_LOCAL.combo && COMBO_LOCAL.combo[level]) || COMBO_LOCAL.combo[3];
+    const desc = arr[Math.floor(Math.random() * arr.length)];
+    return { title: '🔥 ' + n + ' 连击！', desc };
+  }
+  if (type === 'break') {
+    const arr = COMBO_LOCAL.break;
+    const desc = arr[Math.floor(Math.random() * arr.length)];
+    return { title: '💔 ' + c.combo + ' 连击中断', desc };
+  }
+  if (type === 'perfect') {
+    const arr = COMBO_LOCAL.perfect;
+    const desc = arr[Math.floor(Math.random() * arr.length)];
+    return { title: '🏆 完美通关！', desc: '本轮 ' + (c.total || 0) + ' 题' + desc };
+  }
+  if (type === 'maxcombo') {
+    const n = c.maxCombo || 0;
+    const level = n >= 30 ? 30 : n >= 20 ? 20 : n >= 15 ? 15 : n >= 10 ? 10 : n >= 8 ? 8 : n >= 5 ? 5 : 5;
+    const arr = (COMBO_LOCAL.maxcombo && COMBO_LOCAL.maxcombo[level]) || COMBO_LOCAL.maxcombo[5];
+    const desc = arr[Math.floor(Math.random() * arr.length)];
+    return { title: '🔥 最高 ' + n + ' 连击！', desc };
+  }
+  return { title: '✨ 继续加油', desc: '下一题更稳' };
+}
+
+// 最近展示过的 desc，避免短期重复
+const _recentComboMsgs = [];
+function pushRecentComboMsg(s) {
+  if (!s) return;
+  _recentComboMsgs.push(s);
+  if (_recentComboMsgs.length > 8) _recentComboMsgs.shift();
+}
+
+let _comboAiProbed = false;
+let _comboAiEnabled = false;
+let _comboReqEpoch = 0;  // 自增序号，避免快速连击或非连击成就打断时 AI 返回覆盖错的弹窗
+async function probeComboAi() {
+  if (_comboAiProbed) return _comboAiEnabled;
+  _comboAiProbed = true;
+  try {
+    const r = await api('/api/combo-message', { method: 'POST', body: { type: '__probe__' } });
+    _comboAiEnabled = !!(r && r.enabled);
+  } catch (e) { _comboAiEnabled = false; }
+  return _comboAiEnabled;
+}
+
+async function fetchComboAi(type, ctx) {
+  if (!await probeComboAi()) return null;
+  try {
+    const r = await api('/api/combo-message', {
+      method: 'POST',
+      body: Object.assign({ type }, ctx, { recent: _recentComboMsgs.slice() })
+    });
+    if (r && r.message && r.message.title && r.message.desc) return r.message;
+  } catch (e) {}
+  return null;
+}
+
+function softUpdateAchievementDesc(newDesc, expectedTitle) {
+  const el = $('#achievement');
+  if (!el || el.hidden) return;
+  // 只在当前显示的还是我们这个成就时更新，避免被 PK 等非连击成就或更新的连击打断
+  if (expectedTitle) {
+    const titleEl = $('#achievementTitle');
+    if (titleEl && titleEl.textContent !== expectedTitle) return;
+  }
+  const descEl = $('#achievementDesc');
+  if (!descEl || descEl.textContent === newDesc) return;
+  descEl.style.transition = 'opacity 0.18s ease';
+  descEl.style.opacity = '0';
+  setTimeout(() => {
+    descEl.textContent = newDesc;
+    descEl.style.opacity = '1';
+  }, 180);
+}
+
+// 显示连击成就：先本地词库瞬时显示，再用 AI 文案平滑升级
+async function showComboAchievement(type, ctx) {
+  const epoch = ++_comboReqEpoch;
+  const local = pickComboLocal(type, ctx);
+  showAchievement(local.title, local.desc);
+  pushRecentComboMsg(local.desc);
+  // 异步用 AI 升级（不阻塞主流程）
+  fetchComboAi(type, ctx).then(ai => {
+    if (epoch !== _comboReqEpoch) return;  // 已被更新的连击或别的弹窗覆盖
+    if (ai && ai.desc && ai.desc !== local.desc) {
+      softUpdateAchievementDesc(ai.desc, local.title);
+      pushRecentComboMsg(ai.desc);
+    }
+  });
+}
+
 function bumpCombo() {
   _combo++;
   if (_combo > _maxCombo) _maxCombo = _combo;
@@ -3790,13 +3927,28 @@ function bumpCombo() {
   }
   // 成就：达成 5/8/10/15 连击
   if ([5, 8, 10, 15, 20, 30].includes(_combo)) {
-    showAchievement('🔥 ' + _combo + ' 连击！', '太稳了，键盘都在冒烟～');
+    const s = (typeof session !== 'undefined' && session) ? session : null;
+    showComboAchievement('combo', {
+      combo: _combo,
+      correct: s ? s.correct : 0,
+      wrong: s ? s.wrong : 0,
+      total: s ? s.total : 0,
+      maxCombo: _maxCombo
+    });
   }
 }
 function resetCombo() {
   if (_combo >= 3) {
     // 之前的连击中断了，给个温柔的提示
-    if (_combo >= 5) showAchievement('💔 连击中断', '答对 ' + _combo + ' 次，再来！');
+    if (_combo >= 5) {
+      const s = (typeof session !== 'undefined' && session) ? session : null;
+      showComboAchievement('break', {
+        combo: _combo,
+        correct: s ? s.correct : 0,
+        wrong: s ? s.wrong : 0,
+        total: s ? s.total : 0
+      });
+    }
   }
   _combo = 0;
   const badge = $('#comboBadge');
@@ -4082,11 +4234,18 @@ async function endSession() {
   if (isPerfect || maxCombo >= 5 || s.total >= 10) fireworks();
   // 成就
   if (isPerfect) {
-    setTimeout(() => showAchievement('🏆 完美通关！', '本轮 ' + s.score + ' 题全部正确，太牛了！'), 600);
-  } else if (maxCombo >= 8) {
-    setTimeout(() => showAchievement('🔥 最高 ' + maxCombo + ' 连击！', '手感来了，下次再创纪录～'), 600);
+    setTimeout(() => showComboAchievement('perfect', {
+      total: s.score,
+      correct: s.correct,
+      wrong: s.wrong
+    }), 600);
   } else if (maxCombo >= 5) {
-    setTimeout(() => showAchievement('🔥 最高 ' + maxCombo + ' 连击！', '节奏感很棒，继续保持～'), 600);
+    setTimeout(() => showComboAchievement('maxcombo', {
+      maxCombo: maxCombo,
+      total: s.total,
+      correct: s.correct,
+      wrong: s.wrong
+    }), 600);
   }
   prepareToday();
 }

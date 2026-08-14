@@ -866,6 +866,97 @@ async function extractByLlm(rawText) {
   return { entries, truncated: clipped.truncated };
 }
 
+// ================= 路由：连击鼓励语（基于 LLM） =================
+// 练习中达成连击 / 连击中断 / 完美通关时，调用 LLM 生成游戏化的初中生风格鼓励语。
+// LLM 未配置或失败时返回 null，让前端走本地词库兜底。
+// DeepSeek 价格极低（每万次约几分钱），可放心使用；想完全免调用则前端自动降级到本地词库。
+const COMBO_TIMEOUT_MS = Number(process.env.COMBO_TIMEOUT_MS) || 4000;
+
+function buildComboPrompt(type, ctx) {
+  const c = ctx || {};
+  const combo = c.combo || 0;
+  const correct = c.correct || 0;
+  const wrong = c.wrong || 0;
+  const total = c.total || 0;
+  const maxCombo = c.maxCombo || 0;
+  const acc = total ? Math.round(correct / total * 100) : 0;
+  const typeDesc = {
+    combo: `玩家刚打出 ${combo} 连击`,
+    break: `玩家之前 ${combo} 连击，刚被打断`,
+    perfect: `玩家整局 ${total} 题全对，零失误`,
+    maxcombo: `结算回顾：最高连击 ${maxCombo}，共 ${total} 题，对 ${correct} 错 ${wrong}`
+  }[type] || `连击 ${combo}`;
+  const recentStr = (c.recent && c.recent.length)
+    ? '\n最近已用过的描述（请避开相似句式）：' + c.recent.slice(-5).map(r => '「' + r + '」').join('、')
+    : '';
+  return `你是一个给初中生英语默写 App 写"游戏化鼓励语"的文案助手。${typeDesc}。${recentStr}
+请根据情境生成一句新的鼓励语，要求：
+1. 严格输出 JSON：{"title":"...","desc":"..."}，title 在 6 字以内，desc 在 20 字以内
+2. 风格：活泼、可爱、游戏化、像成就系统弹窗文案；emoji 可用但不超过 1 个
+3. 句式要新颖、避免与最近用过的重复
+4. 只输出 JSON，不要任何额外说明、Markdown 代码块、注释
+当前正确率 ${acc}%${maxCombo > combo ? '，本局最高连击 ' + maxCombo : ''}`;
+}
+
+function parseComboResponse(content) {
+  let s = String(content || '').trim();
+  s = s.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/g, '').trim();
+  let obj = null;
+  try { obj = JSON.parse(s); } catch (e) {}
+  if (!obj) {
+    const m = s.match(/\{[\s\S]*\}/);
+    if (m) { try { obj = JSON.parse(m[0]); } catch (e2) {} }
+  }
+  if (!obj || typeof obj !== 'object') return null;
+  const title = String(obj.title || '').trim().slice(0, 12);
+  const desc = String(obj.desc || '').trim().slice(0, 40);
+  if (!title || !desc) return null;
+  return { title, desc };
+}
+
+async function callComboLlm(type, ctx) {
+  if (!llmEnabled()) return null;
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), COMBO_TIMEOUT_MS);
+  try {
+    const res = await fetch(LLM_BASE_URL + '/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + LLM_API_KEY
+      },
+      body: JSON.stringify({
+        model: LLM_MODEL,
+        temperature: 1.0,
+        messages: [
+          { role: 'system', content: '你是给初中生写游戏化鼓励语的文案助手。风格活泼、可爱、像游戏成就提示。永远只输出要求的 JSON，不要多余说明。' },
+          { role: 'user', content: buildComboPrompt(type, ctx) }
+        ]
+      }),
+      signal: ctrl.signal
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const content = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
+    if (!content) return null;
+    return parseComboResponse(content);
+  } catch (e) {
+    console.warn('combo LLM failed:', e.message);
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+app.post('/api/combo-message', requireAuth, async (req, res) => {
+  const { type, combo, correct, wrong, total, maxCombo, recent } = req.body || {};
+  const valid = ['combo', 'break', 'perfect', 'maxcombo'];
+  if (!valid.includes(type)) return res.json({ message: null, enabled: llmEnabled() });
+  if (!llmEnabled()) return res.json({ message: null, enabled: false });
+  const msg = await callComboLlm(type, { combo, correct, wrong, total, maxCombo, recent });
+  res.json({ message: msg, enabled: true });
+});
+
 // ================= 路由：文档解析 =================
 app.post('/api/parse', requireAuth, upload.single('file'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: '没有收到文件' });
