@@ -1173,9 +1173,11 @@ app.get('/api/live/practice', requireAuth, async (req, res) => {
   if (!bankId) return res.json({ active: false, bank: null, count: 0, entries: [] });
   const bank = (await q('SELECT * FROM banks WHERE id = $1 AND class_id = $2', [bankId, cls.id])).rows[0];
   if (!bank) return res.json({ active: false, bank: null, count: 0, entries: [] });
+  // 使用 session 中预生成的统一序列，保证所有学生题目和顺序一致
+  const sequence = bd.sequence || [];
   const p = await syncBankProgress(req.user.id, bank);
   const byKey = new Map(p.entries.filter(e => e.bankId === bank.id).map(e => [e.key, e]));
-  const entries = bank.entries.map(be => {
+  const entries = sequence.map(be => {
     const prog = byKey.get(keyOf(be.english) + '|' + (be.chinese || '').trim()) || {};
     return {
       id: prog.id || '', english: be.english, chinese: be.chinese, pos: be.pos || '', type: be.type,
@@ -1183,8 +1185,7 @@ app.get('/api/live/practice', requireAuth, async (req, res) => {
       wrongCount: prog.wrongCount || 0, nextDue: prog.nextDue || Date.now()
     };
   });
-  const count = Math.min(bd.count || entries.length, entries.length);
-  res.json({ active: true, bank: { id: bank.id, title: bank.title }, count, entries: entries.slice(0, count) });
+  res.json({ active: true, bank: { id: bank.id, title: bank.title }, count: entries.length, entries });
 });
 
 // ================= 路由：学生 · 练习 =================
@@ -1444,10 +1445,18 @@ app.post('/api/live/start', requireAuth, requireRole('teacher'), async (req, res
   const rawCount = parseInt((req.body || {}).count, 10);
   const count = Math.min(total, Math.max(1, isNaN(rawCount) ? total : rawCount));
   if (total < 1) return res.status(400).json({ error: '题库为空，无法开启默写' });
+  // 生成统一题目序列：Fisher-Yates 洗牌后截取 count 条，所有学生拿到相同题目和顺序
+  const seq = bank.entries.slice();
+  for (let i = seq.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [seq[i], seq[j]] = [seq[j], seq[i]];
+  }
+  const sequence = seq.slice(0, count);
   liveBoards[cls.id] = {
     id: genId('lv'),
     session: { startedAt: Date.now(), minutes, ended: false },
     bankId, bankTitle: bank.title, count,
+    sequence,
     players: {}
   };
   const remaining = Math.min(60, Math.max(1, minutes)) * 60;
@@ -1497,6 +1506,7 @@ app.get('/api/live/board', requireAuth, requireRole('teacher'), async (req, res)
     bankId: bd.bankId || null,
     bankTitle: bd.bankTitle || '',
     count: bd.count || 0,
+    sequenceWords: (bd.sequence || []).map(e => e.english || ''),
     players
   });
 });
@@ -1507,6 +1517,7 @@ app.post('/api/live/report', requireAuth, requireRole('student'), async (req, re
   if (!bd || bd.session.ended) return res.json({ ok: true });
   const b = req.body || {};
   bd.players[req.user.id] = {
+    uid: req.user.id,
     username: req.user.name || req.user.username,
     dragonId: String(b.dragonId || 'trex'),
     petName: String(b.petName || ''),

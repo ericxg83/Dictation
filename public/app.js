@@ -1824,8 +1824,11 @@ async function loadStudents() {
   wrap.appendChild(table);
 }
 
-// ================= 老师 · 大屏实时看板 =================
+// ================= 老师 · 大屏竞技场 =================
 let _liveTimer = null;
+let _prevPlayers = []; // 上一轮玩家数据，用于检测排名变化和宠物状态变化
+let _fullscreenForced = false; // 是否已由"开始默写"触发过全屏
+
 function stopLivePoll() {
   if (_liveTimer) { clearInterval(_liveTimer); _liveTimer = null; }
 }
@@ -1841,18 +1844,18 @@ async function loadLiveBanksForPicker() {
   try {
     const d = await api('/api/banks');
     const cur = sel.value;
-    // 按题库标题自然排序（8A_Unit1_A → 8A_Unit1_B → … → 8A_Unit2_A），方便老师按单元/课时顺序挑选
     const sorted = d.banks.slice().sort((a, b) => naturalCompare(a.title, b.title));
     sel.innerHTML = '<option value="">选择题库…</option>' + sorted.map(b => '<option value="' + b.id + '">' + esc(b.title) + '</option>').join('');
     if (cur) sel.value = cur;
-  } catch (e) { /* 忽略：拉取失败时保留占位项 */ }
+  } catch (e) { /* 忽略 */ }
 }
 async function loadLiveBoard() {
   let d;
   try { d = await api('/api/live/board'); } catch (e) { return; }
-  renderLiveClock(d.session, d.bankTitle, d.count);
-  renderLiveStats(d.players, d.session);
-  renderLiveGrid(d.players, d.session);
+  renderArenaClock(d.session);
+  renderArenaBanner(d.session, d.bankTitle, d.count);
+  renderArenaStats(d.players, d.session);
+  renderArenaGrid(d.players, d.session);
 }
 function fmtClock(sec) {
   sec = Math.max(0, Math.floor(sec));
@@ -1860,98 +1863,163 @@ function fmtClock(sec) {
   const s = String(sec % 60).padStart(2, '0');
   return m + ':' + s;
 }
-function renderLiveClock(sess, bankTitle, count) {
-  const num = $('#liveClockNum');
-  const state = $('#liveClockState');
-  if (!sess) { num.textContent = '00:00'; state.textContent = '未开始'; state.className = 'live-clock-state'; return; }
+function renderArenaClock(sess) {
+  const num = $('#arenaClockNum');
+  const label = $('#arenaClockLabel');
+  const clock = $('#arenaClock');
+  const view = $('#view-live');
+  const timeup = $('#arenaTimeup');
+  if (!sess) {
+    num.textContent = '00:00'; label.textContent = '未开始';
+    clock.classList.remove('alert'); view.classList.remove('arena-alert');
+    timeup.hidden = true;
+    return;
+  }
   num.textContent = fmtClock(sess.remaining);
   if (sess.ended || sess.remaining <= 0) {
-    state.textContent = '已结束';
-    num.textContent = '00:00';
-    state.className = 'live-clock-state timeup';
+    num.textContent = '00:00'; label.textContent = '已结束';
+    clock.classList.remove('alert');
+    timeup.hidden = false;
   } else {
-    state.textContent = (bankTitle ? '默写中 · ' + bankTitle : '默写中') + (count ? '（' + count + ' 条）' : '');
-    state.className = 'live-clock-state running';
+    label.textContent = '默写中';
+    if (sess.remaining <= 60) {
+      clock.classList.add('alert');
+      view.classList.add('arena-alert');
+    } else {
+      clock.classList.remove('alert');
+      view.classList.remove('arena-alert');
+    }
+    timeup.hidden = true;
   }
 }
-// 顶部汇总：在线人数 / 完成数 / 最高分 / 平均分
-function renderLiveStats(players, sess) {
-  const el = $('#liveStats');
-  if (!sess || !players.length) { el.innerHTML = ''; return; }
+function renderArenaBanner(sess, bankTitle, count) {
+  const sub = $('#arenaBannerSub');
+  if (!sess) { sub.textContent = '准备开始默写'; return; }
+  if (sess.ended || sess.remaining <= 0) { sub.textContent = '默写已结束'; return; }
+  sub.textContent = (bankTitle ? '题库：' + bankTitle : '默写中') + (count ? ' · ' + count + ' 条' : '');
+}
+function renderArenaStats(players, sess) {
+  if (!sess || !players.length) {
+    $('#arenaStatOnline').textContent = '0';
+    $('#arenaStatDone').textContent = '0';
+    $('#arenaStatMax').textContent = '0';
+    $('#arenaStatAvg').textContent = '0';
+    $('#arenaStatWords').textContent = '0';
+    return;
+  }
   const done = players.filter(p => p.done).length;
-  const total = players.reduce((s, p) => s + (p.total || 0), 0);
   const scores = players.map(p => p.score || 0);
   const max = scores.length ? Math.max.apply(null, scores) : 0;
   const avg = scores.length ? Math.round(scores.reduce((s, n) => s + n, 0) / scores.length) : 0;
-  el.innerHTML =
-    '<div class="lv-stat-item"><b>' + players.length + '</b><span>在线</span></div>' +
-    '<div class="lv-stat-item"><b>' + done + ' / ' + players.length + '</b><span>完成</span></div>' +
-    '<div class="lv-stat-item"><b>' + max + '</b><span>最高分</span></div>' +
-    '<div class="lv-stat-item"><b>' + avg + '</b><span>平均分</span></div>' +
-    '<div class="lv-stat-item total"><b>' + total + '</b><span>题数</span></div>';
+  const total = players.reduce((s, p) => s + (p.total || 0), 0);
+  $('#arenaStatOnline').textContent = players.length;
+  $('#arenaStatDone').textContent = done + '/' + players.length;
+  $('#arenaStatMax').textContent = max;
+  $('#arenaStatAvg').textContent = avg;
+  $('#arenaStatWords').textContent = total;
 }
-// 直播感：把学生正在敲的字母逐个显示，对/错用颜色区分，末尾闪光标
-function liveTypedHtml(p) {
-  if (p.done) return '<div class="lv-live away"><span class="lv-badge">✓</span><span>全部完成</span></div>';
-  if (p.locked) return '<div class="lv-live bad"><span class="lv-badge">✗</span><span>答错了 · 正在看答案…</span></div>';
+function arenaTypedHtml(p) {
+  if (p.done) return '<div class="arena-live away"><span class="arena-badge">✓</span><span>全部完成</span></div>';
+  if (p.locked) return '<div class="arena-live bad"><span class="arena-badge">✗</span><span>答错了 · 正在看答案…</span></div>';
   const typed = String(p.typed || '').replace(/\s+/g, '');
   const answer = String(p.answer || '').split(/[\/；;]/)[0].replace(/[^A-Za-z' ]/g, '').replace(/\s+/g, '').toLowerCase();
-  if (!typed && !p.word) return '<div class="lv-live"><span class="lv-wait-dot"></span><span>已上线 · 等待开始…</span></div>';
+  if (!typed && !p.word) return '<div class="arena-live"><span class="arena-wait-dot"></span><span>已上线 · 等待开始…</span></div>';
   let html = '';
   const limit = 60;
   const chars = typed.split('');
   chars.slice(0, limit).forEach((ch, i) => {
     const ok = answer && answer[i] != null && ch.toLowerCase() === answer[i];
-    html += '<span class="lv-ch' + (ok ? ' ok' : ' bad') + '">' + esc(ch) + '</span>';
+    html += '<span class="arena-ch' + (ok ? ' ok' : ' bad') + '">' + esc(ch) + '</span>';
   });
-  if (chars.length > limit) html += '<span class="lv-ch">…</span>';
-  html += '<span class="lv-cur"></span>';
-  return '<div class="lv-live"><span class="lv-typed-box">' + html + '</span></div>';
+  if (chars.length > limit) html += '<span class="arena-ch">…</span>';
+  html += '<span class="arena-cur"></span>';
+  return '<div class="arena-live"><span class="arena-typed-box">' + html + '</span></div>';
 }
-function renderLiveGrid(players, sess) {
-  const grid = $('#liveGrid');
-  if (!players.length) {
-    grid.innerHTML = '<div class="empty"><b>还没有学生上线</b><span>同学们打开「今日练习」开始默写后，实时输入会像直播一样显示在这里</span></div>';
-    return;
+function arenaPetState(p, prev) {
+  // 检测宠物状态变化
+  if (!prev) return '';
+  if (p.done && !prev.done) return 'celebrate';
+  if (p.locked && !prev.locked) return 'sad';
+  if ((p.correct || 0) > (prev.correct || 0)) return 'happy';
+  return '';
+}
+function renderArenaGrid(players, sess) {
+  const grid = $('#arenaGrid');
+  const MAX_SLOTS = 8;
+  // 按得分排序，取前 8 名
+  const sorted = players.slice().sort((a, b) => (b.score || 0) - (a.score || 0));
+  const top8 = sorted.slice(0, MAX_SLOTS);
+  const totalOnline = players.length;
+
+  // 检测排名变化和宠物状态
+  const prevMap = new Map();
+  _prevPlayers.forEach(p => prevMap.set(p.username + '|' + (p.uid || ''), p));
+
+  // 更新状态栏中的在线人数提示
+  if (totalOnline > MAX_SLOTS) {
+    $('#arenaStatOnline').textContent = totalOnline + ' (前8)';
   }
+
   grid.innerHTML = '';
-  const all = players;
-  all.forEach((p, i) => {
+  for (let i = 0; i < MAX_SLOTS; i++) {
+    const p = top8[i];
+    if (!p) {
+      // 虚位以待占位卡片
+      const slot = document.createElement('div');
+      slot.className = 'arena-card placeholder';
+      slot.innerHTML =
+        '<div class="arena-placeholder-inner">' +
+          '<span class="arena-placeholder-egg">🥚</span>' +
+          '<span class="arena-placeholder-text">虚位以待</span>' +
+        '</div>';
+      grid.appendChild(slot);
+      continue;
+    }
     const d = DRAGON_KINDS.find(k => k.id === p.dragonId) || DRAGON_KINDS[0];
     const total = p.total || 0;
     const answered = Math.min(p.answered || 0, total);
     const pct = total > 0 ? Math.min(100, Math.round(answered / total * 100)) : 0;
     const dt = new Date(p.lastAt);
+    const prev = prevMap.get(p.username + '|' + (p.uid || ''));
+    const petAnim = arenaPetState(p, prev);
+
     const card = document.createElement('div');
-    card.className = 'lv-card' +
+    card.className = 'arena-card' +
       (p.done ? ' done' : '') +
       (p.locked ? ' locked' : '') +
       (i === 0 ? ' top1' : i === 1 ? ' top2' : i === 2 ? ' top3' : '');
+    card.style.order = i;
+
     card.innerHTML =
-      '<div class="lv-head">' +
-        '<div class="lv-rank">' + (i + 1) + '</div>' +
-        '<div class="lv-pet">' + dragonArt(d, p.stage) + '</div>' +
-        '<div class="lv-name"><b>' + esc(p.username) + '</b><span>' + esc(p.petName || d.name) + '</span></div>' +
-        '<div class="lv-score"><b>' + (p.score || 0) + '</b><span>得分</span></div>' +
+      '<div class="arena-head">' +
+        '<div class="arena-rank">' + (i + 1) + '</div>' +
+        '<div class="arena-pet' + (petAnim ? ' ' + petAnim : '') + '">' + dragonArt(d, p.stage) + '</div>' +
+        '<div class="arena-name"><b>' + esc(p.username) + '</b><span>' + esc(p.petName || d.name) + '</span></div>' +
+        '<div class="arena-score"><b>' + (p.score || 0) + '</b><span>得分</span></div>' +
       '</div>' +
-      '<div class="lv-progress">' +
-        '<div class="lv-progress-head"><span>进度</span><span class="lv-prog-num"><b>' + (total ? answered : '—') + '</b>' + (total ? ' / ' + total : '') + '</span></div>' +
-        '<div class="lv-bar"><div style="width:' + pct + '%"></div></div>' +
-        '<div class="lv-pct">' + (total ? pct + '%' : '—') + '</div>' +
+      '<div class="arena-progress">' +
+        '<div class="arena-progress-head"><span>进度</span><span class="arena-prog-num"><b>' + (total ? answered : '—') + '</b>' + (total ? ' / ' + total : '') + '</span></div>' +
+        '<div class="arena-bar"><div style="width:' + pct + '%"></div></div>' +
+        '<div class="arena-pct">' + (total ? pct + '%' : '—') + '</div>' +
       '</div>' +
-      '<div class="lv-typing">' +
-        '<div class="lv-typing-head"><span class="lv-live-flag"></span><span class="lv-word">' + (p.word ? esc(p.word) : '&nbsp;') + '</span></div>' +
-        liveTypedHtml(p) +
+      '<div class="arena-typing">' +
+        '<div class="arena-typing-head"><span class="arena-live-flag"></span><span class="arena-word">' + (p.word ? esc(p.word) : '&nbsp;') + '</span></div>' +
+        arenaTypedHtml(p) +
       '</div>' +
-      '<div class="lv-foot">' +
-        '<div class="lv-stats">' +
+      '<div class="arena-foot">' +
+        '<div class="arena-stats">' +
           '<span>正确 <b class="ok">' + (p.correct || 0) + '</b></span>' +
           '<span>错误 <b class="bad">' + (p.wrong || 0) + '</b></span>' +
         '</div>' +
-        '<div class="lv-time">' + dt.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + '</div>' +
+        '<div class="arena-time">' + dt.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + '</div>' +
       '</div>';
     grid.appendChild(card);
-  });
+  }
+  // 保存当前数据用于下一轮对比
+  _prevPlayers = players.map(p => ({
+    username: p.username, uid: p.uid || '', done: !!p.done, locked: !!p.locked,
+    correct: p.correct || 0, wrong: p.wrong || 0, score: p.score || 0
+  }));
 }
 $('#liveStartBtn').onclick = async () => {
   const minutes = Math.min(60, Math.max(1, parseInt($('#liveMinutes').value, 10) || 10));
@@ -1960,15 +2028,36 @@ $('#liveStartBtn').onclick = async () => {
   const count = Math.max(1, parseInt($('#liveCount').value, 10) || 10);
   await api('/api/live/start', { method: 'POST', body: { minutes, bankId, count } });
   loadLiveBoard();
+  // 自动全屏
+  if (!_fullscreenForced) {
+    const el = $('#view-live');
+    if (el.requestFullscreen) {
+      try { el.requestFullscreen(); _fullscreenForced = true; } catch (e) { /* 静默降级 */ }
+    }
+  }
 };
 $('#liveStopBtn').onclick = async () => {
   await api('/api/live/stop', { method: 'POST' });
+  // 结束默写时退出全屏
+  if (document.fullscreenElement) {
+    try { document.exitFullscreen(); } catch (e) { /* 静默降级 */ }
+  }
+  _fullscreenForced = false;
+  _prevPlayers = [];
   loadLiveBoard();
 };
 $('#liveFullBtn').onclick = () => {
   const el = $('#view-live');
   if (document.fullscreenElement) { document.exitFullscreen(); }
-  else if (el.requestFullscreen) el.requestFullscreen();
+  else if (el.requestFullscreen) {
+    try { el.requestFullscreen(); } catch (e) { /* 不支持全屏 */ }
+  }
+};
+$('#liveExitFullBtn').onclick = () => {
+  if (document.fullscreenElement) {
+    try { document.exitFullscreen(); } catch (e) { /* 不支持全屏 */ }
+  }
+  _fullscreenForced = false;
 };
 
 // ================= 老师 · 随机点名 =================
@@ -3645,7 +3734,8 @@ async function startPractice(force) {
       const d = await api('/api/live/practice');
       if (d && d.active && Array.isArray(d.entries) && d.entries.length) {
         const items = d.entries.map(e => ({ id: e.id, english: e.english, chinese: e.chinese, pos: e.pos, type: e.type }));
-        startPracticeFrom(shuffle(items));
+        // 服务端已生成统一序列（Fisher-Yates 洗牌），不再前端二次洗牌，保证全班顺序一致
+        startPracticeFrom(items);
         return;
       }
     } catch (e) { /* 拉取失败时回落到正常流程 */ }

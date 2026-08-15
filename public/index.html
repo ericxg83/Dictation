@@ -173,26 +173,84 @@
       <div id="studentList" class="bank-list"></div>
     </section>
 
-    <!-- 老师 · 大屏实时看板 -->
+    <!-- 老师 · 大屏竞技场 -->
     <section id="view-live" class="view">
-      <h2>默写实时看板</h2>
-      <div class="live-controls">
-        <div class="live-tools">
-          <label>题库 <select id="liveBank" class="select-inline"><option value="">选择题库…</option></select></label>
-          <label>数量 <input id="liveCount" type="number" value="10" min="1" max="200"> 条</label>
-          <label>时长 <input id="liveMinutes" type="number" value="10" min="1" max="60"> 分钟</label>
-          <button id="liveStartBtn" class="primary">开始默写</button>
-          <button id="liveStopBtn" class="ghost-btn danger-btn">结束</button>
-          <button id="liveFullBtn" class="ghost-btn">全屏</button>
+      <!-- 竞技场顶部横幅 -->
+      <div class="arena-banner" id="arenaBanner">
+        <div class="arena-banner-left">
+          <span class="arena-banner-icon">🏟️</span>
+          <div class="arena-banner-info">
+            <h2 class="arena-banner-title">默写竞技场</h2>
+            <span class="arena-banner-sub" id="arenaBannerSub">准备开始默写</span>
+          </div>
         </div>
-        <div id="liveStats" class="live-stats"></div>
-        <div id="liveClock" class="live-clock">
-          <span class="live-clock-num" id="liveClockNum">00:00</span>
-          <span class="live-clock-state" id="liveClockState">未开始</span>
+        <div class="arena-banner-right">
+          <div class="arena-clock" id="arenaClock">
+            <span class="arena-clock-num" id="arenaClockNum">00:00</span>
+            <span class="arena-clock-label" id="arenaClockLabel">未开始</span>
+          </div>
         </div>
       </div>
-      <div id="liveGrid" class="live-grid"></div>
-      <div class="hint small">老师在课堂上开启「开始默写」，学生端会显示倒计时横幅并自动上报进度。此页每 2 秒自动刷新，适合投屏大屏。</div>
+
+      <!-- 时间到横幅 -->
+      <div class="arena-timeup" id="arenaTimeup" hidden>
+        <span class="arena-timeup-icon">⏰</span>
+        <span class="arena-timeup-text">时间到！默写结束</span>
+      </div>
+
+      <!-- 暂停提示 -->
+      <div class="arena-paused" id="arenaPaused" hidden>
+        <span class="arena-paused-text">⏸️ 默写已暂停</span>
+      </div>
+
+      <!-- 4×2 固定网格 -->
+      <div class="arena-grid" id="arenaGrid">
+        <!-- 8 个卡位由 JS 动态渲染 -->
+      </div>
+
+      <!-- 底部状态栏 -->
+      <div class="arena-statusbar" id="arenaStatusbar">
+        <div class="arena-stat">
+          <span class="arena-stat-num" id="arenaStatOnline">0</span>
+          <span class="arena-stat-label">在线</span>
+        </div>
+        <div class="arena-stat">
+          <span class="arena-stat-num" id="arenaStatDone">0</span>
+          <span class="arena-stat-label">已完成</span>
+        </div>
+        <div class="arena-stat">
+          <span class="arena-stat-num" id="arenaStatMax">0</span>
+          <span class="arena-stat-label">最高分</span>
+        </div>
+        <div class="arena-stat">
+          <span class="arena-stat-num" id="arenaStatAvg">0</span>
+          <span class="arena-stat-label">平均分</span>
+        </div>
+        <div class="arena-stat">
+          <span class="arena-stat-num" id="arenaStatWords">0</span>
+          <span class="arena-stat-label">题数</span>
+        </div>
+      </div>
+
+      <!-- 控制栏（底部浮动） -->
+      <div class="arena-controls" id="arenaControls">
+        <label class="arena-ctrl-item">
+          <span>题库</span>
+          <select id="liveBank" class="select-inline"><option value="">选择题库…</option></select>
+        </label>
+        <label class="arena-ctrl-item">
+          <span>数量</span>
+          <input id="liveCount" type="number" value="10" min="1" max="200">
+        </label>
+        <label class="arena-ctrl-item">
+          <span>时长</span>
+          <input id="liveMinutes" type="number" value="10" min="1" max="60">
+        </label>
+        <button id="liveStartBtn" class="primary arena-start-btn">⚡ 开始默写</button>
+        <button id="liveStopBtn" class="ghost-btn danger-btn">结束</button>
+        <button id="liveFullBtn" class="ghost-btn">⛶ 全屏</button>
+        <button id="liveExitFullBtn" class="ghost-btn" hidden>退出全屏</button>
+      </div>
     </section>
 
     <!-- 老师 · 随机点名 -->
