@@ -347,7 +347,10 @@ function nextDueAfterDays(days) {
 function emptyProgress() {
   return {
     entries: [],
-    stats: { points: 0, sessions: 0, history: {}, lastAt: null },
+    stats: {
+      points: 0, sessions: 0, history: {}, lastAt: null,
+      loginStreak: 0, lastLoginDate: null, todayLoginBonus: 0, todayLoginDate: null
+    },
     createdAt: Date.now()
   };
 }
@@ -708,13 +711,48 @@ app.post('/api/auth/register', async (req, res) => {
   res.json({ ok: true, token, user: publicUser(user), classInfo });
 });
 
+// 连续登录奖励计算
+function streakBonus(streak) {
+  if (streak >= 30) return 20;
+  if (streak >= 14) return 12;
+  if (streak >= 7) return 8;
+  if (streak >= 5) return 5;
+  if (streak >= 3) return 3;
+  if (streak >= 2) return 2;
+  return 0;
+}
+
 app.post('/api/auth/login', async (req, res) => {
   const { username, password } = req.body || {};
   const uname = String(username || '').trim();
   const u = await dbFindUser('username', uname);
   if (!u || u.password !== hashPwd(password || '', u.salt)) return res.status(401).json({ error: '用户名或密码错误' });
   const token = await createSession(u.id);
-  res.json({ ok: true, token, user: publicUser(u), classInfo: await getClassInfo(u) });
+  // 计算登录奖励
+  const p = await loadProgress(u.id);
+  const today = new Date().toISOString().slice(0, 10);
+  const s = p.stats;
+  let loginBonus = 0;
+  // 当天首次登录才给奖励
+  if (s.todayLoginDate !== today) {
+    loginBonus = 3; // 基础登录奖励
+    // 连续登录：上次登录是昨天
+    const yesterday = new Date(Date.now() - DAY_MS).toISOString().slice(0, 10);
+    if (s.lastLoginDate === yesterday) {
+      s.loginStreak = (s.loginStreak || 0) + 1;
+    } else if (s.lastLoginDate === today) {
+      // 今天已经登录过，不重置 streak
+    } else {
+      s.loginStreak = 1; // 断签重置
+    }
+    loginBonus += streakBonus(s.loginStreak || 1);
+    s.todayLoginBonus = loginBonus;
+    s.todayLoginDate = today;
+    s.lastLoginDate = today;
+    s.points = (s.points || 0) + loginBonus;
+    await saveProgress(u.id, p);
+  }
+  res.json({ ok: true, token, user: publicUser(u), classInfo: await getClassInfo(u), loginBonus, streak: s.loginStreak });
 });
 
 app.post('/api/auth/logout', requireAuth, async (req, res) => {
@@ -723,7 +761,19 @@ app.post('/api/auth/logout', requireAuth, async (req, res) => {
 });
 
 app.get('/api/me', requireAuth, async (req, res) => {
-  res.json({ user: publicUser(req.user), classInfo: await getClassInfo(req.user) });
+  const p = await loadProgress(req.user.id);
+  res.json({
+    user: publicUser(req.user),
+    classInfo: await getClassInfo(req.user),
+    stats: {
+      points: p.stats.points || 0,
+      sessions: p.stats.sessions || 0,
+      loginStreak: p.stats.loginStreak || 0,
+      lastLoginDate: p.stats.lastLoginDate || null,
+      todayLoginBonus: p.stats.todayLoginBonus || 0,
+      todayLoginDate: p.stats.todayLoginDate || null
+    }
+  });
 });
 
 // ================= 路由：宠物 =================
@@ -1254,8 +1304,68 @@ app.post('/api/sessionEnd', requireAuth, async (req, res) => {
   const p = await loadProgress(req.user.id);
   p.stats.sessions = (p.stats.sessions || 0) + 1;
   p.stats.lastAt = Date.now();
+  // 完成一轮练习奖励：+2 分
+  const isPerfect = req.body && req.body.perfect;
+  let bonus = 2;
+  if (isPerfect) bonus += 3; // 全对额外 +3
+  p.stats.points = (p.stats.points || 0) + bonus;
   await saveProgress(req.user.id, p);
-  res.json({ ok: true });
+  res.json({ ok: true, points: p.stats.points, bonus });
+});
+
+// 每日签到
+app.post('/api/checkin', requireAuth, async (req, res) => {
+  const p = await loadProgress(req.user.id);
+  const today = new Date().toISOString().slice(0, 10);
+  const s = p.stats;
+  if (s.todayLoginDate === today && s.todayLoginBonus > 0) {
+    return res.json({ ok: true, alreadyChecked: true, streak: s.loginStreak, bonus: s.todayLoginBonus });
+  }
+  let bonus = 3;
+  const yesterday = new Date(Date.now() - DAY_MS).toISOString().slice(0, 10);
+  if (s.lastLoginDate === yesterday) {
+    s.loginStreak = (s.loginStreak || 0) + 1;
+  } else if (s.lastLoginDate !== today) {
+    s.loginStreak = 1;
+  }
+  bonus += streakBonus(s.loginStreak || 1);
+  s.todayLoginBonus = bonus;
+  s.todayLoginDate = today;
+  s.lastLoginDate = today;
+  s.points = (s.points || 0) + bonus;
+  await saveProgress(req.user.id, p);
+  res.json({ ok: true, bonus, streak: s.loginStreak, points: s.points });
+});
+
+// 完成一轮练习后领取奖励
+app.post('/api/session-bonus', requireAuth, async (req, res) => {
+  const { perfect } = req.body || {};
+  const p = await loadProgress(req.user.id);
+  let bonus = 2;
+  if (perfect) bonus += 3;
+  p.stats.points = (p.stats.points || 0) + bonus;
+  p.stats.sessions = (p.stats.sessions || 0) + 1;
+  await saveProgress(req.user.id, p);
+  res.json({ ok: true, points: p.stats.points, bonus });
+});
+
+// 连击里程碑奖励
+function comboBonusByCount(count) {
+  if (count >= 30) return 8;
+  if (count >= 20) return 5;
+  if (count >= 15) return 3;
+  if (count >= 10) return 2;
+  if (count >= 5) return 1;
+  return 0;
+}
+app.post('/api/combo-bonus', requireAuth, async (req, res) => {
+  const { combo } = req.body || {};
+  const bonus = comboBonusByCount(Number(combo) || 0);
+  if (bonus <= 0) return res.json({ ok: true, bonus: 0 });
+  const p = await loadProgress(req.user.id);
+  p.stats.points = (p.stats.points || 0) + bonus;
+  await saveProgress(req.user.id, p);
+  res.json({ ok: true, bonus, points: p.stats.points });
 });
 
 // ================= 错题本 =================

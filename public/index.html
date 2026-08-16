@@ -631,7 +631,10 @@
         <div class="pet-left" id="petClickable" role="button" tabindex="0" title="点击查看图鉴">
           <div class="pet-emoji" id="petEmoji">🥚</div>
           <div class="pet-meta">
-            <b id="petName">神秘蛋</b>
+            <div class="pet-name-row">
+              <b id="petName">神秘蛋</b>
+              <span class="pet-lv-badge" id="petLevelBadge" hidden>Lv.1</span>
+            </div>
             <span id="petDesc">攒积分领养并升级你的龙龙</span>
           </div>
           <span class="pet-handbook-hint" aria-hidden="true">📖</span>
@@ -735,7 +738,10 @@
 <!-- 角落宠物：练习时安静地趴在右下角 -->
 <div id="cornerPet" hidden>
   <div class="corner-pet-emoji" id="cornerPetEmoji">🥚</div>
-  <div class="corner-pet-name" id="cornerPetName">小龙</div>
+  <div class="corner-pet-info">
+    <span class="corner-pet-name" id="cornerPetName">小龙</span>
+    <span class="corner-pet-lv" hidden>Lv.1</span>
+  </div>
   <div class="corner-pet-legend" id="cornerPetLegend" hidden>👑 传说</div>
 </div>
 
@@ -807,6 +813,41 @@
       <p class="upgrade-desc" id="upgradeDesc">破壳啦！小小的、超可爱～</p>
       <div class="upgrade-points">当前累计 <b id="upgradePoints">0</b> 分</div>
       <button class="upgrade-btn" id="upgradeBtn" onclick="closeUpgradeModal()">继续陪它成长 🚀</button>
+    </div>
+  </div>
+</div>
+
+<!-- 登录欢迎特效：登录时龙龙飞入欢迎 -->
+<div id="welcomeModal" hidden>
+  <div class="welcome-mask" onclick="closeWelcome()">
+    <div class="welcome-card">
+      <div class="welcome-pet" id="welcomePet"></div>
+      <h2 class="welcome-title" id="welcomeTitle">龙龙欢迎你回来！</h2>
+      <p class="welcome-sub" id="welcomeSub"></p>
+      <div class="welcome-bonus" id="welcomeBonus" hidden>
+        <span class="welcome-bonus-icon">🎁</span>
+        <span class="welcome-bonus-text" id="welcomeBonusText"></span>
+      </div>
+      <div class="welcome-sparkles" id="welcomeSparkles"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 每日签到弹窗 -->
+<div id="checkinModal" hidden>
+  <div class="modal-mask" onclick="closeCheckin()">
+    <div class="checkin-card">
+      <h3 class="checkin-title">🎉 每日签到</h3>
+      <p class="checkin-streak" id="checkinStreak">连续登录 1 天</p>
+      <div class="checkin-calendar" id="checkinCalendar"></div>
+      <div class="checkin-today" id="checkinToday">
+        <span class="checkin-today-icon">✅</span>
+        <span class="checkin-today-text">今日已签到 +<b id="checkinBonus">3</b> 分</span>
+      </div>
+      <div class="checkin-rules">
+        <span>连续登录奖励：2天+2 · 3天+3 · 5天+5 · 7天+8 · 14天+12 · 30天+20</span>
+      </div>
+      <button class="checkin-close-btn" onclick="closeCheckin()">好的！</button>
     </div>
   </div>
 </div>

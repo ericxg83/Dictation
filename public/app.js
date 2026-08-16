@@ -9,6 +9,8 @@ let session = null;
 let checking = false;
 let draft = []; // 老师草稿
 let totalPoints = 0; // 累计积分（决定宠物等级）
+let _loginBonus = 0;    // 本次登录奖励
+let _loginStreak = 0;   // 连续登录天数
 
 // ================= 龙龙宠物体系：10 种龙，从蛋孵化到成年 =================
 // 每种龙都有一段符合初中生口味的简介：分类、生活年代、特征、性格、来历
@@ -130,23 +132,70 @@ const DRAGON_STAGES = [
 ];
 const DRAGON_MAX_STAGE = DRAGON_STAGES.length - 1;
 
-function dragonInfo(points) {
-  let idx = 0;
-  for (let i = 0; i < DRAGON_STAGES.length; i++) {
-    if (points >= DRAGON_STAGES[i].min) idx = i;
+// ===== 21 级龙等级体系 =====
+// 每级对应积分门槛 + 阶段 + 专属称号
+const DRAGON_LEVELS = [
+  { lv: 1,  min: 0,    stage: 0, title: '沉睡之卵' },
+  { lv: 2,  min: 10,   stage: 0, title: '微光之卵' },
+  { lv: 3,  min: 30,   stage: 0, title: '脉动之卵' },
+  { lv: 4,  min: 50,   stage: 1, title: '初生幼龙' },
+  { lv: 5,  min: 80,   stage: 1, title: '好奇幼龙' },
+  { lv: 6,  min: 120,  stage: 1, title: '活泼幼龙' },
+  { lv: 7,  min: 170,  stage: 1, title: '机敏幼龙' },
+  { lv: 8,  min: 200,  stage: 2, title: '初露锋芒' },
+  { lv: 9,  min: 260,  stage: 2, title: '崭露头角' },
+  { lv: 10, min: 330,  stage: 2, title: '小有名气' },
+  { lv: 11, min: 400,  stage: 2, title: '锋芒毕露' },
+  { lv: 12, min: 470,  stage: 2, title: '威震一方' },
+  { lv: 13, min: 500,  stage: 3, title: '完全觉醒' },
+  { lv: 14, min: 650,  stage: 3, title: '龙威初显' },
+  { lv: 15, min: 820,  stage: 3, title: '气势如虹' },
+  { lv: 16, min: 1000, stage: 3, title: '君临天下' },
+  { lv: 17, min: 1250, stage: 3, title: '万兽之王' },
+  { lv: 18, min: 1500, stage: 4, title: '传说觉醒' },
+  { lv: 19, min: 2000, stage: 4, title: '远古之力' },
+  { lv: 20, min: 2800, stage: 4, title: '神话再临' },
+  { lv: 21, min: 4000, stage: 4, title: '至尊龙神' }
+];
+const DRAGON_MAX_LEVEL = DRAGON_LEVELS.length;
+
+function currentLevel(points) {
+  let lv = 1;
+  for (let i = 0; i < DRAGON_LEVELS.length; i++) {
+    if (points >= DRAGON_LEVELS[i].min) lv = DRAGON_LEVELS[i].lv;
   }
-  const cur = DRAGON_STAGES[idx];
-  const next = DRAGON_STAGES[idx + 1] || null;
-  let pct = 100, label = cur.tip;
+  return lv;
+}
+function levelInfo(points) {
+  let idx = 0;
+  for (let i = 0; i < DRAGON_LEVELS.length; i++) {
+    if (points >= DRAGON_LEVELS[i].min) idx = i;
+  }
+  const cur = DRAGON_LEVELS[idx];
+  const next = DRAGON_LEVELS[idx + 1] || null;
+  let pct = 100, label = '';
   if (next) {
     const span = next.min - cur.min;
     const have = points - cur.min;
     pct = Math.min(100, Math.round(have / span * 100));
-    label = '当前积分 ' + points + ' · 再攒 ' + (next.min - points) + ' 分 → ' + next.name;
+    label = '距 Lv.' + next.lv + '「' + next.title + '」还需 ' + (next.min - points) + ' 分';
   } else {
-    label = '当前积分 ' + points + ' · ' + cur.tip;
+    label = '已达最高等级 Lv.21「至尊龙神」！';
   }
-  return { idx, cur, next, pct, label };
+  return { lv: cur.lv, stage: cur.stage, title: cur.title, cur, next, pct, label };
+}
+
+function dragonInfo(points) {
+  const li = levelInfo(points);
+  const stageObj = DRAGON_STAGES[li.stage];
+  const next = li.next;
+  let label = stageObj.tip;
+  if (next) {
+    label = 'Lv.' + li.lv + '「' + li.title + '」· ' + li.label;
+  } else {
+    label = 'Lv.' + li.lv + '「' + li.title + '」· ' + stageObj.tip;
+  }
+  return { idx: li.stage, cur: stageObj, next: next ? DRAGON_STAGES[DRAGON_LEVELS.find(l => l.lv === next.lv)?.stage || li.stage] : null, pct: li.pct, label, lv: li.lv, lvTitle: li.title };
 }
 
 function myDragon() {
@@ -791,13 +840,21 @@ function currentStageIndex(points) {
 function renderPetPanel() {
   const d = myDragon();
   const pi = dragonInfo(totalPoints);
+  const lv = currentLevel(totalPoints);
+  const li = levelInfo(totalPoints);
   $('#petEmoji').innerHTML = d ? dragonArt(d, pi.idx) : eggArt(null);
+  // 等级徽章
+  const lvBadge = $('#petLevelBadge');
+  if (lvBadge) {
+    lvBadge.textContent = 'Lv.' + lv;
+    lvBadge.hidden = !d;
+  }
   // 传说级时：宠物名字下方追加龙专属称号
   const isLegend = d && pi.idx === 4;
   const nameLine = d ? (currentUser.pet.name || d.name) : '尚未领养';
   $('#petName').textContent = nameLine;
   $('#petDesc').innerHTML = d
-    ? d.name + ' · ' + pi.cur.name + (currentUser.pet.name ? '（' + currentUser.pet.name + '）' : '') +
+    ? d.name + ' · ' + li.title + (currentUser.pet.name ? '（' + currentUser.pet.name + '）' : '') +
       (isLegend ? ' · <b style="color:#FBBF24;text-shadow:0 0 6px rgba(251,191,36,.5)">' + (d.legendIcon || '✨') + ' ' + (d.legendTitle || '传说龙') + '</b>' : '')
     : '在「学习统计」里领养一只龙龙吧';
   $('#petBar').style.width = pi.pct + '%';
@@ -809,11 +866,18 @@ function renderCornerPet() {
   const d = myDragon();
   if (!d || currentUser.role !== 'student') { wrap.hidden = true; return; }
   const idx = currentStageIndex(totalPoints);
+  const lv = currentLevel(totalPoints);
   wrap.hidden = false;
   // 蛋形态用 egg 修饰类（不同 idle 动画 + 阴影）
   wrap.classList.toggle('egg', idx === 0);
   $('#cornerPetEmoji').innerHTML = dragonArt(d, idx);
   $('#cornerPetName').textContent = currentUser.pet.name || d.name;
+  // 等级角标
+  const lvBadge = wrap.querySelector('.corner-pet-lv');
+  if (lvBadge) {
+    lvBadge.textContent = 'Lv.' + lv;
+    lvBadge.hidden = false;
+  }
   // 传说龙时：显示一个小小的"👑 传说"角标
   const legendEl = $('#cornerPetLegend');
   if (legendEl) {
@@ -830,6 +894,31 @@ function renderCornerPet() {
   }
 }
 
+// 角落宠物心情气泡：点击宠物显示
+function showPetBubble() {
+  const wrap = $('#cornerPet');
+  if (!wrap || wrap.hidden) return;
+  // 移除旧气泡
+  const old = wrap.querySelector('.corner-pet-bubble');
+  if (old) old.remove();
+  // 根据连续登录天数选择心情
+  const streak = _loginStreak || 0;
+  let msg = '';
+  if (streak >= 30) msg = '你是我的骄傲！👑';
+  else if (streak >= 14) msg = '太厉害了，冲冲冲！';
+  else if (streak >= 7) msg = '你太稳了，冲冲冲！';
+  else if (streak >= 3) msg = '每天都在进步！';
+  else if (streak >= 1) msg = '欢迎回来～一起加油！';
+  else msg = '好久不见，想你了～';
+  const bubble = document.createElement('div');
+  bubble.className = 'corner-pet-bubble';
+  bubble.textContent = msg;
+  wrap.appendChild(bubble);
+  setTimeout(() => bubble.remove(), 2800);
+}
+// 点击角落宠物显示心情
+$('#cornerPet').addEventListener('click', showPetBubble);
+
 // 触发角落宠物的「开心蹦跳」动画
 function celebrateCornerPet() {
   const wrap = $('#cornerPet');
@@ -841,55 +930,63 @@ function celebrateCornerPet() {
   setTimeout(() => wrap.classList.remove('celebrate'), 850);
 }
 
-// ===== 龙龙升级模态（积分跨阶段时屏幕中央特效）=====
-let _prevStageIdx = -1;     // 上一次的阶段 idx（用于检测升级）
+// ===== 龙龙升级模态（积分跨等级时屏幕中央特效）=====
+let _prevLv = 0;           // 上一次的等级（用于检测升级）
+let _prevStage = 0;        // 上一次的阶段（用于检测跨阶段升级）
 let _upgradeLocked = false; // 升级模态显示期间锁定操作
 
 function checkStageUpgrade() {
   if (!currentUser || !currentUser.pet) return;
-  const newIdx = currentStageIndex(totalPoints);
-  if (_prevStageIdx < 0) { _prevStageIdx = newIdx; return; } // 首次不弹
-  if (newIdx <= _prevStageIdx) return;                         // 未升级或不变
-  showUpgradeModal(_prevStageIdx, newIdx);
-  _prevStageIdx = newIdx;
+  const newLv = currentLevel(totalPoints);
+  const newStage = currentStageIndex(totalPoints);
+  if (_prevLv <= 0) { _prevLv = newLv; _prevStage = newStage; return; } // 首次不弹
+  if (newLv <= _prevLv) return; // 未升级或不变
+  const oldStage = _prevStage;
+  showUpgradeModal(_prevLv, newLv, oldStage, newStage);
+  _prevLv = newLv;
+  _prevStage = newStage;
 }
 
-function showUpgradeModal(oldIdx, newIdx) {
+function showUpgradeModal(oldLv, newLv, oldStageIdx, newStageIdx) {
   const d = myDragon();
   if (!d) return;
-  // 蛋 → 幼龙时换新形象，其它阶段形象不变但展示更威风
-  const isEggHatch = oldIdx === 0 && newIdx === 1;
-  const isLegendary = newIdx === 4;
-  const oldStage = DRAGON_STAGES[oldIdx];
-  const newStage = DRAGON_STAGES[newIdx];
+  const isStageUp = newStageIdx > oldStageIdx;
+  const isEggHatch = oldStageIdx === 0 && newStageIdx === 1;
+  const isLegendary = newStageIdx === 4;
+  const oldStage = DRAGON_STAGES[oldStageIdx];
+  const newStage = DRAGON_STAGES[newStageIdx];
+  const newLvInfo = DRAGON_LEVELS[newLv - 1];
+  const oldLvInfo = DRAGON_LEVELS[oldLv - 1];
   // 0. 升级瞬间先让输入框失焦，避免弹窗上敲键盘误输入
   const ai = $('#answerInput');
   if (ai && document.activeElement === ai) ai.blur();
   // 1. 大图：永远展示新阶段（升级后的形态）
-  $('#upgradePetArt').innerHTML = dragonArt(d, newIdx);
-  // 2. 文案：传说级时显示龙专属称号
-  const titles = {
-    '1': '龙龙破壳啦！',
-    '2': '龙龙茁壮成长！',
-    '3': '龙龙进入完全体！',
-    '4': (d.legendTitle || '传说龙') + ' 觉醒！'
-  };
-  const stageEmoji = isLegendary ? (d.legendIcon || '✨') : newStage.emoji;
-  $('#upgradeTitle').innerHTML = '<span class="emoji">' + stageEmoji + '</span> ' +
-    (titles[String(newIdx)] || '龙龙进化啦！') + ' <span class="emoji">' + stageEmoji + '</span>';
-  $('#upgradeStageOld').textContent = oldStage.name;
-  $('#upgradeStageNew').textContent = newStage.name + (isLegendary ? ' · ' + (d.legendTitle || '') + ' ' + (d.legendIcon || '') : ' ' + newStage.emoji);
-  // 传说级时副标题突出龙专属描述
-  if (isLegendary) {
+  const isStageCross = isStageUp;
+  $('#upgradePetArt').innerHTML = dragonArt(d, newStageIdx);
+  // 2. 文案
+  const titleText = isStageCross
+    ? (isEggHatch ? '龙龙破壳啦！' : isLegendary ? (d.legendTitle || '传说龙') + ' 觉醒！' : '龙龙进化啦！')
+    : '龙龙升级啦！';
+  const stageEmoji = isLegendary ? (d.legendIcon || '✨') : isStageCross ? newStage.emoji : '⬆';
+  $('#upgradeTitle').innerHTML = '<span class="emoji">' + stageEmoji + '</span> ' + titleText + ' <span class="emoji">' + stageEmoji + '</span>';
+  // 等级翻转
+  $('#upgradeStageOld').textContent = 'Lv.' + oldLv + '「' + (oldLvInfo ? oldLvInfo.title : '') + '」';
+  $('#upgradeStageNew').textContent = 'Lv.' + newLv + '「' + (newLvInfo ? newLvInfo.title : '') + '」' +
+    (isLegendary ? ' · ' + (d.legendTitle || '') + ' ' + (d.legendIcon || '') : '');
+  // 副标题
+  if (isStageCross && isLegendary) {
     $('#upgradeDesc').innerHTML = '<b style="color:#FBBF24">' + d.name + '</b> 已觉醒为 <b style="color:#FCD34D">' + (d.legendTitle || '传说龙') + '</b>！' +
       '<br><span style="opacity:.85">满 1500 分的坚持，让它从一只蛋走到了传说之巅。</span>';
-  } else {
+  } else if (isStageCross) {
     $('#upgradeDesc').textContent = newStage.desc;
+  } else {
+    $('#upgradeDesc').textContent = '恭喜！龙龙从 Lv.' + oldLv + ' 升至 Lv.' + newLv + '「' + (newLvInfo ? newLvInfo.title : '') + '」';
   }
   $('#upgradePoints').textContent = totalPoints;
   // 3. 屏幕中央闪光
   const flash = document.createElement('div');
   flash.className = 'upgrade-flash';
+  if (isStageCross) flash.classList.add('upgrade-flash-stage');
   document.body.appendChild(flash);
   setTimeout(() => flash.remove(), 1200);
   // 4. 显示模态
@@ -902,7 +999,11 @@ function showUpgradeModal(oldIdx, newIdx) {
     setTimeout(fireworks, 200);
   }
   // 7. 触觉
-  haptic([25, 50, 25, 50, 25]);
+  if (isStageCross) {
+    haptic([25, 50, 25, 50, 25]);
+  } else {
+    haptic([15, 30, 15]);
+  }
   _upgradeLocked = true;
 }
 
@@ -976,6 +1077,94 @@ function openPetModal() {
   $('#petModal').hidden = false;
 }
 function closePetModal() { $('#petModal').hidden = true; }
+
+// ===== 登录欢迎特效 =====
+function showWelcome() {
+  if (!currentUser || !currentUser.pet) return;
+  if (_loginBonus <= 0) return; // 今天已经欢迎过了
+  const d = myDragon();
+  if (!d) return;
+  const idx = currentStageIndex(totalPoints);
+  $('#welcomePet').innerHTML = dragonArt(d, idx);
+  const streakText = _loginStreak >= 30 ? '你已经连续登录 ' + _loginStreak + ' 天！太强了！'
+    : _loginStreak >= 7 ? '你已经连续登录 ' + _loginStreak + ' 天！'
+    : _loginStreak >= 3 ? '连续登录 ' + _loginStreak + ' 天，加油！'
+    : '欢迎回来！';
+  $('#welcomeSub').textContent = streakText;
+  $('#welcomeBonus').hidden = false;
+  $('#welcomeBonusText').textContent = '今日签到 +' + _loginBonus + ' 分';
+  $('#welcomeModal').hidden = false;
+  // 粒子特效
+  spawnWelcomeSparkles();
+  // 触觉
+  haptic([15, 30, 15]);
+  // 2.5s 后自动关闭，然后显示签到弹窗
+  window._welcomeTimer = setTimeout(() => {
+    closeWelcome();
+    setTimeout(() => showCheckin(), 400);
+  }, 2800);
+}
+
+function closeWelcome() {
+  if (window._welcomeTimer) { clearTimeout(window._welcomeTimer); window._welcomeTimer = null; }
+  $('#welcomeModal').hidden = true;
+}
+
+function spawnWelcomeSparkles() {
+  const container = $('#welcomeSparkles');
+  for (let i = 0; i < 20; i++) {
+    const s = document.createElement('div');
+    s.className = 'upgrade-particle';
+    s.style.position = 'absolute';
+    s.style.left = (30 + Math.random() * 60) + '%';
+    s.style.top = (20 + Math.random() * 60) + '%';
+    s.style.background = ['#FBBF24', '#F472B6', '#A855F7', '#22D3EE', '#10B981'][Math.floor(Math.random() * 5)];
+    const angle = Math.random() * Math.PI * 2;
+    const dist = 40 + Math.random() * 80;
+    s.style.setProperty('--dx', Math.cos(angle) * dist + 'px');
+    s.style.setProperty('--dy', Math.sin(angle) * dist + 'px');
+    container.appendChild(s);
+    setTimeout(() => s.remove(), 1200);
+  }
+}
+
+// ===== 每日签到弹窗 =====
+function showCheckin() {
+  if (_loginBonus <= 0) return;
+  const today = new Date();
+  const todayIdx = today.getDay(); // 0=周日
+  const streak = _loginStreak || 1;
+  $('#checkinStreak').textContent = '连续登录 ' + streak + ' 天';
+  $('#checkinBonus').textContent = _loginBonus;
+  // 生成最近 7 天日历
+  const days = [];
+  const dayNames = ['日', '一', '二', '三', '四', '五', '六'];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    days.push({
+      label: dayNames[d.getDay()],
+      day: d.getDate(),
+      isToday: i === 0,
+      checked: i === 0 || (i < streak)
+    });
+  }
+  $('#checkinCalendar').innerHTML = days.map(day =>
+    '<div class="checkin-day' + (day.checked ? ' checked' : '') + (day.isToday ? ' today' : '') + '">' +
+      '<span class="checkin-day-icon">' + (day.isToday ? '🎁' : '✅') + '</span>' +
+      '<span>' + day.day + '</span>' +
+      '<span class="checkin-day-label">' + day.label + '</span>' +
+    '</div>'
+  ).join('');
+  $('#checkinModal').hidden = false;
+  haptic(10);
+  // 消耗登录奖励标记，防止重复弹
+  _loginBonus = 0;
+}
+
+function closeCheckin() {
+  $('#checkinModal').hidden = true;
+}
 $('#changePetBtn').onclick = openPetModal;
 $('#petConfirmBtn').onclick = async () => {
   const name = $('#petNameInput').value.trim();
@@ -993,10 +1182,12 @@ $('#petConfirmBtn').onclick = async () => {
     renderPetPanel();
     renderCornerPet();
     // 同步升级模态的基准（领养/换龙后可能跨阶段）
-    const afterIdx = currentStageIndex(totalPoints);
-    const upgraded = _prevStageIdx >= 0 && afterIdx > _prevStageIdx;
-    const downgraded = _prevStageIdx >= 0 && afterIdx < _prevStageIdx;
-    _prevStageIdx = afterIdx;
+    const afterLv = currentLevel(totalPoints);
+    const afterStage = currentStageIndex(totalPoints);
+    const upgraded = _prevLv > 0 && afterLv > _prevLv;
+    const downgraded = _prevLv > 0 && afterLv < _prevLv;
+    _prevLv = afterLv;
+    _prevStage = afterStage;
     if (isChange && r.lostPoints > 0) {
       alert('已更换伙伴！本次损失了 ' + r.lostPoints + ' 点经验值。从今天起，好好陪你的新龙龙成长吧～');
     } else {
@@ -1004,9 +1195,9 @@ $('#petConfirmBtn').onclick = async () => {
     }
     // 换龙后若跨阶段升级，给个小提示；降级则一并提示
     if (upgraded) {
-      setTimeout(() => showUpgradeModal(afterIdx - 1, afterIdx), 250);
+      setTimeout(() => showUpgradeModal(_prevLv - 1, _prevLv, _prevStage - 1, _prevStage), 250);
     } else if (downgraded) {
-      setTimeout(() => showPetDowngradeNotice(afterIdx, r.lostPoints || 0), 250);
+      setTimeout(() => showPetDowngradeNotice(afterStage, r.lostPoints || 0), 250);
     }
   } catch (e) { $('#petMsg').textContent = e.message; }
 };
@@ -1235,6 +1426,12 @@ function applyAuth(d) {
   localStorage.setItem(TOKEN_KEY, d.token);
   currentUser = d.user;
   classInfo = d.classInfo;
+  // 登录奖励
+  if (d.loginBonus > 0) {
+    totalPoints = d.user && d.user.pet ? totalPoints : 0; // 先记录，后续 /api/me 会更新
+    _loginBonus = d.loginBonus;
+    _loginStreak = d.streak || 1;
+  }
   $('#userInfo').textContent = (d.user.role === 'teacher' ? '老师' : '学生') + '·' + (d.user.name || d.user.username);
   // 班级徽章只显示班级名，🏫 图标由 CSS ::before 提供；移动端超长会自动省略
   $('#classBadge').textContent = classInfo ? classInfo.name : '未加入班级';
@@ -1253,7 +1450,12 @@ function applyAuth(d) {
     $('#studentNav').hidden = false;
     switchView('student-banks');
     // 新注册学生（还没有宠物）→ 引导领养龙龙
-    if (!currentUser.pet) openPetModal();
+    if (!currentUser.pet) {
+      openPetModal();
+    } else {
+      // 已有宠物：显示登录欢迎特效
+      setTimeout(() => showWelcome(), 800);
+    }
     renderCornerPet();
   }
 }
@@ -1278,7 +1480,16 @@ $('#logoutBtn').onclick = async () => {
   if (!token()) { showAuth(); return; }
   try {
     const d = await api('/api/me');
-    applyAuth({ token: token(), user: d.user, classInfo: d.classInfo });
+    // 更新 stats 扩展字段
+    if (d.stats) {
+      _loginStreak = d.stats.loginStreak || 0;
+      // 如果今天已经签过到了，不再弹欢迎
+      const today = new Date().toISOString().slice(0, 10);
+      if (d.stats.todayLoginDate === today) {
+        _loginBonus = 0;
+      }
+    }
+    applyAuth({ token: token(), user: d.user, classInfo: d.classInfo, loginBonus: _loginBonus, streak: _loginStreak });
   } catch (e) {
     showAuth();
   }
@@ -4676,7 +4887,7 @@ function bumpCombo() {
   if (_combo >= 3) {
     showComboFlash(_combo);
   }
-  // 成就：达成 5/8/10/15 连击
+  // 成就：达成 5/8/10/15/20/30 连击
   if ([5, 8, 10, 15, 20, 30].includes(_combo)) {
     const s = (typeof session !== 'undefined' && session) ? session : null;
     showComboAchievement('combo', {
@@ -4686,6 +4897,24 @@ function bumpCombo() {
       total: s ? s.total : 0,
       maxCombo: _maxCombo
     });
+    // 连击奖励积分
+    api('/api/combo-bonus', { method: 'POST', body: { combo: _combo } }).then(r => {
+      if (r && typeof r.points === 'number') totalPoints = r.points;
+      if (r && r.bonus > 0) {
+        // 飘字显示连击奖励
+        const card = $('#practiceCard');
+        if (card) {
+          const rect = card.getBoundingClientRect();
+          const sp = document.createElement('div');
+          sp.className = 'fx-score fx-score-global fx-score-combo';
+          sp.textContent = _combo + '连击 +' + r.bonus;
+          sp.style.left = (rect.left + rect.width / 2) + 'px';
+          sp.style.top = (rect.top + 12) + 'px';
+          document.body.appendChild(sp);
+          setTimeout(() => sp.remove(), 1200);
+        }
+      }
+    }).catch(() => {});
   }
 }
 function resetCombo() {
@@ -4959,16 +5188,36 @@ $('#endBtn').onclick = endSession;
 async function endSession() {
   if (!session) return;
   exitImmersive();
-  try { await api('/api/sessionEnd', { method: 'POST' }); } catch (e) {}
   const s = session;
   const bank = currentBank;
   const skipped = _skippedCount;
   _skippedCount = 0;
+  const isPerfect = !s.wrong && skipped === 0 && s.score > 0;
+  // 完成轮次奖励
+  try {
+    const r = await api('/api/sessionEnd', { method: 'POST', body: { perfect: isPerfect } });
+    if (r && typeof r.points === 'number') totalPoints = r.points;
+    if (r && r.bonus > 0) {
+      // 显示轮次奖励飘字
+      setTimeout(() => {
+        const card = $('#practiceCard');
+        if (card) {
+          const rect = card.getBoundingClientRect();
+          const sp = document.createElement('div');
+          sp.className = 'fx-score fx-score-global fx-score-session';
+          sp.textContent = (isPerfect ? '全对奖励 +' : '完成奖励 +') + r.bonus;
+          sp.style.left = (rect.left + rect.width / 2) + 'px';
+          sp.style.top = (rect.top + 12) + 'px';
+          document.body.appendChild(sp);
+          setTimeout(() => sp.remove(), 1200);
+        }
+      }, 300);
+    }
+  } catch (e) { console.error('sessionEnd failed', e); }
   session = null;
   checking = false;
   // 保存本轮最大连击，结算时用
   const maxCombo = _maxCombo;
-  const isPerfect = !s.wrong && skipped === 0 && s.score > 0;
   _combo = 0; _maxCombo = 0;
   const badge = $('#comboBadge'); if (badge) badge.classList.remove('show');
   $('#practiceCard').hidden = true;
@@ -5031,8 +5280,9 @@ function animateRing(ring, numEl, target) {
 async function loadStats() {
   const d = await api('/api/stats');
   totalPoints = d.points;
-  // 把当前阶段作为基准（避免初次加载时弹出升级模态）
-  _prevStageIdx = currentStageIndex(totalPoints);
+  // 把当前等级作为基准（避免初次加载时弹出升级模态）
+  _prevLv = currentLevel(totalPoints);
+  _prevStage = currentStageIndex(totalPoints);
   renderPetPanel();
   renderCornerPet();
   // 大数字：累计得分
