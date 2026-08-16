@@ -5196,11 +5196,22 @@ $('#answerInput').addEventListener('input', () => {
   scrollLetterBoxToCaret();
 });
 // 重置时清掉旧长度，避免上一轮的字符数干扰下一轮
+// 同时强约束光标只能停留在末尾，禁止点击/方向键移动光标到中间
 $('#answerInput').addEventListener('focus', () => {
   _lastInputLen = $('#answerInput').value.length;
   _bsFlag = false;
   _isComposing = false;
+  forceCaretToEnd($('#answerInput'));
 });
+$('#answerInput').addEventListener('click', () => forceCaretToEnd($('#answerInput')));
+$('#answerInput').addEventListener('keyup', e => {
+  if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(e.key)) {
+    forceCaretToEnd(e.target);
+  }
+});
+function forceCaretToEnd(el) {
+  if (el.setSelectionRange) el.setSelectionRange(el.value.length, el.value.length);
+}
 // 字母格子滚动时同步渐变指示
 const _letterBox = document.getElementById('letterBox');
 if (_letterBox) _letterBox.addEventListener('scroll', updateLetterBoxOverflow, { passive: true });
