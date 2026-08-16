@@ -3037,14 +3037,14 @@ function liveStatus(typedOverride) {
   const word = session && session.current ? session.current.chinese : '';
   const answer = session && session.current ? session.current.english : '';
   // typed 优先用缓存/调用方传进来的最新输入值（避免 checkAnswer 清空输入框后读到的空串）
-  const typed = session && !session.locked
+  const typed = session && !session.flashTimer
     ? String(typedOverride != null ? typedOverride : $('#answerInput').value)
     : '';
   const typedLen = typed.replace(/\s+/g, '').length;
   const total = session ? session.total : 0;
   const answered = session ? total - session.queue.length : 0;
   const done = !!(session && !session.queue.length && $('#practiceSummary') && !$('#practiceSummary').hidden);
-  const locked = !!(session && session.locked);
+  const locked = !!(session && session.flashTimer);
   const d = myDragon() || DRAGON_KINDS[0];
   api('/api/live/report', {
     method: 'POST',
@@ -4338,6 +4338,7 @@ function showNext() {
   session.current = session.queue[0];
   const it = session.current;
   session.locked = false;
+  session._showErrors = false;
   if (session.flashTimer) { clearTimeout(session.flashTimer); session.flashTimer = null; }
   renderCornerPet();
   $('#cardType').textContent = typeLabel(it.type);
@@ -4413,30 +4414,28 @@ function buildLetterBox() {
   renderLetterCells('');
 }
 
-// 把当前输入渲染进字母格子；错字母标红并提示音；词组/句子自动补空格
+// 把当前输入渲染进字母格子；
+// 仅在 _showErrors 为 true（已提交且答错）时标红错误字母；
+// 词组/句子自动补空格
 function renderLetterCells(inputVal) {
   if (!session) return;
   const cells = session.letterCells || [];
   const exp = session.expLetters || '';
   // 输入中的标点视为提示（如手打逗号/撇号），不参与逐格比对
   const typed = String(inputVal || '').replace(/[^A-Za-z0-9\s]/g, '').replace(/\s+/g, '');
+  const showErrors = session._showErrors;
   cells.forEach((cell, i) => {
     cell.classList.remove('filled', 'wrong', 'current');
     if (i < typed.length) {
       cell.textContent = typed[i];
       cell.classList.add('filled');
-      if (typed[i].toLowerCase() !== exp[i]) cell.classList.add('wrong');
+      if (showErrors && typed[i].toLowerCase() !== exp[i]) cell.classList.add('wrong');
     } else {
       cell.textContent = '';
-      // 当前应填入的位置：脉冲提示
-      if (i === typed.length && i < exp.length) cell.classList.add('current');
+      // 当前应填入的位置：脉冲提示（仅在未显示错误时显示）
+      if (!showErrors && i === typed.length && i < exp.length) cell.classList.add('current');
     }
   });
-  // 新敲入的字母是错的 → 提示音
-  if (typed.length > session._lastLen) {
-    const idx = session._lastLen;
-    if (typed[idx] && typed[idx].toLowerCase() !== exp[idx]) playWarn();
-  }
   session._lastLen = typed.length;
 }
 
@@ -4462,31 +4461,42 @@ function isCorrect(input, english) {
   return answers.some(a => strip(a) === strip(input));
 }
 
-// 输入时自动检测：拼写完整且正确时自动判定通过；明显拼错（超过正确长度）时提示音提醒
+// 输入时自动检测：
+// 填满所有格子后自动判定：全对 → 自动通过；有错 → 标红提示，等待订正
 let _warned = false;
 function autoCheckTyping() {
   if (checking || !session || !session.current) return;
+  // IME 组合输入中不检测
+  if (_isComposing) return;
   const input = $('#answerInput').value;
   if (!input.trim()) { _warned = false; return; }
+  const typed = String(input).replace(/[^A-Za-z0-9\s]/g, '').replace(/\s+/g, '');
+  const exp = session.expLetters || '';
+  // 还没填满所有格子，不检测
+  if (typed.length < exp.length) return;
+  // 填满了：检查是否正确
   if (isCorrect(input, session.current.english)) {
     checkAnswer();
     return;
   }
-  // 已输入的字符数超过正确答案长度，判定为拼写错误，提示音提醒（只在越过阈值时响一次）
-  const ansLen = session.expectedLen || (session.expLetters || '').length;
-  if (input.trim().length > ansLen) {
-    if (!_warned) { playWarn(); _warned = true; }
-  } else {
-    _warned = false;
+  // 填满了但有错：标红错误字母
+  if (!session._showErrors) {
+    session._showErrors = true;
+    renderLetterCells(input);
+    playWarn();
   }
 }
 
 async function checkAnswer() {
   if (checking || !session || !session.current) return;
-  if (session.locked && session.flashTimer) return; // 闪现答案期间忽略
+  if (session.flashTimer) return; // 闪现答案期间忽略
   const it = session.current;
   const input = $('#answerInput').value;
   if (!input.trim()) return;
+  // 还没填满所有格子：不提交（Enter 无效）
+  const typed = String(input).replace(/[^A-Za-z0-9\s]/g, '').replace(/\s+/g, '');
+  const exp = session.expLetters || '';
+  if (typed.length < exp.length) return;
   const correct = isCorrect(input, it.english);
   checking = true;
   let resultResp = null;
@@ -4498,13 +4508,13 @@ async function checkAnswer() {
     if (r && typeof r.points === 'number') totalPoints = r.points;
   } catch (e) { console.error(e); var _gain = correct ? pointsByType(it.type) : 0; }
   renderCornerPet();
-  // 答对：角落宠物开心蹦跳一下
-  if (correct) celebrateCornerPet();
-  // 积分跨阶段 → 屏幕中央升级特效（仅答对时才会涨分）
-  if (correct) checkStageUpgrade();
 
   if (correct) {
+    // 答对 → 清除错误标记
+    session._showErrors = false;
     bumpCombo();
+    if (correct) celebrateCornerPet();
+    if (correct) checkStageUpgrade();
     // 正确：清掉锁定状态
     session.locked = false;
     if (session.flashTimer) { clearTimeout(session.flashTimer); session.flashTimer = null; }
@@ -4513,7 +4523,6 @@ async function checkAnswer() {
       api('/api/wrong-book/' + it.wrongId + '/review', { method: 'POST', body: { correct: true, strike: 3 - (it.strike || 0) } }).then(rr => {
         if (rr && rr.item && rr.item.resolved) {
           toast('✓ 已从错题本掌握！');
-          // 同步本地缓存
           const idx = _wrongBook.findIndex(x => x.id === it.wrongId);
           if (idx >= 0) { _wrongBook[idx] = Object.assign(_wrongBook[idx], rr.item); renderWrongBook(); }
         }
@@ -4531,7 +4540,6 @@ async function checkAnswer() {
         $('#feedback').innerHTML = '<div class="fb-ok">连续答对！加 <b>' + _gain + '</b> 分</div>';
         $('#practiceCard').classList.add('ok');
         $('#score').textContent = session.score;
-        // 即时切到下一词（飘升/星星已挂到 body，不受切卡影响）
         showNext();
       } else {
         playCorrect();
@@ -4550,19 +4558,20 @@ async function checkAnswer() {
       $('#feedback').innerHTML = '<div class="fb-ok">回答正确！加 <b>' + _gain + '</b> 分</div>';
       $('#practiceCard').classList.add('ok');
       $('#score').textContent = session.score;
-      // 即时切到下一词（飘升/星星已挂到 body，不受切卡影响）
       showNext();
     }
   } else {
-    // 答错：卡住本词，不进入下一词；提示音 + 闪现正确答案几秒后消失，再重新默写本词
+    // 答错：标红错误字母，允许订正，不锁定不闪现
     resetCombo();
     session.wrong++;
     if (it.strike === 0) it.strike = 3;
-    session.locked = true;
+    session._showErrors = true;
     playWrong();
     shakeCard();
-    flashAnswer();
-    // 错题本同步：服务端 /api/result 答错时已自动写入 wrong_book，前端同步本地缓存 + 飞入提示
+    renderLetterCells(input);
+    $('#feedback').innerHTML = '<div class="fb-bad">拼写有误，请修改红色字母后重新提交</div>';
+    $('#practiceCard').classList.add('bad');
+    // 错题本同步
     if (resultResp && resultResp.wrongEntry) {
       const we = resultResp.wrongEntry;
       const idx = _wrongBook.findIndex(x => x.progressId === it.id);
@@ -4571,7 +4580,6 @@ async function checkAnswer() {
       renderWrongBook();
     }
     showWrongBookToast();
-    // 错题本复习模式：记录一次"复习答错"
     if (session.wrongBook && it.wrongId) {
       api('/api/wrong-book/' + it.wrongId + '/review', { method: 'POST', body: { correct: false, strike: 0 } }).catch(() => {});
     }
@@ -4581,7 +4589,7 @@ async function checkAnswer() {
 
 // 闪现正确答案：显示几秒后消失，清空输入等待重新默写本词
 function flashAnswer() {
-  if (!session || !session.current || !session.locked) return;
+  if (!session || !session.current) return;
   if (session.flashTimer) return;
   const it = session.current;
   $('#answerInput').value = '';
@@ -4598,6 +4606,7 @@ function flashAnswer() {
 function clearFlash() {
   if (!session) return;
   if (session.flashTimer) { clearTimeout(session.flashTimer); session.flashTimer = null; }
+  session._showErrors = false;
   $('#answerInput').value = '';
   renderLetterCells('');
   $('#answerInput').disabled = false;
@@ -4616,7 +4625,7 @@ async function viewAnswer() {
   resetCombo();
   session.wrong++;
   if (it.strike === 0) it.strike = 3;
-  session.locked = true;
+  session._showErrors = true;
   checking = true;
   playWrong();
   shakeCard();
@@ -4648,10 +4657,11 @@ $('#peekBtn').onclick = () => viewAnswer();
 let _skippedCount = 0;
 function skipCurrent() {
   if (!session || !session.current) return;
-  if (session.locked && session.flashTimer) return; // 闪现答案时不允许跳过
+  if (session.flashTimer) return; // 闪现答案时不允许跳过
   if (checking) return;
   // 跳过会中断连击（不算答对）
   resetCombo();
+  session._showErrors = false;
   const cur = session.queue.shift();
   if (!cur) return;
   // 计算插入位置：保证不会立刻又出现（跳过至少 3 个）
@@ -5096,9 +5106,6 @@ $('#answerInput').addEventListener('keydown', e => {
   if (e.key === 'Escape') { e.preventDefault(); skipCurrent(); return; }
   if (e.key === 'Enter') {
     e.preventDefault();
-    // 遇到错误字母：回车撤销（删除）最后一个字符；输入正确时再提交
-    const el = $('#answerInput');
-    if (el.value && undoLastChar()) return;
     checkAnswer();
   }
 });
@@ -5131,7 +5138,7 @@ function undoLastChar() {
 // 闪现答案期间输入框被禁用，回车事件需在 document 上监听：回车可直接跳过闪现，立即重新默写
 document.addEventListener('keydown', e => {
   if (e.key === 'Enter') {
-    if (session && session.locked && session.flashTimer) { e.preventDefault(); clearFlash(); }
+    if (session && session.flashTimer) { e.preventDefault(); clearFlash(); }
   }
   // 升级模态打开时：Esc 或回车可关闭
   if (e.key === 'Escape' || e.key === 'Enter') {
@@ -5144,6 +5151,21 @@ document.addEventListener('keydown', e => {
 // 同时用 keydown 显式标记 BackSpace 键，避开中文 IME 拦截退格 / 长度差失效等边界场景。
 let _lastInputLen = 0;
 let _bsFlag = false;
+// IME 组合输入标志：中文输入法组合拼音时跳过自动检测
+let _isComposing = false;
+$('#answerInput').addEventListener('compositionstart', () => { _isComposing = true; });
+$('#answerInput').addEventListener('compositionend', () => {
+  _isComposing = false;
+  // 组合输入结束后，过滤掉非英文字符（中文 IME 可能残留中文字符）
+  const el = $('#answerInput');
+  const cleaned = el.value.replace(/[^A-Za-z0-9\s\-'.,;:!?()]/g, '');
+  if (cleaned !== el.value) {
+    el.value = cleaned;
+    renderLetterCells(cleaned);
+    _lastInputLen = el.value.length;
+  }
+  autoCheckTyping();
+});
 $('#answerInput').addEventListener('keydown', e => {
   if (e.key !== 'Backspace') return;
   // 限定：退格键只能从最后一个字母往前退，忽略光标在中间的情况（不支持指定位置删除）。
@@ -5156,6 +5178,8 @@ $('#answerInput').addEventListener('keydown', e => {
   el.dispatchEvent(new Event('input'));
 });
 $('#answerInput').addEventListener('input', () => {
+  // IME 组合输入中：跳过处理，compositionend 时统一处理
+  if (_isComposing) return;
   const el = $('#answerInput');
   const newVal = el.value;
   // 双保险：keydown 已标记 或 长度缩短，都视为退格
@@ -5174,6 +5198,7 @@ $('#answerInput').addEventListener('input', () => {
 $('#answerInput').addEventListener('focus', () => {
   _lastInputLen = $('#answerInput').value.length;
   _bsFlag = false;
+  _isComposing = false;
 });
 // 字母格子滚动时同步渐变指示
 const _letterBox = document.getElementById('letterBox');
