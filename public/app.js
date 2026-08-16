@@ -4479,9 +4479,10 @@ function autoCheckTyping() {
     checkAnswer();
     return;
   }
-  // 填满了但有错：标红错误字母
+  // 填满了但有错：标红错误字母，打断连击
   if (!session._showErrors) {
     session._showErrors = true;
+    resetCombo();
     renderLetterCells(input);
     playWarn();
   }
