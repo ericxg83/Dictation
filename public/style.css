@@ -1,57 +1,57 @@
 :root {
-  /* ===== 主色调：深紫 + 玫红 + 天青（宇宙三色） ===== */
-  --brand: #7C3AED;          /* 主色 深紫罗兰 */
-  --brand-2: #A855F7;        /* 渐变亮色 紫罗兰 */
-  --brand-3: #C4B5FD;        /* 浅紫 */
-  --brand-dark: #5B21B6;     /* 深紫 */
-  --brand-soft: #2E1065;     /* 极深紫（深底背景） */
-  --accent: #F472B6;         /* 强调色 玫红粉 */
-  --accent-2: #EC4899;       /* 粉 */
-  --accent-soft: #4A1942;    /* 极深玫红（深底背景） */
-  --warm: #F59E0B;           /* 暖橙 奖牌 */
-  --warm-soft: #422006;
-  --success: #22D3EE;        /* 天青 宇宙系 */
-  --success-soft: #0E4759;
-  --danger: #F43F5E;         /* 玫红 */
-  --danger-soft: #4A1024;
-  --warn: #FBBF24;           /* 暗金（深底可读） */
-  --warn-soft: #422006;
-  --info: #A855F7;           /* 紫 */
-  --info-soft: #2E1065;
-  --ink: #F1F0FF;            /* 深底上为亮色 */
-  --ink-2: #C7C0E8;
-  --ink-3: #8B82B8;
-  --bg: #050010;             /* 宇宙深黑紫 */
-  --bg-2: #0F0524;           /* 略浅 */
-  --surface: #150A2E;        /* 卡片深色 */
-  --surface-2: #1F0E45;      /* 卡片深色 2 */
-  --line: #3B1F75;           /* 紫色描边 */
-  --line-2: #2D1B5C;
-  --text-on-dark: #F5F3FF;   /* 深底文字 */
-  --text-on-dark-2: #C7C0E8;
-  --text-on-dark-3: #8B82B8;
-  --radius-lg: 24px;
-  --radius: 16px;
-  --radius-sm: 12px;
-  --radius-xs: 8px;
-  --shadow: 0 4px 16px rgba(124, 58, 237, .25), 0 1px 3px rgba(0, 0, 0, .5);
-  --shadow-md: 0 8px 24px rgba(124, 58, 237, .35), 0 2px 6px rgba(0, 0, 0, .6);
-  --shadow-lg: 0 20px 50px rgba(124, 58, 237, .45), 0 4px 12px rgba(0, 0, 0, .7);
-  --shadow-xl: 0 30px 80px rgba(168, 85, 247, .55), 0 6px 18px rgba(0, 0, 0, .8);
-  --shadow-glow: 0 0 40px rgba(168, 85, 247, .7);
-  --font: "PingFang SC", "Microsoft YaHei", -apple-system, BlinkMacSystemFont,
+  /* ===== 赛博朋克主色调：霓虹青 + 霓虹品红 + 电光紫（全站统一） ===== */
+  --brand: #00E5FF;          /* 主色 霓虹青 */
+  --brand-2: #4DF1FF;        /* 渐变亮青 */
+  --brand-3: #9FF6FF;        /* 浅青 */
+  --brand-dark: #0099CC;     /* 深青 */
+  --brand-soft: #05243A;     /* 深青黑（深底背景） */
+  --accent: #FF2E97;         /* 强调色 霓虹品红 */
+  --accent-2: #FF5CC0;       /* 亮品红 */
+  --accent-soft: #3A0A2E;    /* 极深品红（深底背景） */
+  --warm: #FFB020;           /* 琥珀 */
+  --warm-soft: #3A2400;
+  --success: #00FF9C;        /* 电光绿 */
+  --success-soft: #063823;
+  --danger: #FF2A5E;         /* 霓虹红 */
+  --danger-soft: #3A0A18;
+  --warn: #FFD166;           /* 警告金（深底可读） */
+  --warn-soft: #3A2A00;
+  --info: #FF2E97;           /* 品红 */
+  --info-soft: #3A0A2E;
+  --ink: #E6FBFF;            /* 深底上为亮色 */
+  --ink-2: #B3E6F2;
+  --ink-3: #7FA8B8;
+  --bg: #03040D;             /* 赛博深黑蓝 */
+  --bg-2: #070B18;           /* 略浅 */
+  --surface: #0B1226;        /* 卡片深色 */
+  --surface-2: #101B3A;      /* 卡片深色 2 */
+  --line: #0F7A9C;           /* 青色描边 */
+  --line-2: #0C5E7A;
+  --text-on-dark: #E6FBFF;   /* 深底文字 */
+  --text-on-dark-2: #B9E6F2;
+  --text-on-dark-3: #7FA8B8;
+  --radius-lg: 22px;
+  --radius: 14px;
+  --radius-sm: 9px;
+  --radius-xs: 6px;
+  --shadow: 0 4px 16px rgba(0, 229, 255, .18), 0 1px 3px rgba(0, 0, 0, .5);
+  --shadow-md: 0 8px 26px rgba(0, 229, 255, .22), 0 2px 6px rgba(0, 0, 0, .6);
+  --shadow-lg: 0 20px 50px rgba(255, 46, 151, .25), 0 4px 12px rgba(0, 0, 0, .7);
+  --shadow-xl: 0 30px 80px rgba(255, 46, 151, .35), 0 6px 18px rgba(0, 0, 0, .8);
+  --shadow-glow: 0 0 40px rgba(0, 229, 255, .55);
+  --font: "Rajdhani", "PingFang SC", "Microsoft YaHei", -apple-system, BlinkMacSystemFont,
           "Segoe UI", system-ui, "Helvetica Neue", sans-serif;
-  --font-display: "PingFang SC", "Microsoft YaHei", -apple-system, BlinkMacSystemFont, sans-serif;
-  /* 渐变：深紫+玫红+天青 三个主色 */
-  --gradient-brand: linear-gradient(135deg, #5B21B6 0%, #7C3AED 50%, #A855F7 100%);
-  --gradient-warm: linear-gradient(135deg, #A855F7 0%, #EC4899 100%);
-  --gradient-cool: linear-gradient(135deg, #22D3EE 0%, #7C3AED 100%);
-  --gradient-mint: linear-gradient(135deg, #22D3EE 0%, #7C3AED 100%);
-  --gradient-sunset: linear-gradient(135deg, #7C3AED 0%, #EC4899 50%, #F472B6 100%);
-  --gradient-aurora: linear-gradient(135deg, #5B21B6 0%, #A855F7 25%, #EC4899 75%, #F472B6 100%);
-  --gradient-cosmos: linear-gradient(135deg, #050010 0%, #1A0B2E 50%, #2D1B69 100%);
-  --gradient-nebula: linear-gradient(135deg, #6D28D9 0%, #DB2777 50%, #F472B6 100%);
-  --gradient-header: linear-gradient(135deg, rgba(91, 33, 182, .85) 0%, rgba(124, 58, 237, .7) 50%, rgba(236, 72, 153, .55) 100%);
+  --font-display: "Orbitron", "Rajdhani", "PingFang SC", "Microsoft YaHei", sans-serif;
+  /* 渐变：霓虹青+品红+电光紫（赛博朋克三色） */
+  --gradient-brand: linear-gradient(135deg, #00B8FF 0%, #00E5FF 45%, #FF2E97 100%);
+  --gradient-warm: linear-gradient(135deg, #FF2E97 0%, #FF5CC0 100%);
+  --gradient-cool: linear-gradient(135deg, #00E5FF 0%, #2E5BFF 100%);
+  --gradient-mint: linear-gradient(135deg, #00FF9C 0%, #00E5FF 100%);
+  --gradient-sunset: linear-gradient(135deg, #00E5FF 0%, #FF2E97 50%, #FF7AC0 100%);
+  --gradient-aurora: linear-gradient(135deg, #2E5BFF 0%, #00E5FF 45%, #FF2E97 100%);
+  --gradient-cosmos: linear-gradient(135deg, #03040D 0%, #0B1226 50%, #101B3A 100%);
+  --gradient-nebula: linear-gradient(135deg, #00B8FF 0%, #FF2E97 60%, #FF5CC0 100%);
+  --gradient-header: linear-gradient(135deg, rgba(0, 60, 255, .8) 0%, rgba(0, 194, 255, .65) 50%, rgba(255, 46, 151, .5) 100%);
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 [hidden] { display: none !important; }
@@ -4114,3 +4114,260 @@ button:active::after, .primary:active::after, .ghost-btn:active::after, .header-
   0% { transform: translateX(-50%) translateY(6px) scale(.8); opacity: 0; }
   100% { transform: translateX(-50%) translateY(0) scale(1); opacity: 1; }
 }
+
+/* ============================================================
+   赛博朋克主题覆盖 + 移动端强化（CYBERPUNK OVERRIDE）
+   霓虹光晕 / 故障风字体 / CRT 扫描线 / 透视网格地板
+   ============================================================ */
+
+/* ---------- 全局字体（数字/字母走科技感） ---------- */
+body { letter-spacing: .2px; }
+h1, h2, h3, .view h2, .brand-text, .auth-brand,
+.stats-hero-num, .pk-race-clock, .arena-clock-num,
+.type-tag, .score-pill b, .remain-pill b,
+.letter-box-tip, .combo-badge, .upgrade-stages b { font-family: var(--font-display); }
+
+/* ---------- 背景：赛博网格 + 霓虹光晕 ---------- */
+body {
+  background-image:
+    radial-gradient(ellipse 90% 45% at 18% -5%, rgba(0, 229, 255, .18) 0, transparent 60%),
+    radial-gradient(ellipse 70% 45% at 88% 8%, rgba(255, 46, 151, .16) 0, transparent 60%),
+    radial-gradient(ellipse 80% 55% at 50% 105%, rgba(0, 60, 255, .22) 0, transparent 65%),
+    linear-gradient(180deg, #03040D 0%, #070B18 55%, #03040D 100%);
+}
+/* 透视网格地板（涟漪般的赛博地板） */
+body::before {
+  background-image:
+    linear-gradient(rgba(0, 229, 255, .08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 229, 255, .08) 1px, transparent 1px),
+    radial-gradient(60% 50% at 50% 100%, rgba(0, 229, 255, .12), transparent 70%);
+  background-size: 42px 42px, 42px 42px, 100% 100%;
+  background-position: center bottom;
+  animation: cyberGridScroll 9s linear infinite;
+  mask-image: linear-gradient(to top, rgba(0,0,0,.9), transparent 70%);
+  -webkit-mask-image: linear-gradient(to top, rgba(0,0,0,.9), transparent 70%);
+}
+@keyframes cyberGridScroll {
+  from { background-position: 0 0, 0 0, center bottom; }
+  to   { background-position: 0 42px, 42px 0, center bottom; }
+}
+/* CRT 扫描线 + 微光晕 */
+body::after {
+  content: "";
+  position: fixed; inset: 0; pointer-events: none; z-index: 85;
+  background:
+    repeating-linear-gradient(0deg, rgba(0,0,0,.10) 0 1px, transparent 1px 3px),
+    radial-gradient(120% 90% at 50% 50%, transparent 55%, rgba(0,0,0,.35) 100%);
+  mix-blend-mode: overlay;
+}
+
+/* ---------- 头部：霓虹边界 + 底部能量线 ---------- */
+header {
+  border-bottom: none;
+  box-shadow: 0 0 0 1px rgba(0, 229, 255, .35), 0 0 22px rgba(0, 229, 255, .28), 0 4px 14px rgba(0,0,0,.5);
+}
+header::after {
+  content: "";
+  position: absolute; left: 0; right: 0; bottom: 0; height: 2px;
+  background: linear-gradient(90deg, transparent, #00E5FF 30%, #FF2E97 70%, transparent);
+  opacity: .85; pointer-events: none;
+}
+.brand::before {
+  content: "◎";
+  background: linear-gradient(135deg, rgba(0,229,255,.35), rgba(255,46,151,.3));
+  border: 1px solid rgba(0,229,255,.5);
+  box-shadow: 0 0 12px rgba(0,229,255,.45), inset 0 0 8px rgba(0,229,255,.25);
+}
+.brand-text { font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase; }
+
+/* ---------- 标题：霓虹渐变 + 故障条 ---------- */
+.view h2 { font-weight: 900; letter-spacing: 1px; }
+.view h2::before {
+  background: var(--gradient-brand);
+  box-shadow: 0 0 12px rgba(0,229,255,.8);
+  border-radius: 2px;
+}
+nav button {
+  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+  border-radius: 4px;
+  border: 1px solid rgba(0,229,255,.5);
+  background: rgba(7, 11, 24, .8);
+  box-shadow: 0 0 10px rgba(0,229,255,.12);
+}
+nav button.active {
+  border-color: transparent;
+  box-shadow: 0 0 18px rgba(255,46,151,.6), 0 0 34px rgba(0,229,255,.25);
+}
+nav button.active::before {
+  content: ""; position: absolute; inset: 0; border-radius: inherit;
+  background: linear-gradient(90deg, rgba(255,255,255,.25), transparent);
+  animation: navSweep 2.4s ease-in-out infinite;
+  overflow: hidden; pointer-events: none;
+}
+@keyframes navSweep {
+  0% { transform: translateX(-100%); }
+  60%, 100% { transform: translateX(100%); }
+}
+
+/* ---------- 卡片 / 面板：霓虹描边 ---------- */
+.auth-card, .bank-card, .stu-card, .pet-modal, .handbook-modal,
+.upgrade-stage, .checkin-card, .pk-mode-card, .pk-race-side,
+#practiceCard, #practiceSummary, .stats-hero, .data-card-wrap,
+.modal-mask > div, .rounded-panel {
+  box-shadow: 0 0 0 1px rgba(0,229,255,.22), 0 8px 28px rgba(0,0,0,.5), var(--shadow-md);
+}
+
+/* ---------- 按钮霓虹 ---------- */
+.primary { box-shadow: 0 0 18px rgba(0,229,255,.45), 0 6px 18px rgba(255,46,151,.35), inset 0 1px 0 rgba(255,255,255,.25); }
+.primary:hover { box-shadow: 0 0 26px rgba(0,229,255,.7), 0 10px 26px rgba(255,46,151,.5); }
+.ghost-btn { border: 1.5px solid rgba(0,229,255,.45); background: rgba(7, 11, 24, .5); }
+
+/* ---------- 认证页 ---------- */
+#authView { background: var(--gradient-cosmos); }
+#authView::before { background: radial-gradient(circle, rgba(0,229,255,.5) 0, transparent 70%); }
+#authView::after  { background: radial-gradient(circle, rgba(255,46,151,.45) 0, transparent 70%); }
+.auth-brand { letter-spacing: 2px; font-weight: 900; }
+
+
+/* ============================================================
+   移动端强化（每页针对性适配，<=720px 为主，兼顾小屏 380px）
+   ============================================================ */
+@media (max-width: 720px) {
+  /* ---------- 顶部栏：紧凑 + 霓虹 ---------- */
+  header { padding: 10px 12px; gap: 6px; }
+  .brand-text { letter-spacing: 1px; }
+  .user-info, .class-badge { font-size: 11px; padding: 4px 9px; max-width: 140px; }
+  .header-btn { padding: 5px 10px; font-size: 12px; }
+
+  /* ---------- 底部 tab 栏：赛博芯片风 ---------- */
+  .mobile-tabbar {
+    background: rgba(7, 11, 24, .92);
+    border-top: 1px solid rgba(0,229,255,.4);
+    backdrop-filter: blur(12px);
+    box-shadow: 0 -4px 18px rgba(0,229,255,.18);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .mobile-tabbar button.active { color: var(--brand); }
+  .mobile-tabbar button.active .tab-ico { filter: drop-shadow(0 0 6px rgba(0,229,255,.8)); }
+
+  main { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
+
+  /* ---------- 学习统计（移动） ---------- */
+  .stats-hero { border-radius: var(--radius); }
+  .stats-hero h3 { font-size: 17px; }
+  .stats-hero p { font-size: 12px; }
+  .stats-hero-num { font-size: 40px; }
+  .ring-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .ring-svg { width: 74px; height: 74px; }
+  .ring-card { padding: 12px 8px; }
+  .stat-cards { gap: 8px; }
+  .stat-cards .s-card { padding: 12px 10px; border-radius: 12px; }
+  .stat-cards .s-card b { font-size: 22px; }
+  .data-card-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .data-table { min-width: 320px; }
+  .mini-table th, .mini-table td { padding: 8px 9px; font-size: 12px; white-space: nowrap; }
+
+  /* ---------- PK 页（移动） ---------- */
+  .pk-mode-card { padding: 16px 14px; }
+  .pk-mode-meta { font-size: 12px; }
+  .pk-join-row input { font-size: 16px; }
+  .pk-setup-grid { padding: 4px 0; }
+  .pk-race-grid { grid-template-columns: 1fr; gap: 12px; }
+  .pk-race-side { position: static; max-height: none; }
+  .pk-race-clock { font-size: 34px; }
+  .pk-race-board { max-height: 40vh; overflow-y: auto; }
+
+  /* ---------- 我的题库 / 题库卡片（移动） ---------- */
+  .bank-list { gap: 10px; }
+  .bank-card { padding: 14px 12px 12px 16px; }
+  .bank-card.is-student { padding: 14px; }
+  .bank-card .bank-main b { font-size: 17px; }
+  .bank-meta { font-size: 12px; flex-wrap: wrap; row-gap: 4px; }
+  .bank-meta-count { margin-left: 0; }
+  .grade-filter { overflow-x: auto; display: flex; gap: 6px; padding-bottom: 6px; -webkit-overflow-scrolling: touch; }
+  .grade-filter .grade-chip { flex: 0 0 auto; white-space: nowrap; }
+
+  /* ---------- 老师·题库发布（移动） ---------- */
+  .upload-row { flex-direction: column; align-items: stretch; gap: 8px; }
+  .upload-row input[type=file] { width: 100%; }
+  .draft-head { align-items: stretch; gap: 12px; }
+  .draft-head .field.inline input { min-width: 0 !important; width: 100%; }
+  .lib-tools { flex-wrap: wrap; }
+  .lib-tools button { flex: 1 1 auto; min-width: 0; padding: 10px 8px; font-size: 13px; }
+  .grade-picker .grade-chips { flex-wrap: wrap; }
+  .grade-chips .grade-chip { padding: 7px 12px; font-size: 13px; }
+  .table-wrap { overflow-x: auto; }
+  #libTable.mobile-as-cards tr { border-radius: 10px; }
+
+  /* ---------- 老师·班级学生（移动） ---------- */
+  .stu-cards { gap: 10px; }
+  .stu-card { padding: 13px 12px; border-radius: 12px; }
+
+  /* ---------- 今日练习 / 默写卡（移动） ---------- */
+  #practiceCard { padding: 16px 12px 12px; border-radius: 15px; }
+  .card-top { flex-wrap: wrap; }
+  .type-tag, .score-pill, .remain-pill { padding: 4px 10px; font-size: 12px; }
+  .prompt { font-size: 24px; line-height: 1.3; }
+  #promptHint { font-size: 12px; }
+  .actions { flex-wrap: wrap; gap: 8px; }
+  .actions button { padding: 11px 14px; font-size: 14px; flex: 1 1 auto; min-width: 0; }
+  .shortcuts { font-size: 11px; flex-wrap: wrap; }
+  #practiceSummary h2 { font-size: 22px; }
+  .summary-cards { gap: 10px; }
+  .s-card { flex: 1 1 44%; min-width: 110px; padding: 14px 10px; }
+  .s-card b { font-size: 26px; }
+
+  /* ---------- 错题本（移动） ---------- */
+  .wb-hero { padding: 14px; }
+  .wb-hero-actions { flex-wrap: wrap; }
+  .wb-hero-actions button { padding: 10px 12px; font-size: 13px; flex: 1 1 auto; }
+
+  /* ---------- 大屏显示 / 竞技场（移动 预览） ---------- */
+  .arena-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .arena-banner-title { font-size: 16px; }
+  .arena-clock-num { font-size: 30px; }
+  .arena-card { padding: 9px; }
+  .arena-name b { font-size: 13px; }
+
+  /* ---------- 欢乐点名 / 快速点名（移动） ---------- */
+  .party-display { border-radius: 14px; }
+  .party-wheel-wrap { width: 260px; height: 260px; }
+  .party-mode-row { flex-wrap: wrap; justify-content: center; }
+  .rollcall-display { padding: 26px 14px; }
+  .rollcall-running-name { font-size: 30px; word-break: break-all; }
+  .rollcall-tools { flex-wrap: wrap; }
+  .rollcall-tools button { flex: 1 1 auto; min-width: 0; padding: 12px 10px; font-size: 14px; }
+  .rollcall-edit-tools { flex-wrap: wrap; }
+  .rollcall-edit-tools button { flex: 1 1 auto; min-width: 0; }
+
+  /* ---------- 弹窗 / 图鉴 / 升级 / 签到（移动） ---------- */
+  .modal-mask { padding: 12px; align-items: flex-end; }
+  .pet-modal, .handbook-modal, .checkin-card { border-radius: 16px 16px 0 0; max-height: 90vh; overflow-y: auto; }
+  .upgrade-stage { padding: 22px 16px; }
+  .upgrade-pet { transform: scale(.85); }
+  .upgrade-stages { font-size: 15px; }
+  .checkin-calendar { gap: 5px; }
+  .checkin-day { width: 36px; height: 36px; font-size: 12px; }
+  .corner-pet-info { display: none; }
+
+  /* ---------- 登录 / 注册（移动） ---------- */
+  .auth-card { padding: 22px 18px; border-radius: 16px; }
+  .auth-brand { font-size: 22px; }
+  .field input, .field select { font-size: 16px; }
+
+  /* ---------- 滚动条美化（触屏） ---------- */
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-thumb { background: rgba(0,229,255,.35); border-radius: 6px; }
+  ::-webkit-scrollbar-track { background: rgba(0,0,0,.2); }
+}
+
+/* ---------- 极窄屏（<380px）再压缩 ---------- */
+@media (max-width: 380px) {
+  .brand-text { max-width: 70px; }
+  .view h2 { font-size: 19px; }
+  .stats-hero-num { font-size: 34px; }
+  .type-tag, .score-pill, .remain-pill { font-size: 11px; padding: 3px 8px; }
+  .prompt { font-size: 21px; }
+  .actions button { font-size: 13px; padding: 10px 10px; }
+}
+
