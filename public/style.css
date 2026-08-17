@@ -4371,3 +4371,51 @@ nav button.active::before {
   .actions button { font-size: 13px; padding: 10px 10px; }
 }
 
+
+/* ============================================================
+   移动端 · 学习统计 / 宠物面板 精细化（修复 grid+flex 冲突）
+   ============================================================ */
+@media (max-width: 720px) {
+  /* 宠物面板：真正改为纵向堆叠（旧规则只写了 flex-direction 对 grid 无效） */
+  .pet-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 16px;
+    align-items: stretch;
+  }
+  .pet-left { justify-content: flex-start; gap: 12px; }
+  .pet-emoji { width: 62px; height: 62px; flex: 0 0 62px; border-radius: 18px; }
+  .pet-emoji .dragon-svg { width: 52px; height: 52px; }
+  .pet-meta b { font-size: 16px; }
+  .pet-meta span { font-size: 11px; line-height: 1.4; }
+  .pet-handbook-hint { margin-left: auto; font-size: 14px; opacity: .7; }
+
+  /* 更换伙伴：小巧的描边次级按钮，不再整行大色块 */
+  .pet-change-btn {
+    width: auto;
+    align-self: flex-end;
+    justify-content: center;
+    padding: 6px 14px;
+    font-size: 12px;
+    background: transparent;
+    color: var(--brand-2);
+    border: 1px solid rgba(0, 229, 255, .5);
+    box-shadow: none;
+    border-radius: 99px;
+    margin-top: -2px;
+  }
+  .pet-change-btn:hover,
+  .pet-change-btn:active {
+    background: rgba(0, 229, 255, .14);
+    transform: none;
+    box-shadow: none;
+  }
+
+  /* 统计总览：压缩，避免一屏被大色块占据 */
+  .stats-hero { padding: 16px 16px; border-radius: 16px; }
+  .stats-hero h3 { font-size: 16px; }
+  .stats-hero p { font-size: 12px; margin-bottom: 12px; line-height: 1.5; }
+  .stats-hero-num { font-size: 34px; }
+}
+
