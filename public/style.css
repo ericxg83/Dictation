@@ -774,6 +774,8 @@ button.del:hover { background: #FADBDB; transform: scale(1.05); }
   display: inline-flex; flex-wrap: wrap; align-items: center; justify-content: center;
   gap: 0;
 }
+/* 词与词之间留出适当间距，清晰区分单词边界（配合 letter-box 的 gap，总词间距约等于一个字母格宽度） */
+.l-word + .l-word { margin-left: 18px; }
 /* 标题行小标签：在 letter-box 顶部显示词性 + 计数 */
 .letter-box-tip {
   position: absolute; top: 6px; left: 12px; font-size: 11px; font-weight: 700;
