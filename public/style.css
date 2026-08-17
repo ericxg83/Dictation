@@ -807,6 +807,18 @@ button.del:hover { background: #FADBDB; transform: scale(1.05); }
   box-shadow: 0 0 6px rgba(167, 139, 250, .35);
   transition: background .12s, box-shadow .12s, height .12s;
 }
+/* 词组/句子提示词占位：浅色显示，用户输入到该格时自动覆盖成真实字符 */
+.l-cell.hint {
+  background: transparent;
+  border: none;
+  color: rgba(196, 181, 253, .42);
+  text-shadow: none;
+  font-weight: 700;
+}
+.l-cell.hint::after {
+  background: linear-gradient(90deg, rgba(167, 139, 250, .3), rgba(236, 72, 153, .3));
+  box-shadow: none;
+}
 /* 已填入字母的格子：下划线变粗变亮 */
 .l-cell.filled {
   background: transparent;

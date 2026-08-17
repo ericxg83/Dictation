@@ -4384,8 +4384,11 @@ function buildLetterBox() {
   inner.className = 'letter-box-inner';
   box.appendChild(inner);
   const words = primary.split(/\s+/).filter(Boolean);
+  session.wordStart = []; // 每个单词在 expLetters 中的起始索引
+  session.hintCells = new Set(); // 提示词占位的格子索引
   let li = 0;
   words.forEach((word, w) => {
+    session.wordStart.push(li);
     // 每个单词整体包一层 l-word，作为不可拆的换行单元：
     // 单词放得下就与同行单词并排；放不下时整词换行，避免单词内部被拆开
     const wordWrap = document.createElement('div');
@@ -4411,6 +4414,20 @@ function buildLetterBox() {
   });
   // 期望输入长度 = 字母数 + 词间空格数（用于拼写过长判断）
   session.expectedLen = session.expLetters.length + Math.max(0, words.length - 1);
+  // 词组/句子默写：按句子的单词长短给出 1~5 个提示单词（占位格子浅色显示，输入时自动覆盖）
+  // 单词题型不做提示，保持原有逐格默写。短句 1 个提示、较长 2 个，随长度梯度增加，最多 5 个。
+  if (it.type !== 'word' && words.length > 1) {
+    const n = words.length >= 11 ? 5 : words.length >= 9 ? 4 : words.length >= 6 ? 3 : words.length >= 4 ? 2 : 1;
+    // 提示单词均匀分布在整句中（避开最开头的词，避免开头太容易）
+    const positions = [];
+    for (let k = 0; k < n; k++) {
+      const pos = Math.max(1, Math.min(words.length - 1, Math.round(((k + 1) * words.length) / (n + 1))));
+      if (!positions.includes(pos)) positions.push(pos);
+    }
+    positions.forEach(pos => {
+      for (let i = session.wordStart[pos]; i < session.wordEnds[pos]; i++) session.hintCells.add(i);
+    });
+  }
   renderLetterCells('');
 }
 
@@ -4425,13 +4442,19 @@ function renderLetterCells(inputVal) {
   const typed = String(inputVal || '').replace(/[^A-Za-z0-9\s]/g, '').replace(/\s+/g, '');
   const showErrors = session._showErrors;
   cells.forEach((cell, i) => {
-    cell.classList.remove('filled', 'wrong', 'current');
+    cell.classList.remove('filled', 'wrong', 'current', 'hint');
     if (i < typed.length) {
       cell.textContent = typed[i];
       cell.classList.add('filled');
       if (showErrors && typed[i].toLowerCase() !== exp[i]) cell.classList.add('wrong');
     } else {
-      cell.textContent = '';
+      // 提示词占位：浅色显示该格应有的字母，用户输入到此处时自动覆盖
+      if (session.hintCells && session.hintCells.has(i)) {
+        cell.textContent = exp[i];
+        cell.classList.add('hint');
+      } else {
+        cell.textContent = '';
+      }
       // 当前应填入的位置：脉冲提示（仅在未显示错误时显示）
       if (!showErrors && i === typed.length && i < exp.length) cell.classList.add('current');
     }
